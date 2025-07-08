@@ -2,10 +2,12 @@
 
 mod component_registry;
 mod entity_mapper;
+pub mod hot_reload;
 mod scene;
 
 pub use component_registry::ComponentRegistry;
 pub use entity_mapper::EntityMapper;
+pub use hot_reload::{reload_scene_with_validation, ReloadCallback, SceneWatcher, WatcherConfig};
 pub use scene::{Scene, SceneError, SerializedEntity};
 
 #[cfg(test)]

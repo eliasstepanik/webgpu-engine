@@ -92,6 +92,7 @@ impl ComponentRegistry {
     pub fn with_default_components() -> Self {
         use crate::core::camera::Camera;
         use crate::core::entity::components::{GlobalTransform, ParentData, Transform};
+        use crate::graphics::{Material, MeshId};
 
         let mut registry = Self::new();
 
@@ -100,6 +101,10 @@ impl ComponentRegistry {
         registry.register::<GlobalTransform>("GlobalTransform");
         registry.register::<Camera>("Camera");
         registry.register::<ParentData>("Parent");
+
+        // Register graphics components
+        registry.register::<MeshId>("MeshId");
+        registry.register::<Material>("Material");
 
         debug!(
             component_count = registry.len(),
@@ -178,6 +183,8 @@ mod tests {
         assert!(registry.is_registered("GlobalTransform"));
         assert!(registry.is_registered("Camera"));
         assert!(registry.is_registered("Parent"));
+        assert!(registry.is_registered("MeshId"));
+        assert!(registry.is_registered("Material"));
     }
 
     #[test]

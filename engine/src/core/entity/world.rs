@@ -1,8 +1,12 @@
 //! World wrapper providing helper methods for entity management
 
 use super::components::{GlobalTransform, Transform};
+use crate::graphics::{Material, MeshId};
+use crate::io::{ReloadCallback, SceneWatcher, WatcherConfig};
 use hecs::Entity;
-use tracing::debug;
+use std::collections::HashMap;
+use std::path::Path;
+use tracing::{debug, info, warn};
 
 /// Wrapper around hecs::World providing additional helper methods
 pub struct World {
@@ -169,6 +173,225 @@ impl World {
         let mapper = scene.instantiate(self)?;
         Ok(mapper)
     }
+
+    /// Assign default meshes to entities that have transforms but no MeshId
+    ///
+    /// This method automatically assigns default meshes and materials to entities
+    /// that have transform components but are missing graphics components.
+    /// It's useful for quickly making a scene renderable after loading.
+    pub fn assign_default_meshes(&mut self) {
+        let mut entities_to_update = Vec::new();
+
+        // Find entities with transform but no MeshId
+        for (entity, (_transform, _global_transform)) in self.query::<(&Transform, &GlobalTransform)>().iter() {
+            if self.get::<MeshId>(entity).is_err() {
+                entities_to_update.push(entity);
+            }
+        }
+
+        info!(count = entities_to_update.len(), "Assigning default meshes to entities");
+
+        // Assign default meshes and materials
+        for entity in entities_to_update {
+            // Assign default cube mesh
+            let mesh_id = MeshId("cube".to_string());
+            if let Err(e) = self.insert_one(entity, mesh_id) {
+                warn!(entity = ?entity, error = ?e, "Failed to assign default MeshId");
+            } else {
+                debug!(entity = ?entity, "Assigned default cube mesh");
+            }
+
+            // Assign default material if missing
+            if self.get::<Material>(entity).is_err() {
+                let material = Material::default();
+                if let Err(e) = self.insert_one(entity, material) {
+                    warn!(entity = ?entity, error = ?e, "Failed to assign default Material");
+                } else {
+                    debug!(entity = ?entity, "Assigned default material");
+                }
+            }
+        }
+    }
+
+    /// Get statistics about the current scene
+    ///
+    /// Returns information about entity counts, component distributions,
+    /// and other useful debugging information.
+    pub fn get_scene_stats(&self) -> SceneStats {
+        let mut stats = SceneStats {
+            entity_count: 0,
+            renderable_count: 0,
+            camera_count: 0,
+            mesh_types: HashMap::new(),
+            material_count: 0,
+        };
+
+        // Count total entities
+        stats.entity_count = self.query::<()>().iter().count();
+
+        // Count renderable entities (have MeshId + Material + Transform)
+        stats.renderable_count = self.query::<(&MeshId, &Material, &GlobalTransform)>().iter().count();
+
+        // Count cameras
+        stats.camera_count = self.query::<&crate::core::camera::Camera>().iter().count();
+
+        // Count mesh types
+        for (_, mesh_id) in self.query::<&MeshId>().iter() {
+            *stats.mesh_types.entry(mesh_id.0.clone()).or_insert(0) += 1;
+        }
+
+        // Count materials
+        stats.material_count = self.query::<&Material>().iter().count();
+
+        stats
+    }
+
+    /// Clear all graphics components from entities
+    ///
+    /// This removes MeshId and Material components from all entities,
+    /// useful for resetting the visual state while keeping transform hierarchy.
+    pub fn clear_graphics_components(&mut self) {
+        let mut entities_to_clear = Vec::new();
+
+        // Find entities with graphics components
+        for (entity, _) in self.query::<()>().iter() {
+            if self.get::<MeshId>(entity).is_ok() || self.get::<Material>(entity).is_ok() {
+                entities_to_clear.push(entity);
+            }
+        }
+
+        info!(count = entities_to_clear.len(), "Clearing graphics components from entities");
+
+        // Remove graphics components
+        for entity in entities_to_clear {
+            // Remove MeshId if present
+            if self.get::<MeshId>(entity).is_ok() {
+                if let Err(e) = self.inner.remove_one::<MeshId>(entity) {
+                    warn!(entity = ?entity, error = ?e, "Failed to remove MeshId");
+                }
+            }
+
+            // Remove Material if present
+            if self.get::<Material>(entity).is_ok() {
+                if let Err(e) = self.inner.remove_one::<Material>(entity) {
+                    warn!(entity = ?entity, error = ?e, "Failed to remove Material");
+                }
+            }
+        }
+    }
+
+    /// Query a single entity for components
+    pub fn query_one<Q: hecs::Query>(
+        &self,
+        entity: Entity,
+    ) -> Result<hecs::QueryOne<'_, Q>, hecs::NoSuchEntity> {
+        self.inner.query_one::<Q>(entity)
+    }
+
+    /// Set up hot-reload watching for a scene file
+    ///
+    /// This creates a SceneWatcher that will automatically reload the scene
+    /// when the file changes. The callback receives the current world state
+    /// and can be used to handle the reload process.
+    ///
+    /// Note: This is a simplified interface. In practice, you would need
+    /// to manage the watcher lifecycle and resource access more carefully.
+    pub fn watch_scene<P: AsRef<Path>>(
+        scene_path: P,
+        config: WatcherConfig,
+    ) -> Result<SceneWatcher, Box<dyn std::error::Error + Send + Sync>> {
+        let scene_path = scene_path.as_ref();
+        info!(path = ?scene_path, "Setting up scene watching");
+
+        // Create a callback that demonstrates the hot-reload workflow
+        let callback: ReloadCallback = Box::new(|world, _renderer, _asset_manager| {
+            info!("Hot-reload callback triggered");
+            
+            // In practice, this would reload the scene:
+            // 1. Clear the world
+            // 2. Load the scene with validation
+            // 3. Instantiate entities
+            // 4. Assign default meshes if needed
+            
+            // For demonstration, we just log the current state
+            let stats = world.get_scene_stats();
+            info!(
+                entities = stats.entity_count,
+                renderables = stats.renderable_count,
+                "Scene state during hot-reload"
+            );
+
+            Ok(())
+        });
+
+        SceneWatcher::new(scene_path, config, callback)
+    }
+
+    /// Development helper: log scene debugging information
+    pub fn log_debug_info(&self) {
+        if crate::dev::DevTools::is_enabled() {
+            let stats = self.get_scene_stats();
+            crate::dev::DevTools::log_dev_info(&format!(
+                "Scene: {} entities, {} renderable, {} cameras",
+                stats.entity_count, stats.renderable_count, stats.camera_count
+            ));
+
+            // Log mesh usage
+            for (mesh_name, count) in &stats.mesh_types {
+                crate::dev::DevTools::log_dev_info(&format!(
+                    "Mesh '{}': {} instances",
+                    mesh_name, count
+                ));
+            }
+        }
+    }
+
+    /// Development helper: validate scene health and log warnings
+    pub fn check_scene_health(&self) {
+        if crate::dev::DevTools::is_enabled() {
+            let stats = self.get_scene_stats();
+            
+            // Check for common issues
+            if stats.camera_count == 0 {
+                crate::dev::DevTools::log_dev_warning("No camera entities found in scene");
+            }
+            
+            if stats.camera_count > 1 {
+                crate::dev::DevTools::log_dev_warning(&format!(
+                    "Multiple cameras found: {}",
+                    stats.camera_count
+                ));
+            }
+            
+            if stats.renderable_count == 0 && stats.entity_count > 0 {
+                crate::dev::DevTools::log_dev_warning("Entities present but none are renderable");
+            }
+            
+            // Check for entities with transforms but no mesh/material
+            let transform_count = self.query::<&Transform>().iter().count();
+            if transform_count > stats.renderable_count {
+                crate::dev::DevTools::log_dev_info(&format!(
+                    "{} entities with transforms could have default meshes assigned",
+                    transform_count - stats.renderable_count
+                ));
+            }
+        }
+    }
+}
+
+/// Statistics about a scene's content
+#[derive(Debug, Clone)]
+pub struct SceneStats {
+    /// Total number of entities
+    pub entity_count: usize,
+    /// Number of entities that can be rendered (have MeshId, Material, Transform)
+    pub renderable_count: usize,
+    /// Number of camera entities
+    pub camera_count: usize,
+    /// Count of each mesh type in use
+    pub mesh_types: HashMap<String, usize>,
+    /// Total number of entities with materials
+    pub material_count: usize,
 }
 
 /// Trait for components that have requirements

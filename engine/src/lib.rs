@@ -4,6 +4,7 @@
 //! including primitive generation, camera controls, and shader management.
 
 pub mod core;
+pub mod dev;
 pub mod graphics;
 pub mod input;
 pub mod io;

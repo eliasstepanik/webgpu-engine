@@ -138,10 +138,10 @@ fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
 
     // Create a cube
     let cube_mesh = Mesh::cube(1.0);
-    let cube_mesh_id = renderer.upload_mesh(&cube_mesh);
+    let cube_mesh_id = renderer.upload_mesh(&cube_mesh, "cube");
 
     let cube_entity = world.spawn((
-        MeshId(cube_mesh_id),
+        cube_mesh_id.clone(),
         Material::red(),
         Transform::from_position(Vec3::new(0.0, 0.0, 0.0)),
         GlobalTransform::default(),
@@ -150,10 +150,10 @@ fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
 
     // Create a plane
     let plane_mesh = Mesh::plane(10.0, 10.0);
-    let plane_mesh_id = renderer.upload_mesh(&plane_mesh);
+    let plane_mesh_id = renderer.upload_mesh(&plane_mesh, "plane");
 
     let plane_entity = world.spawn((
-        MeshId(plane_mesh_id),
+        plane_mesh_id,
         Material::gray(0.3),
         Transform::from_position(Vec3::new(0.0, -1.0, 0.0)),
         GlobalTransform::default(),
@@ -173,7 +173,7 @@ fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
         };
 
         world.spawn((
-            MeshId(cube_mesh_id),
+            cube_mesh_id.clone(),
             color,
             Transform::from_position(Vec3::new(x, 0.0, z)).with_scale(Vec3::splat(0.5)),
             GlobalTransform::default(),
