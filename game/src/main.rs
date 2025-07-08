@@ -1,3 +1,209 @@
+//! Game entry point with WebGPU rendering demonstration
+
+use engine::prelude::*;
+use std::sync::Arc;
+use tracing::info;
+use winit::{
+    event::{Event, WindowEvent},
+    event_loop::EventLoop,
+    window::WindowAttributes,
+};
+
 fn main() {
-    println!("Hello, world!");
+    // Initialize logging
+    engine::init_logging();
+    info!("Starting WebGPU game");
+
+    // Create event loop and window
+    let event_loop = EventLoop::builder()
+        .build()
+        .expect("Failed to create event loop");
+    let window_attributes = WindowAttributes::default()
+        .with_title("WebGPU Game Engine Demo")
+        .with_inner_size(winit::dpi::PhysicalSize::new(1280, 720));
+
+    #[allow(deprecated)] // Using create_window on EventLoop for simplicity
+    let window = Arc::new(
+        event_loop
+            .create_window(window_attributes)
+            .expect("Failed to create window"),
+    );
+
+    // Initialize renderer
+    let render_context =
+        pollster::block_on(RenderContext::new(&window)).expect("Failed to create render context");
+    let render_context = Arc::new(render_context);
+    let mut renderer = Renderer::new(render_context.clone());
+
+    // Create ECS world
+    let mut world = World::new();
+
+    // Create demo scene
+    create_demo_scene(&mut world, &mut renderer);
+
+    // Game state
+    let mut last_time = std::time::Instant::now();
+
+    // Clone window Arc for the event loop closure
+    let window = window.clone();
+
+    // Run event loop
+    #[allow(deprecated)] // Using the simpler closure-based API for now
+    let _ = event_loop.run(move |event, elwt| {
+        match event {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => {
+                    info!("Window close requested");
+                    elwt.exit();
+                }
+                WindowEvent::Resized(physical_size) => {
+                    info!("Window resized to {:?}", physical_size);
+                    // TODO: Handle resize properly with Arc<RenderContext>
+                    // render_context.resize(physical_size);
+                    renderer.resize(physical_size);
+
+                    // Update camera aspect ratio
+                    for (_, camera) in world.query_mut::<&mut Camera>() {
+                        camera.set_aspect_ratio(
+                            physical_size.width as f32 / physical_size.height as f32,
+                        );
+                    }
+                }
+                WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                    info!("Scale factor changed to {}", scale_factor);
+                    // In winit 0.30, we need to handle scale factor changes differently
+                    // The window size is automatically updated, so we just need to get the new size
+                    let new_size = window.inner_size();
+                    // TODO: Handle resize properly with Arc<RenderContext>
+                    // render_context.resize(new_size);
+                    renderer.resize(new_size);
+
+                    // Update camera aspect ratio
+                    for (_, camera) in world.query_mut::<&mut Camera>() {
+                        camera.set_aspect_ratio(new_size.width as f32 / new_size.height as f32);
+                    }
+                }
+                WindowEvent::RedrawRequested => {
+                    // Update time
+                    let current_time = std::time::Instant::now();
+                    let delta_time = (current_time - last_time).as_secs_f32();
+                    last_time = current_time;
+
+                    // Update demo scene
+                    update_demo_scene(&mut world, delta_time);
+
+                    // Update transform hierarchy
+                    update_hierarchy_system(&mut world);
+
+                    // Render frame
+                    match renderer.render(&world) {
+                        Ok(_) => {}
+                        Err(wgpu::SurfaceError::Lost) => {
+                            info!("Surface lost, reconfiguring");
+                            let size = window.inner_size();
+                            // TODO: Handle resize properly with Arc<RenderContext>
+                            // render_context.resize(size);
+                            renderer.resize(size);
+                        }
+                        Err(wgpu::SurfaceError::OutOfMemory) => {
+                            elwt.exit();
+                        }
+                        Err(e) => {
+                            tracing::error!(error = ?e, "Render error");
+                        }
+                    }
+                }
+                _ => {}
+            },
+            Event::AboutToWait => {
+                // Request redraw
+                window.request_redraw();
+            }
+            _ => {}
+        }
+    });
+}
+
+/// Create a demo scene with a rotating cube
+fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
+    info!("Creating demo scene");
+
+    // Create camera
+    let camera_entity = world.spawn((
+        Camera::perspective(60.0, 16.0 / 9.0, 0.1, 1000.0),
+        Transform::from_position(Vec3::new(0.0, 2.0, 5.0)).looking_at(Vec3::ZERO, Vec3::Y),
+        GlobalTransform::default(),
+    ));
+    info!("Created camera entity: {:?}", camera_entity);
+
+    // Create a cube
+    let cube_mesh = Mesh::cube(1.0);
+    let cube_mesh_id = renderer.upload_mesh(&cube_mesh);
+
+    let cube_entity = world.spawn((
+        MeshId(cube_mesh_id),
+        Material::red(),
+        Transform::from_position(Vec3::new(0.0, 0.0, 0.0)),
+        GlobalTransform::default(),
+    ));
+    info!("Created cube entity: {:?}", cube_entity);
+
+    // Create a plane
+    let plane_mesh = Mesh::plane(10.0, 10.0);
+    let plane_mesh_id = renderer.upload_mesh(&plane_mesh);
+
+    let plane_entity = world.spawn((
+        MeshId(plane_mesh_id),
+        Material::gray(0.3),
+        Transform::from_position(Vec3::new(0.0, -1.0, 0.0)),
+        GlobalTransform::default(),
+    ));
+    info!("Created plane entity: {:?}", plane_entity);
+
+    // Create additional cubes in a circle
+    for i in 0..6 {
+        let angle = (i as f32 / 6.0) * std::f32::consts::TAU;
+        let x = angle.cos() * 3.0;
+        let z = angle.sin() * 3.0;
+
+        let color = match i % 3 {
+            0 => Material::blue(),
+            1 => Material::green(),
+            _ => Material::from_rgb(1.0, 1.0, 0.0), // Yellow
+        };
+
+        world.spawn((
+            MeshId(cube_mesh_id),
+            color,
+            Transform::from_position(Vec3::new(x, 0.0, z)).with_scale(Vec3::splat(0.5)),
+            GlobalTransform::default(),
+        ));
+    }
+}
+
+/// Update the demo scene (rotate objects)
+fn update_demo_scene(world: &mut World, delta_time: f32) {
+    // Rotate the center cube
+    for (_entity, transform) in world.query_mut::<&mut Transform>() {
+        // Only rotate entities at origin (the main cube)
+        if transform.position.length() < 0.1 {
+            transform.rotation *= Quat::from_rotation_y(delta_time);
+        }
+    }
+
+    // Orbit smaller cubes
+    for (_entity, transform) in world.query_mut::<&mut Transform>() {
+        // Only rotate entities away from origin (the orbital cubes)
+        if transform.position.length() > 2.0 {
+            let angle = delta_time * 0.5;
+            let cos_a = angle.cos();
+            let sin_a = angle.sin();
+
+            let x = transform.position.x;
+            let z = transform.position.z;
+
+            transform.position.x = x * cos_a - z * sin_a;
+            transform.position.z = x * sin_a + z * cos_a;
+        }
+    }
 }

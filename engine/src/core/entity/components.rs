@@ -46,6 +46,29 @@ impl Transform {
     pub fn to_matrix(&self) -> Mat4 {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.position)
     }
+
+    /// Set the transform to look at a target position with the given up vector
+    pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
+        let forward = (target - self.position).normalize();
+        let right = forward.cross(up).normalize();
+        let up = right.cross(forward);
+
+        let rotation_matrix = Mat4::from_cols(
+            right.extend(0.0),
+            up.extend(0.0),
+            (-forward).extend(0.0),
+            Vec3::ZERO.extend(1.0),
+        );
+
+        self.rotation = Quat::from_mat4(&rotation_matrix);
+        self
+    }
+
+    /// Set the scale of the transform
+    pub fn with_scale(mut self, scale: Vec3) -> Self {
+        self.scale = scale;
+        self
+    }
 }
 
 /// Global transform component representing the world-space transformation matrix

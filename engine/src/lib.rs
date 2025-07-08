@@ -15,10 +15,14 @@ pub mod prelude {
         update_hierarchy_system, Entity, GlobalTransform, Parent, Transform, World,
     };
 
+    // Camera types
+    pub use crate::core::camera::{Camera, ProjectionMode};
+
     // Math types
     pub use glam::{Mat3, Mat4, Quat, Vec2, Vec3, Vec4};
 
     // Graphics types
+    pub use crate::graphics::{Material, Mesh, MeshId, RenderContext, Renderer, Vertex};
     pub use wgpu;
     pub use winit;
 }
