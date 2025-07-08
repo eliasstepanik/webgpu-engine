@@ -3,6 +3,10 @@ name = "engine"
 version = "0.1.0"
 edition = "2021"
 
+[[example]]
+name = "scene_demo"
+path = "../examples/scene_demo.rs"
+
 [dependencies]
 wgpu = "25.0.2"
 winit = "0.30"
