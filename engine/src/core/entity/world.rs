@@ -120,6 +120,55 @@ impl World {
     pub fn inner_mut(&mut self) -> &mut hecs::World {
         &mut self.inner
     }
+
+    /// Save the current world state to a scene file
+    ///
+    /// This is a convenience method that creates a scene from the world
+    /// and saves it to the specified path.
+    pub fn save_scene<P: AsRef<std::path::Path>>(
+        &self,
+        path: P,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::io::Scene;
+
+        let scene = Scene::from_world(self);
+        scene.save_to_file(path)?;
+        Ok(())
+    }
+
+    /// Load a scene from a file, replacing the current world content
+    ///
+    /// This clears the world and loads entities from the scene file.
+    /// For additive loading, use `load_scene_additive` instead.
+    pub fn load_scene<P: AsRef<std::path::Path>>(
+        &mut self,
+        path: P,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::io::Scene;
+
+        // Clear the world first
+        self.inner.clear();
+
+        let scene = Scene::load_from_file(path)?;
+        scene.instantiate(self)?;
+        Ok(())
+    }
+
+    /// Load a scene from a file additively, keeping existing entities
+    ///
+    /// This loads entities from the scene file and adds them to the world
+    /// without clearing existing entities. Returns an EntityMapper for
+    /// referencing the newly loaded entities.
+    pub fn load_scene_additive<P: AsRef<std::path::Path>>(
+        &mut self,
+        path: P,
+    ) -> Result<crate::io::EntityMapper, Box<dyn std::error::Error>> {
+        use crate::io::Scene;
+
+        let scene = Scene::load_from_file(path)?;
+        let mapper = scene.instantiate(self)?;
+        Ok(mapper)
+    }
 }
 
 /// Trait for components that have requirements
@@ -186,5 +235,66 @@ mod tests {
 
         let parent_ref = world.get::<Parent>(child).unwrap();
         assert_eq!(parent_ref.0, parent);
+    }
+
+    #[test]
+    fn test_save_load_scene() {
+        let mut world = World::new();
+
+        // Create some entities
+        let entity1 = world.spawn((
+            Transform::from_position(Vec3::new(1.0, 2.0, 3.0)),
+            GlobalTransform::default(),
+        ));
+        let _entity2 = world.spawn((
+            Transform::from_position(Vec3::X),
+            GlobalTransform::default(),
+            Parent(entity1),
+        ));
+
+        // Save to temp file
+        let temp_path = "test_world_scene.json";
+        world.save_scene(temp_path).unwrap();
+
+        // Load into new world
+        let mut new_world = World::new();
+        new_world.load_scene(temp_path).unwrap();
+
+        // Verify entities exist
+        assert_eq!(new_world.query::<()>().iter().count(), 2);
+
+        // Cleanup
+        let _ = std::fs::remove_file(temp_path);
+    }
+
+    #[test]
+    fn test_load_scene_additive() {
+        let mut world = World::new();
+
+        // Add initial entity
+        let existing = world.spawn((Transform::from_position(Vec3::Y),));
+
+        // Create scene file
+        let mut temp_world = World::new();
+        temp_world.spawn((Transform::from_position(Vec3::X),));
+        temp_world.spawn((Transform::from_position(Vec3::Z),));
+
+        let temp_path = "test_additive_scene.json";
+        temp_world.save_scene(temp_path).unwrap();
+
+        // Load additively
+        let mapper = world.load_scene_additive(temp_path).unwrap();
+
+        // Should have 3 entities total (1 existing + 2 from scene)
+        assert_eq!(world.query::<()>().iter().count(), 3);
+
+        // Existing entity should still exist
+        assert!(world.contains(existing));
+
+        // New entities should exist
+        assert_eq!(mapper.len(), 2);
+
+        // Cleanup
+        let _ = std::fs::remove_file(temp_path);
     }
 }

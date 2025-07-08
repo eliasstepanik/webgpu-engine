@@ -105,6 +105,37 @@ impl GlobalTransform {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Parent(pub hecs::Entity);
 
+/// Serializable data for Parent component
+///
+/// This is used for scene serialization since hecs::Entity cannot be serialized directly.
+/// The entity_id is remapped during scene loading to match the new entity IDs.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ParentData {
+    /// Entity ID that will be remapped during scene loading
+    pub entity_id: u64,
+}
+
+impl From<(Parent, u64)> for ParentData {
+    fn from((_parent, id): (Parent, u64)) -> Self {
+        Self { entity_id: id }
+    }
+}
+
+impl ParentData {
+    /// Create ParentData from a Parent component and entity ID mapping
+    pub fn from_parent_with_id(_parent: Parent, entity_id: u64) -> Self {
+        Self { entity_id }
+    }
+
+    /// Try to convert ParentData back to Parent using an entity mapper
+    pub fn try_to_parent<F>(&self, entity_mapper: F) -> Option<Parent>
+    where
+        F: Fn(u64) -> Option<hecs::Entity>,
+    {
+        entity_mapper(self.entity_id).map(Parent)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -6,6 +6,7 @@
 pub mod core;
 pub mod graphics;
 pub mod input;
+pub mod io;
 pub mod shaders;
 
 // Re-export commonly used types
@@ -23,6 +24,10 @@ pub mod prelude {
 
     // Graphics types
     pub use crate::graphics::{Material, Mesh, MeshId, RenderContext, Renderer, Vertex};
+
+    // IO types
+    pub use crate::io::{Scene, SceneError};
+
     pub use wgpu;
     pub use winit;
 }
