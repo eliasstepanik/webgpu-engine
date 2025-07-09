@@ -30,6 +30,10 @@ pub struct EditorState {
     pub ui_mode: bool,
     /// Frame counter to skip initial frames during window setup
     _frame_count: u32,
+    /// Pending resize to apply when safe
+    pending_resize: Option<winit::dpi::PhysicalSize<u32>>,
+    /// Whether we're currently in a frame
+    in_frame: bool,
 }
 
 impl EditorState {
@@ -150,17 +154,18 @@ impl EditorState {
             selected_entity: None,
             ui_mode: true,
             _frame_count: 0,
+            pending_resize: None,
+            in_frame: false,
         };
         
-        // Force proper initialization by doing a dummy frame
+        // Force proper initialization by setting initial values
         // This ensures all imgui state is properly set up
         {
             let io = editor.imgui_context.io_mut();
             io.display_size = [surface_size.0 as f32, surface_size.1 as f32];
             io.display_framebuffer_scale = [scale_factor, scale_factor];
             
-            // Build a dummy frame to initialize imgui properly
-            let _ui = editor.imgui_context.new_frame();
+            // Don't create a dummy frame here as it could conflict with font atlas
         }
         
         editor
@@ -262,6 +267,14 @@ impl EditorState {
 
     /// Begin a new frame
     pub fn begin_frame(&mut self, window: &winit::window::Window, render_context: &RenderContext) {
+        // Mark that we're in a frame
+        self.in_frame = true;
+        
+        // Handle any pending resize before starting the frame
+        if let Some(new_size) = self.pending_resize.take() {
+            self.do_resize(render_context, new_size);
+        }
+        
         // --- 1. Query current surface size (physical pixels) -------------------
         let surface_size = {
             let cfg = render_context.surface_config.lock().unwrap();
@@ -338,6 +351,8 @@ impl EditorState {
     ) {
         // Trace for debugging
         tracing::trace!("render_ui_and_draw called");
+        
+        // We'll mark frame as done at the end of this method
 
         // -------------------------------------------------------------------- sizes
         let surface_size = {
@@ -475,6 +490,9 @@ impl EditorState {
         ) {
             tracing::error!("ImGui render failed: {e:?}");
         }
+        
+        // Mark that we're no longer in a frame
+        self.in_frame = false;
     }
 
     /// Handle window resize
@@ -484,9 +502,27 @@ impl EditorState {
         new_size: winit::dpi::PhysicalSize<u32>,
     ) {
         debug!(
-            "Editor resize called with: {}x{}",
-            new_size.width, new_size.height
+            "Editor resize called with: {}x{}, in_frame: {}",
+            new_size.width, new_size.height, self.in_frame
         );
+        
+        // If we're in a frame, defer the resize
+        if self.in_frame {
+            self.pending_resize = Some(new_size);
+            debug!("Deferring resize until next frame");
+            return;
+        }
+        
+        self.do_resize(render_context, new_size);
+    }
+    
+    /// Actually perform the resize (when safe to do so)
+    fn do_resize(
+        &mut self,
+        render_context: &RenderContext,
+        new_size: winit::dpi::PhysicalSize<u32>,
+    ) {
+        debug!("Performing actual resize");
 
         // Get the actual surface size from render context
         // This is critical - we must use the surface config size, not the window size
