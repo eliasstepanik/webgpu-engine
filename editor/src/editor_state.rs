@@ -58,18 +58,19 @@ impl EditorState {
         let size = window.inner_size();
         let scale_factor = window.scale_factor() as f32;
 
-        // Set display size BEFORE attaching window to prevent default 1920x1080
+        // Configure platform before attaching window
+        imgui_platform.attach_window(imgui_context.io_mut(), window, HiDpiMode::Default);
+        
+        // CRITICAL: Force correct display size after attaching window
+        // This overrides any default size imgui-winit might have set
         let io = imgui_context.io_mut();
         io.display_size = [size.width as f32, size.height as f32];
         io.display_framebuffer_scale = [scale_factor, scale_factor];
 
         debug!(
-            "ImGui initial display size: {}x{}, scale: {}",
+            "ImGui initial display size forced to: {}x{}, scale: {}",
             size.width, size.height, scale_factor
         );
-
-        // Now attach the window
-        imgui_platform.attach_window(imgui_context.io_mut(), window, HiDpiMode::Default);
 
         // Get surface format from surface config
         let surface_format = render_context.surface_config.lock().unwrap().format;
@@ -295,18 +296,11 @@ impl EditorState {
             io.display_size = [window_size.width as f32, window_size.height as f32];
         }
 
+        // CRITICAL: Update display size one more time right before new_frame
+        // to ensure it matches the render target size
+        self.imgui_context.io_mut().display_size = [render_target_size.0 as f32, render_target_size.1 as f32];
+        
         let ui = self.imgui_context.new_frame();
-
-        // Force ImGui to use the correct display size for this frame
-        let io = ui.io();
-        let display_size = [render_target_size.0 as f32, render_target_size.1 as f32];
-        if io.display_size[0] != display_size[0] || io.display_size[1] != display_size[1] {
-            tracing::warn!(
-                "Forcing ImGui display size from {:?} to {:?}",
-                io.display_size,
-                display_size
-            );
-        }
 
         // Since docking is not available, we'll use a simpler layout
         // with fixed windows
@@ -399,8 +393,18 @@ impl EditorState {
             return;
         }
 
-        // Skip scissor rect validation for now - imgui-wgpu should handle this internally
-        // The issue seems to be with ImGui using default 1920x1080 in early frames
+        // CRITICAL: Ensure draw data display size matches render target
+        if draw_data.display_size[0] != render_target_size.0 as f32 
+            || draw_data.display_size[1] != render_target_size.1 as f32 {
+            tracing::error!(
+                "Draw data size mismatch! draw_data: {:?}, render_target: {:?}",
+                draw_data.display_size,
+                render_target_size
+            );
+            // Force correct size by updating context and skipping this frame
+            self.imgui_context.io_mut().display_size = [render_target_size.0 as f32, render_target_size.1 as f32];
+            return;
+        }
 
         // Create a render pass for ImGui
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
