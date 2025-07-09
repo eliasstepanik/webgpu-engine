@@ -6,11 +6,28 @@
 use engine::core::entity::World;
 use engine::graphics::{context::RenderContext, render_target::RenderTarget};
 use imgui::*;
-use imgui_wgpu::{Renderer, RendererConfig};
+use imgui_wgpu::{Renderer as ImGuiRenderer, RendererConfig};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
+use std::path::PathBuf;
 use tracing::{debug, info};
 use winit::event::{Event, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
+
+/// Pending scene action to perform after confirmation
+#[derive(Debug, Clone)]
+pub enum PendingAction {
+    NewScene,
+    LoadScene,
+    Exit,
+}
+
+/// Scene operation that needs to be performed by main loop
+#[derive(Debug, Clone)]
+pub enum SceneOperation {
+    NewScene,
+    LoadScene(PathBuf),
+    SaveScene(PathBuf),
+}
 
 /// Main editor state that manages all editor functionality
 pub struct EditorState {
@@ -19,7 +36,7 @@ pub struct EditorState {
     /// ImGui-winit platform integration
     pub imgui_platform: WinitPlatform,
     /// ImGui-wgpu renderer
-    pub imgui_renderer: Renderer,
+    pub imgui_renderer: ImGuiRenderer,
     /// Render target for viewport texture
     pub render_target: RenderTarget,
     /// ImGui texture ID for the render target
@@ -34,6 +51,24 @@ pub struct EditorState {
     pending_resize: Option<winit::dpi::PhysicalSize<u32>>,
     /// Whether we're currently in a frame
     in_frame: bool,
+
+    // Scene management state
+    /// Path to the currently loaded scene
+    pub current_scene_path: Option<PathBuf>,
+    /// Whether the scene has been modified since last save
+    pub scene_modified: bool,
+    /// Current keyboard modifiers state
+    pub current_modifiers: winit::event::Modifiers,
+
+    // Dialog state
+    /// Whether to show the unsaved changes dialog
+    pub show_unsaved_dialog: bool,
+    /// Pending action after unsaved changes dialog
+    pub pending_action: Option<PendingAction>,
+    /// Error message to display in modal
+    pub error_message: Option<String>,
+    /// Pending scene operation to be performed by main loop
+    pub pending_scene_operation: Option<SceneOperation>,
 }
 
 impl EditorState {
@@ -92,7 +127,7 @@ impl EditorState {
             ..Default::default()
         };
 
-        let mut imgui_renderer = Renderer::new(
+        let mut imgui_renderer = ImGuiRenderer::new(
             &mut imgui_context,
             &render_context.device,
             &render_context.queue,
@@ -156,18 +191,29 @@ impl EditorState {
             _frame_count: 0,
             pending_resize: None,
             in_frame: false,
+
+            // Scene management state
+            current_scene_path: None,
+            scene_modified: false,
+            current_modifiers: winit::event::Modifiers::default(),
+
+            // Dialog state
+            show_unsaved_dialog: false,
+            pending_action: None,
+            error_message: None,
+            pending_scene_operation: None,
         };
-        
+
         // Force proper initialization by setting initial values
         // This ensures all imgui state is properly set up
         {
             let io = editor.imgui_context.io_mut();
             io.display_size = [surface_size.0 as f32, surface_size.1 as f32];
             io.display_framebuffer_scale = [scale_factor, scale_factor];
-            
+
             // Don't create a dummy frame here as it could conflict with font atlas
         }
-        
+
         editor
     }
 
@@ -215,7 +261,17 @@ impl EditorState {
             // which will be set correctly in begin_frame
         }
 
-        // Check for Tab key to toggle input mode
+        // Track modifier changes
+        if let Event::WindowEvent {
+            event: WindowEvent::ModifiersChanged(new_modifiers),
+            ..
+        } = event
+        {
+            self.current_modifiers = *new_modifiers;
+            debug!("Modifiers changed: {:?}", self.current_modifiers);
+        }
+
+        // Check for keyboard shortcuts
         if let Event::WindowEvent {
             event: WindowEvent::KeyboardInput {
                 event: key_event, ..
@@ -224,6 +280,45 @@ impl EditorState {
         } = event
         {
             if key_event.state == winit::event::ElementState::Pressed {
+                // Check for scene management shortcuts when in UI mode
+                if self.ui_mode {
+                    let ctrl = self.current_modifiers.lcontrol_state()
+                        == winit::keyboard::ModifiersKeyState::Pressed
+                        || self.current_modifiers.rcontrol_state()
+                            == winit::keyboard::ModifiersKeyState::Pressed;
+                    let shift = self.current_modifiers.lshift_state()
+                        == winit::keyboard::ModifiersKeyState::Pressed
+                        || self.current_modifiers.rshift_state()
+                            == winit::keyboard::ModifiersKeyState::Pressed;
+
+                    if ctrl {
+                        match key_event.physical_key {
+                            PhysicalKey::Code(KeyCode::KeyN) => {
+                                info!("Ctrl+N pressed - New Scene");
+                                self.new_scene_action();
+                                return true;
+                            }
+                            PhysicalKey::Code(KeyCode::KeyO) => {
+                                info!("Ctrl+O pressed - Open Scene");
+                                self.load_scene_action();
+                                return true;
+                            }
+                            PhysicalKey::Code(KeyCode::KeyS) => {
+                                if shift {
+                                    info!("Ctrl+Shift+S pressed - Save Scene As");
+                                    self.save_scene_as_action();
+                                } else {
+                                    info!("Ctrl+S pressed - Save Scene");
+                                    self.save_scene_action();
+                                }
+                                return true;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                // Check for Tab key to toggle input mode
                 if let PhysicalKey::Code(KeyCode::Tab) = key_event.physical_key {
                     self.ui_mode = !self.ui_mode;
                     debug!("Toggled input mode: UI mode = {}", self.ui_mode);
@@ -242,22 +337,31 @@ impl EditorState {
             let io = self.imgui_context.io();
             let wants_keyboard = io.want_capture_keyboard;
             let wants_mouse = io.want_capture_mouse;
-            
+
             // For keyboard events, only consume if imgui wants keyboard
-            if matches!(event, Event::WindowEvent { event: WindowEvent::KeyboardInput { .. }, .. }) {
+            if matches!(
+                event,
+                Event::WindowEvent {
+                    event: WindowEvent::KeyboardInput { .. },
+                    ..
+                }
+            ) {
                 return wants_keyboard;
             }
-            
+
             // For mouse events, only consume if imgui wants mouse
-            if matches!(event, Event::WindowEvent { 
-                event: WindowEvent::CursorMoved { .. } 
-                | WindowEvent::MouseInput { .. } 
-                | WindowEvent::MouseWheel { .. }, 
-                .. 
-            }) {
+            if matches!(
+                event,
+                Event::WindowEvent {
+                    event: WindowEvent::CursorMoved { .. }
+                        | WindowEvent::MouseInput { .. }
+                        | WindowEvent::MouseWheel { .. },
+                    ..
+                }
+            ) {
                 return wants_mouse;
             }
-            
+
             // For other events in UI mode, don't consume
             return false;
         }
@@ -269,12 +373,12 @@ impl EditorState {
     pub fn begin_frame(&mut self, window: &winit::window::Window, render_context: &RenderContext) {
         // Mark that we're in a frame
         self.in_frame = true;
-        
+
         // Handle any pending resize before starting the frame
         if let Some(new_size) = self.pending_resize.take() {
             self.do_resize(render_context, new_size);
         }
-        
+
         // --- 1. Query current surface size (physical pixels) -------------------
         let surface_size = {
             let cfg = render_context.surface_config.lock().unwrap();
@@ -333,7 +437,10 @@ impl EditorState {
         renderer: &mut engine::graphics::renderer::Renderer,
         world: &World,
     ) {
-        debug!("Rendering game to viewport texture, render_target size: {:?}", self.render_target.size);
+        debug!(
+            "Rendering game to viewport texture, render_target size: {:?}",
+            self.render_target.size
+        );
         // Render the game to our render target texture
         if let Err(e) = renderer.render_to_target(world, &self.render_target) {
             tracing::error!("Failed to render to viewport: {e:?}");
@@ -351,7 +458,7 @@ impl EditorState {
     ) {
         // Trace for debugging
         tracing::trace!("render_ui_and_draw called");
-        
+
         // We'll mark frame as done at the end of this method
 
         // -------------------------------------------------------------------- sizes
@@ -384,21 +491,31 @@ impl EditorState {
         // -------------------------------------------------------------------- build UI
         let ui = self.imgui_context.new_frame();
 
+        // Store actions to take after UI rendering
+        let mut action_new_scene = false;
+        let mut action_load_scene = false;
+        let mut action_save_scene = false;
+        let mut action_save_scene_as = false;
+        let mut action_exit = false;
+
         // Main-menu bar --------------------------------------------------------
         ui.main_menu_bar(|| {
             ui.menu("File", || {
-                if ui.menu_item("New Scene") {
-                    info!("New scene requested");
+                if ui.menu_item("New Scene##Ctrl+N") {
+                    action_new_scene = true;
                 }
-                if ui.menu_item("Load Scene…") {
-                    info!("Load scene requested");
+                if ui.menu_item("Load Scene...##Ctrl+O") {
+                    action_load_scene = true;
                 }
-                if ui.menu_item("Save Scene…") {
-                    info!("Save scene requested");
+                if ui.menu_item("Save Scene##Ctrl+S") {
+                    action_save_scene = true;
+                }
+                if ui.menu_item("Save Scene As...##Ctrl+Shift+S") {
+                    action_save_scene_as = true;
                 }
                 ui.separator();
                 if ui.menu_item("Exit") {
-                    std::process::exit(0);
+                    action_exit = true;
                 }
             });
             ui.menu("View", || {
@@ -428,6 +545,23 @@ impl EditorState {
             .movable(false)
             .scroll_bar(false)
             .build(|| {
+                // Scene name
+                let scene_name = self
+                    .current_scene_path
+                    .as_ref()
+                    .and_then(|p| p.file_name())
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("Untitled");
+                ui.text(format!(
+                    "Scene: {}{}",
+                    scene_name,
+                    if self.scene_modified { "*" } else { "" }
+                ));
+                ui.same_line();
+                ui.separator();
+                ui.same_line();
+
+                // Mode
                 ui.text(if self.ui_mode {
                     "Mode: Editor"
                 } else {
@@ -436,15 +570,71 @@ impl EditorState {
                 ui.same_line();
                 ui.separator();
                 ui.same_line();
+
+                // Entity count
                 ui.text(format!("Entities: {}", world.query::<()>().iter().count()));
                 ui.same_line();
                 ui.separator();
                 ui.same_line();
+
+                // Selection
                 match self.selected_entity {
                     Some(e) => ui.text(format!("Selected: {e:?}")),
                     None => ui.text("No selection"),
                 }
             });
+
+        // Dialogs --------------------------------------------------------------
+
+        // Store dialog actions
+        let mut dialog_save_and_proceed = false;
+        let mut dialog_dont_save_and_proceed = false;
+        let mut dialog_cancel = false;
+        let mut clear_error = false;
+
+        // Unsaved changes dialog
+        if self.show_unsaved_dialog {
+            ui.open_popup("unsaved_changes");
+        }
+
+        ui.modal_popup("unsaved_changes", || {
+            ui.text("Save changes to current scene?");
+            ui.spacing();
+
+            if ui.button("Save") {
+                dialog_save_and_proceed = true;
+                ui.close_current_popup();
+            }
+
+            ui.same_line();
+            if ui.button("Don't Save") {
+                dialog_dont_save_and_proceed = true;
+                ui.close_current_popup();
+            }
+
+            ui.same_line();
+            if ui.button("Cancel") {
+                dialog_cancel = true;
+                ui.close_current_popup();
+            }
+        });
+
+        // Error dialog
+        if self.error_message.is_some() {
+            ui.open_popup("error_dialog");
+        }
+
+        ui.modal_popup("error_dialog", || {
+            ui.text("Error");
+            ui.separator();
+            if let Some(ref error) = self.error_message {
+                ui.text_wrapped(error);
+            }
+            if ui.button("OK") {
+                clear_error = true;
+                ui.close_current_popup();
+            }
+        });
 
         // -------------------------------------------------------------------- render
         self.imgui_platform.prepare_render(ui, window);
@@ -467,32 +657,85 @@ impl EditorState {
         }
 
         // Render pass ----------------------------------------------------------
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("ImGui Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("ImGui Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
 
-        if let Err(e) = self.imgui_renderer.render(
-            draw_data,
-            &render_context.queue,
-            &render_context.device,
-            &mut pass,
-        ) {
-            tracing::error!("ImGui render failed: {e:?}");
-        }
-        
+            if let Err(e) = self.imgui_renderer.render(
+                draw_data,
+                &render_context.queue,
+                &render_context.device,
+                &mut pass,
+            ) {
+                tracing::error!("ImGui render failed: {e:?}");
+            }
+        } // Pass is dropped here
+
         // Mark that we're no longer in a frame
         self.in_frame = false;
+
+        // Handle deferred actions after UI rendering
+        if action_new_scene {
+            self.new_scene_action();
+        }
+        if action_load_scene {
+            self.load_scene_action();
+        }
+        if action_save_scene {
+            self.save_scene_action();
+        }
+        if action_save_scene_as {
+            self.save_scene_as_action();
+        }
+        if action_exit {
+            if self.scene_modified {
+                self.show_unsaved_dialog = true;
+                self.pending_action = Some(PendingAction::Exit);
+            } else {
+                std::process::exit(0);
+            }
+        }
+
+        // Handle dialog actions
+        if dialog_save_and_proceed && self.save_scene_action() {
+            self.show_unsaved_dialog = false;
+            if let Some(action) = self.pending_action.take() {
+                match action {
+                    PendingAction::NewScene => self.perform_new_scene(),
+                    PendingAction::LoadScene => self.perform_load_scene(),
+                    PendingAction::Exit => std::process::exit(0),
+                }
+            }
+        }
+        if dialog_dont_save_and_proceed {
+            self.show_unsaved_dialog = false;
+            if let Some(action) = self.pending_action.take() {
+                match action {
+                    PendingAction::NewScene => self.perform_new_scene(),
+                    PendingAction::LoadScene => self.perform_load_scene(),
+                    PendingAction::Exit => std::process::exit(0),
+                }
+            }
+        }
+        if dialog_cancel {
+            self.show_unsaved_dialog = false;
+            self.pending_action = None;
+        }
+        if clear_error {
+            self.error_message = None;
+        }
     }
 
     /// Handle window resize
@@ -505,17 +748,17 @@ impl EditorState {
             "Editor resize called with: {}x{}, in_frame: {}",
             new_size.width, new_size.height, self.in_frame
         );
-        
+
         // If we're in a frame, defer the resize
         if self.in_frame {
             self.pending_resize = Some(new_size);
             debug!("Deferring resize until next frame");
             return;
         }
-        
+
         self.do_resize(render_context, new_size);
     }
-    
+
     /// Actually perform the resize (when safe to do so)
     fn do_resize(
         &mut self,
@@ -562,7 +805,7 @@ impl EditorState {
             ..Default::default()
         };
 
-        self.imgui_renderer = Renderer::new(
+        self.imgui_renderer = ImGuiRenderer::new(
             &mut self.imgui_context,
             &render_context.device,
             &render_context.queue,
@@ -606,5 +849,96 @@ impl EditorState {
             },
         );
         self.texture_id = self.imgui_renderer.textures.insert(imgui_texture);
+    }
+
+    // Scene management methods
+
+    /// Handle new scene action
+    pub fn new_scene_action(&mut self) {
+        if self.scene_modified {
+            self.show_unsaved_dialog = true;
+            self.pending_action = Some(PendingAction::NewScene);
+        } else {
+            self.perform_new_scene();
+        }
+    }
+
+    /// Perform actual new scene creation
+    pub fn perform_new_scene(&mut self) {
+        info!("Creating new scene");
+        self.pending_scene_operation = Some(SceneOperation::NewScene);
+        self.current_scene_path = None;
+        self.scene_modified = false;
+    }
+
+    /// Handle load scene action
+    pub fn load_scene_action(&mut self) {
+        if self.scene_modified {
+            self.show_unsaved_dialog = true;
+            self.pending_action = Some(PendingAction::LoadScene);
+        } else {
+            self.perform_load_scene();
+        }
+    }
+
+    /// Perform actual scene loading
+    pub fn perform_load_scene(&mut self) {
+        if let Some(path) = self.show_open_dialog() {
+            info!("Loading scene from: {:?}", path);
+            self.pending_scene_operation = Some(SceneOperation::LoadScene(path.clone()));
+            self.current_scene_path = Some(path);
+            self.scene_modified = false;
+        }
+    }
+
+    /// Handle save scene action
+    pub fn save_scene_action(&mut self) -> bool {
+        if let Some(path) = self.current_scene_path.clone() {
+            self.save_scene_to_path(&path)
+        } else {
+            self.save_scene_as_action()
+        }
+    }
+
+    /// Handle save scene as action
+    pub fn save_scene_as_action(&mut self) -> bool {
+        if let Some(path) = self.show_save_dialog() {
+            self.save_scene_to_path(&path)
+        } else {
+            false
+        }
+    }
+
+    /// Save scene to specific path
+    fn save_scene_to_path(&mut self, path: &PathBuf) -> bool {
+        info!("Saving scene to: {:?}", path);
+        self.pending_scene_operation = Some(SceneOperation::SaveScene(path.clone()));
+        self.current_scene_path = Some(path.clone());
+        self.scene_modified = false;
+        true
+    }
+
+    /// Show save dialog
+    fn show_save_dialog(&self) -> Option<PathBuf> {
+        rfd::FileDialog::new()
+            .set_title("Save Scene")
+            .add_filter("Scene files", &["json"])
+            .add_filter("All files", &["*"])
+            .set_file_name("untitled.json")
+            .save_file()
+    }
+
+    /// Show open dialog
+    fn show_open_dialog(&self) -> Option<PathBuf> {
+        rfd::FileDialog::new()
+            .set_title("Open Scene")
+            .add_filter("Scene files", &["json"])
+            .add_filter("All files", &["*"])
+            .pick_file()
+    }
+
+    /// Mark the scene as modified
+    pub fn mark_scene_modified(&mut self) {
+        self.scene_modified = true;
     }
 }

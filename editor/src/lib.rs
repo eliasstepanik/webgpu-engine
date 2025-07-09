@@ -5,5 +5,6 @@
 
 pub mod editor_state;
 pub mod panels;
+pub mod scene_operations;
 
-pub use editor_state::EditorState;
+pub use editor_state::{EditorState, SceneOperation};

@@ -10,7 +10,7 @@ use winit::{
 };
 
 #[cfg(feature = "editor")]
-use editor::EditorState;
+use editor::{EditorState, SceneOperation};
 
 fn main() {
     // Initialize logging
@@ -70,7 +70,7 @@ fn main() {
                             window_id: window.id(),
                         },
                     );
-                    
+
                     // Don't return early for critical events like RedrawRequested
                     if should_consume && !matches!(event, WindowEvent::RedrawRequested) {
                         return; // Event consumed by editor
@@ -137,9 +137,36 @@ fn main() {
                         // Render based on editor mode
                         #[cfg(feature = "editor")]
                         {
+                            // Handle pending scene operations
+                            if let Some(operation) = editor_state.pending_scene_operation.take() {
+                                match operation {
+                                    SceneOperation::NewScene => {
+                                        editor::scene_operations::create_default_scene(&mut world, &mut renderer);
+                                    }
+                                    SceneOperation::LoadScene(path) => {
+                                        match editor::scene_operations::load_scene_from_file(&mut world, &mut renderer, &path) {
+                                            Ok(_) => info!("Scene loaded successfully"),
+                                            Err(e) => {
+                                                tracing::error!("Failed to load scene: {:?}", e);
+                                                editor_state.error_message = Some(format!("Failed to load scene: {e}"));
+                                            }
+                                        }
+                                    }
+                                    SceneOperation::SaveScene(path) => {
+                                        match editor::scene_operations::save_scene_to_file(&world, &path) {
+                                            Ok(_) => info!("Scene saved successfully"),
+                                            Err(e) => {
+                                                tracing::error!("Failed to save scene: {:?}", e);
+                                                editor_state.error_message = Some(format!("Failed to save scene: {e}"));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
                             // Begin editor frame FIRST
                             editor_state.begin_frame(&window, &render_context);
-                            
+
                             // Render game to viewport texture (after imgui frame started but before UI)
                             editor_state.render_viewport(&mut renderer, &world);
 
