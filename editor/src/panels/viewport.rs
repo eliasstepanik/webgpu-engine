@@ -30,12 +30,3 @@ pub fn render_viewport_panel(
         imgui::Image::new(texture_id, available_size).build(ui);
     });
 }
-
-/// Render a placeholder viewport panel
-pub fn render_viewport_placeholder(ui: &imgui::Ui) {
-    ui.window("Viewport").resizable(true).build(|| {
-        ui.text("Game viewport (render-to-texture integration pending)");
-        ui.text("The game is rendering in the main window behind the editor UI");
-        ui.text("Press Tab to toggle between Editor UI and Game Input modes");
-    });
-}
