@@ -7,4 +7,7 @@ pub mod editor_state;
 pub mod panels;
 pub mod scene_operations;
 
+#[cfg(feature = "viewport")]
+pub mod viewport_backend;
+
 pub use editor_state::{EditorState, SceneOperation};
