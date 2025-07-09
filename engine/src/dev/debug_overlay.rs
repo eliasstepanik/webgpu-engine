@@ -123,8 +123,7 @@ impl DebugOverlay {
             let entities_without_transforms = info.total_entities - info.transforms;
             if entities_without_transforms > 0 {
                 warnings.push(format!(
-                    "{} entities without Transform components",
-                    entities_without_transforms
+                    "{entities_without_transforms} entities without Transform components"
                 ));
             }
 
@@ -132,8 +131,7 @@ impl DebugOverlay {
             let missing_global_transforms = info.transforms - info.global_transforms;
             if missing_global_transforms > 0 {
                 warnings.push(format!(
-                    "{} entities with Transform but no GlobalTransform",
-                    missing_global_transforms
+                    "{missing_global_transforms} entities with Transform but no GlobalTransform"
                 ));
             }
 
@@ -144,7 +142,10 @@ impl DebugOverlay {
 
             // Check for multiple cameras (might be intentional but worth noting)
             if info.cameras > 1 {
-                warnings.push(format!("{} camera entities found (multiple cameras)", info.cameras));
+                warnings.push(format!(
+                    "{} camera entities found (multiple cameras)",
+                    info.cameras
+                ));
             }
 
             // Check for entities with meshes but no materials
@@ -215,19 +216,35 @@ impl SceneDebugInfo {
         let component_start = Instant::now();
 
         // Count renderable entities
-        let renderable_entities = world.query::<(&MeshId, &Material, &crate::core::entity::components::GlobalTransform)>().iter().count();
+        let renderable_entities = world
+            .query::<(
+                &MeshId,
+                &Material,
+                &crate::core::entity::components::GlobalTransform,
+            )>()
+            .iter()
+            .count();
 
         // Count cameras
         let cameras = world.query::<&crate::core::camera::Camera>().iter().count();
 
         // Count transforms
-        let transforms = world.query::<&crate::core::entity::components::Transform>().iter().count();
+        let transforms = world
+            .query::<&crate::core::entity::components::Transform>()
+            .iter()
+            .count();
 
         // Count global transforms
-        let global_transforms = world.query::<&crate::core::entity::components::GlobalTransform>().iter().count();
+        let global_transforms = world
+            .query::<&crate::core::entity::components::GlobalTransform>()
+            .iter()
+            .count();
 
         // Count parent relationships
-        let parent_relationships = world.query::<&crate::core::entity::components::Parent>().iter().count();
+        let parent_relationships = world
+            .query::<&crate::core::entity::components::Parent>()
+            .iter()
+            .count();
 
         // Count materials
         let materials = world.query::<&Material>().iter().count();
@@ -276,7 +293,7 @@ impl SceneDebugInfo {
         } else {
             let mut parts = Vec::new();
             for (mesh_name, count) in &self.mesh_usage {
-                parts.push(format!("{}: {}", mesh_name, count));
+                parts.push(format!("{mesh_name}: {count}"));
             }
             parts.join(", ")
         }
@@ -303,7 +320,7 @@ impl AssetValidationDebug {
     /// Print detailed asset validation report
     pub fn print_validation_report(report: &AssetValidationReport) {
         let summary = report.summary();
-        
+
         info!(
             scene_path = ?report.scene_path,
             total_meshes = summary.total_mesh_references,
@@ -326,11 +343,7 @@ impl AssetValidationDebug {
 
         // Print errors
         for (entity_idx, error) in &report.errors {
-            tracing::error!(
-                entity_index = entity_idx,
-                error = error,
-                "Validation error"
-            );
+            tracing::error!(entity_index = entity_idx, error = error, "Validation error");
         }
     }
 
@@ -355,14 +368,14 @@ impl AssetValidationDebug {
         if !report.invalid_meshes().is_empty() {
             output.push_str("\nInvalid Meshes:\n");
             for (entity_idx, mesh_name) in report.invalid_meshes() {
-                output.push_str(&format!("  Entity {}: {}\n", entity_idx, mesh_name));
+                output.push_str(&format!("  Entity {entity_idx}: {mesh_name}\n"));
             }
         }
 
         if !report.errors.is_empty() {
             output.push_str("\nErrors:\n");
             for (entity_idx, error) in &report.errors {
-                output.push_str(&format!("  Entity {}: {}\n", entity_idx, error));
+                output.push_str(&format!("  Entity {entity_idx}: {error}\n"));
             }
         }
 
@@ -384,11 +397,11 @@ mod tests {
     #[test]
     fn test_scene_debug_info_collection() {
         let mut world = World::new();
-        
+
         // Add some test entities
         world.spawn((Transform::default(),));
         world.spawn((Transform::default(),));
-        
+
         let debug_info = SceneDebugInfo::collect(&world);
         assert_eq!(debug_info.total_entities, 2);
         assert!(debug_info.performance_metrics.is_some());
@@ -398,10 +411,10 @@ mod tests {
     fn test_debug_overlay_update() {
         let mut overlay = DebugOverlay::new();
         let world = World::new();
-        
+
         overlay.force_update(&world);
         assert!(overlay.debug_info().is_some());
-        
+
         let info = overlay.debug_info().unwrap();
         assert_eq!(info.total_entities, 0);
     }
@@ -410,10 +423,10 @@ mod tests {
     fn test_scene_health_check() {
         let mut overlay = DebugOverlay::new();
         let world = World::new();
-        
+
         overlay.force_update(&world);
         let warnings = overlay.check_scene_health();
-        
+
         // Should warn about no cameras
         assert!(warnings.iter().any(|w| w.contains("No camera")));
     }
@@ -428,7 +441,9 @@ mod tests {
             global_transforms: 4,
             parent_relationships: 2,
             mesh_usage: [("cube".to_string(), 2), ("sphere".to_string(), 1)]
-                .iter().cloned().collect(),
+                .iter()
+                .cloned()
+                .collect(),
             materials: 3,
             performance_metrics: None,
         };

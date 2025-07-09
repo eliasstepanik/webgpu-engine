@@ -168,7 +168,7 @@ impl Scene {
 
             // Serialize Material component
             if let Ok(material) = world.get::<Material>(entity) {
-                match serde_json::to_value((*material).clone()) {
+                match serde_json::to_value(*material) {
                     Ok(value) => {
                         components.insert("Material".to_string(), value);
                     }
@@ -339,7 +339,7 @@ impl Scene {
         // Validate assets
         let validation_report = asset_manager
             .validate_scene_assets(path)
-            .map_err(|e| SceneError::ComponentError(format!("Asset validation failed: {}", e)))?;
+            .map_err(|e| SceneError::ComponentError(format!("Asset validation failed: {e}")))?;
 
         // Log validation results
         let summary = validation_report.summary();
@@ -393,7 +393,10 @@ impl Scene {
         let mut mapper = EntityMapper::new();
         let mut entities_to_build = Vec::new();
 
-        info!(entity_count = self.entities.len(), "Instantiating scene with validation");
+        info!(
+            entity_count = self.entities.len(),
+            "Instantiating scene with validation"
+        );
 
         // First pass: spawn all entities and build ID mapping
         for (id, serialized_entity) in self.entities.iter().enumerate() {

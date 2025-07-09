@@ -183,13 +183,18 @@ impl World {
         let mut entities_to_update = Vec::new();
 
         // Find entities with transform but no MeshId
-        for (entity, (_transform, _global_transform)) in self.query::<(&Transform, &GlobalTransform)>().iter() {
+        for (entity, (_transform, _global_transform)) in
+            self.query::<(&Transform, &GlobalTransform)>().iter()
+        {
             if self.get::<MeshId>(entity).is_err() {
                 entities_to_update.push(entity);
             }
         }
 
-        info!(count = entities_to_update.len(), "Assigning default meshes to entities");
+        info!(
+            count = entities_to_update.len(),
+            "Assigning default meshes to entities"
+        );
 
         // Assign default meshes and materials
         for entity in entities_to_update {
@@ -230,7 +235,10 @@ impl World {
         stats.entity_count = self.query::<()>().iter().count();
 
         // Count renderable entities (have MeshId + Material + Transform)
-        stats.renderable_count = self.query::<(&MeshId, &Material, &GlobalTransform)>().iter().count();
+        stats.renderable_count = self
+            .query::<(&MeshId, &Material, &GlobalTransform)>()
+            .iter()
+            .count();
 
         // Count cameras
         stats.camera_count = self.query::<&crate::core::camera::Camera>().iter().count();
@@ -260,7 +268,10 @@ impl World {
             }
         }
 
-        info!(count = entities_to_clear.len(), "Clearing graphics components from entities");
+        info!(
+            count = entities_to_clear.len(),
+            "Clearing graphics components from entities"
+        );
 
         // Remove graphics components
         for entity in entities_to_clear {
@@ -306,13 +317,13 @@ impl World {
         // Create a callback that demonstrates the hot-reload workflow
         let callback: ReloadCallback = Box::new(|world, _renderer, _asset_manager| {
             info!("Hot-reload callback triggered");
-            
+
             // In practice, this would reload the scene:
             // 1. Clear the world
             // 2. Load the scene with validation
             // 3. Instantiate entities
             // 4. Assign default meshes if needed
-            
+
             // For demonstration, we just log the current state
             let stats = world.get_scene_stats();
             info!(
@@ -339,8 +350,7 @@ impl World {
             // Log mesh usage
             for (mesh_name, count) in &stats.mesh_types {
                 crate::dev::DevTools::log_dev_info(&format!(
-                    "Mesh '{}': {} instances",
-                    mesh_name, count
+                    "Mesh '{mesh_name}': {count} instances"
                 ));
             }
         }
@@ -350,23 +360,23 @@ impl World {
     pub fn check_scene_health(&self) {
         if crate::dev::DevTools::is_enabled() {
             let stats = self.get_scene_stats();
-            
+
             // Check for common issues
             if stats.camera_count == 0 {
                 crate::dev::DevTools::log_dev_warning("No camera entities found in scene");
             }
-            
+
             if stats.camera_count > 1 {
                 crate::dev::DevTools::log_dev_warning(&format!(
                     "Multiple cameras found: {}",
                     stats.camera_count
                 ));
             }
-            
+
             if stats.renderable_count == 0 && stats.entity_count > 0 {
                 crate::dev::DevTools::log_dev_warning("Entities present but none are renderable");
             }
-            
+
             // Check for entities with transforms but no mesh/material
             let transform_count = self.query::<&Transform>().iter().count();
             if transform_count > stats.renderable_count {

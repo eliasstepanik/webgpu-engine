@@ -97,13 +97,28 @@ impl EditorState {
         );
 
         // Register render target texture with ImGui
+        // Create texture configuration for the render target
+        let texture_config = imgui_wgpu::RawTextureConfig {
+            label: Some("Editor Viewport Texture"),
+            sampler_desc: wgpu::SamplerDescriptor {
+                label: Some("Viewport Sampler"),
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Nearest,
+                ..Default::default()
+            },
+        };
+        
         let imgui_texture = imgui_wgpu::Texture::from_raw_parts(
             &render_context.device,
             &imgui_renderer,
             std::sync::Arc::new(render_target.texture.clone()),
             std::sync::Arc::new(render_target.view.clone()),
             None,
-            None,
+            Some(&texture_config),
             wgpu::Extent3d {
                 width: size.width,
                 height: size.height,
@@ -446,13 +461,29 @@ impl EditorState {
 
         // Remove old texture and register new one
         self.imgui_renderer.textures.remove(self.texture_id);
+        
+        // Create texture configuration for the render target
+        let texture_config = imgui_wgpu::RawTextureConfig {
+            label: Some("Editor Viewport Texture"),
+            sampler_desc: wgpu::SamplerDescriptor {
+                label: Some("Viewport Sampler"),
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Nearest,
+                ..Default::default()
+            },
+        };
+        
         let imgui_texture = imgui_wgpu::Texture::from_raw_parts(
             &render_context.device,
             &self.imgui_renderer,
             std::sync::Arc::new(self.render_target.texture.clone()),
             std::sync::Arc::new(self.render_target.view.clone()),
             None,
-            None,
+            Some(&texture_config),
             wgpu::Extent3d {
                 width: new_size.width,
                 height: new_size.height,

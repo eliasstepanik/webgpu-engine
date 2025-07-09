@@ -1,5 +1,5 @@
 //! Development utilities and debugging tools
-//! 
+//!
 //! This module provides tools for debugging and development workflow improvements.
 //! It includes scene statistics, debug overlays, and hot-reload integration.
 
@@ -54,7 +54,7 @@ mod tests {
         // Should match debug_assertions
         #[cfg(debug_assertions)]
         assert!(DevTools::is_enabled());
-        
+
         #[cfg(not(debug_assertions))]
         assert!(!DevTools::is_enabled());
     }

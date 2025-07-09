@@ -11,6 +11,7 @@ use crate::graphics::{
     mesh::Mesh,
     mesh_library::MeshLibrary,
     pipeline::{DepthTexture, RenderPipeline},
+    render_target::RenderTarget,
     uniform::{CameraUniform, ObjectUniform, UniformBuffer},
 };
 use serde::{Deserialize, Serialize};
@@ -53,15 +54,11 @@ impl<'window> Renderer<'window> {
         let surface_config = context.surface_config();
 
         // Create render pipeline
-        let basic_pipeline =
-            RenderPipeline::new_basic_3d(&context.device, surface_config.format);
+        let basic_pipeline = RenderPipeline::new_basic_3d(&context.device, surface_config.format);
 
         // Create depth texture
-        let depth_texture = DepthTexture::new(
-            &context.device,
-            surface_config.width,
-            surface_config.height,
-        );
+        let depth_texture =
+            DepthTexture::new(&context.device, surface_config.width, surface_config.height);
 
         // Create camera uniform buffer
         let camera_uniform = CameraUniform::default();
@@ -88,7 +85,7 @@ impl<'window> Renderer<'window> {
         if new_size.width > 0 && new_size.height > 0 {
             // Resize the render context surface configuration
             self.context.resize(new_size);
-            
+
             // Recreate the depth texture with the new size
             self.depth_texture =
                 DepthTexture::new(&self.context.device, new_size.width, new_size.height);
@@ -131,12 +128,14 @@ impl<'window> Renderer<'window> {
     fn get_or_create_mesh(&mut self, mesh_id: &MeshId) -> &MeshGpuData {
         if !self.mesh_cache.contains_key(&mesh_id.0) {
             // Try to generate the requested mesh
-            let mesh = self.mesh_library.get_or_generate(&mesh_id.0)
+            let mesh = self
+                .mesh_library
+                .get_or_generate(&mesh_id.0)
                 .unwrap_or_else(|| {
                     debug!(mesh_name = %mesh_id.0, "Mesh not found, using error mesh");
                     MeshLibrary::error_mesh()
                 });
-            
+
             // Upload the mesh (either requested or error mesh)
             self.upload_mesh(&mesh, &mesh_id.0);
         }
@@ -204,8 +203,11 @@ impl<'window> Renderer<'window> {
 
             // Query and render all entities with mesh, material, and transform
             let mut render_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
-            let entities_to_render: Vec<_> = render_query.iter()
-                .map(|(entity, (mesh_id, material, transform))| (entity, mesh_id.clone(), material.clone(), *transform))
+            let entities_to_render: Vec<_> = render_query
+                .iter()
+                .map(|(entity, (mesh_id, material, transform))| {
+                    (entity, mesh_id.clone(), *material, *transform)
+                })
                 .collect();
 
             for (entity, mesh_id, material, transform) in entities_to_render {
@@ -213,10 +215,10 @@ impl<'window> Renderer<'window> {
 
                 // Ensure mesh is loaded (may borrow self mutably)
                 let _ = self.get_or_create_mesh(&mesh_id);
-                
+
                 // Now access mesh data (no mut borrow)
                 let mesh_data = &self.mesh_cache[&mesh_id.0];
-                
+
                 // Create object uniform
                 let object_uniform = ObjectUniform::new(transform.matrix, material.color);
                 let object_buffer =
@@ -230,10 +232,8 @@ impl<'window> Renderer<'window> {
 
                 // Set vertex and index buffers
                 render_pass.set_vertex_buffer(0, mesh_data.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(
-                    mesh_data.index_buffer.slice(..),
-                    wgpu::IndexFormat::Uint32,
-                );
+                render_pass
+                    .set_index_buffer(mesh_data.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
                 // Draw
                 render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
@@ -251,7 +251,11 @@ impl<'window> Renderer<'window> {
     ///
     /// This method provides more control over which camera to use for rendering
     /// and is useful for scene-loaded entities with predefined cameras.
-    pub fn render_world(&mut self, world: &World, camera_entity: hecs::Entity) -> Result<(), wgpu::SurfaceError> {
+    pub fn render_world(
+        &mut self,
+        world: &World,
+        camera_entity: hecs::Entity,
+    ) -> Result<(), wgpu::SurfaceError> {
         // Get the current surface texture
         let output = self.context.get_current_texture()?;
         let view = output
@@ -276,7 +280,9 @@ impl<'window> Renderer<'window> {
         }
 
         // Create command encoder
-        let mut encoder = self.context.create_command_encoder(Some("Render World Encoder"));
+        let mut encoder = self
+            .context
+            .create_command_encoder(Some("Render World Encoder"));
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -312,8 +318,11 @@ impl<'window> Renderer<'window> {
 
             // Query and render all entities with mesh, material, and transform
             let mut render_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
-            let entities_to_render: Vec<_> = render_query.iter()
-                .map(|(entity, (mesh_id, material, transform))| (entity, mesh_id.clone(), material.clone(), *transform))
+            let entities_to_render: Vec<_> = render_query
+                .iter()
+                .map(|(entity, (mesh_id, material, transform))| {
+                    (entity, mesh_id.clone(), *material, *transform)
+                })
                 .collect();
 
             for (entity, mesh_id, material, transform) in entities_to_render {
@@ -321,10 +330,10 @@ impl<'window> Renderer<'window> {
 
                 // Ensure mesh is loaded (may borrow self mutably)
                 let _ = self.get_or_create_mesh(&mesh_id);
-                
+
                 // Now access mesh data (no mut borrow)
                 let mesh_data = &self.mesh_cache[&mesh_id.0];
-                
+
                 // Create object uniform
                 let object_uniform = ObjectUniform::new(transform.matrix, material.color);
                 let object_buffer =
@@ -338,10 +347,8 @@ impl<'window> Renderer<'window> {
 
                 // Set vertex and index buffers
                 render_pass.set_vertex_buffer(0, mesh_data.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(
-                    mesh_data.index_buffer.slice(..),
-                    wgpu::IndexFormat::Uint32,
-                );
+                render_pass
+                    .set_index_buffer(mesh_data.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
                 // Draw
                 render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
@@ -351,6 +358,111 @@ impl<'window> Renderer<'window> {
         // Submit command buffer
         self.context.submit(std::iter::once(encoder.finish()));
         output.present();
+
+        Ok(())
+    }
+
+    /// Render to a custom render target instead of the surface
+    ///
+    /// This is used by the editor to render the game view to a texture
+    /// that can be displayed in an egui viewport window.
+    pub fn render_to_target(
+        &mut self,
+        world: &World,
+        render_target: &RenderTarget,
+    ) -> Result<(), wgpu::SurfaceError> {
+        // Find the active camera
+        let mut camera_data = None;
+        let mut camera_query = world.query::<(&Camera, &GlobalTransform)>();
+        if let Some((_, (camera, transform))) = camera_query.iter().next() {
+            camera_data = Some((camera, transform));
+        }
+
+        if let Some((camera, camera_transform)) = camera_data {
+            // Update camera uniform
+            let view_proj = camera.view_projection_matrix(camera_transform);
+            let camera_uniform = CameraUniform::new(view_proj);
+            camera_uniform.update_buffer(&self.context.queue, &self.camera_uniform_buffer);
+        }
+
+        // Create command encoder
+        let mut encoder = self
+            .context
+            .create_command_encoder(Some("Render to Target Encoder"));
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render to Target Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &render_target.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+
+            // Set pipeline and camera bind group
+            render_pass.set_pipeline(&self.basic_pipeline.pipeline);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+
+            // Query and render all entities with mesh, material, and transform
+            let mut render_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
+            let entities_to_render: Vec<_> = render_query
+                .iter()
+                .map(|(entity, (mesh_id, material, transform))| {
+                    (entity, mesh_id.clone(), *material, *transform)
+                })
+                .collect();
+
+            for (entity, mesh_id, material, transform) in entities_to_render {
+                debug!(entity = ?entity, "Rendering entity to target");
+
+                // Ensure mesh is loaded (may borrow self mutably)
+                let _ = self.get_or_create_mesh(&mesh_id);
+
+                // Now access mesh data (no mut borrow)
+                let mesh_data = &self.mesh_cache[&mesh_id.0];
+
+                // Create object uniform
+                let object_uniform = ObjectUniform::new(transform.matrix, material.color);
+                let object_buffer =
+                    object_uniform.create_buffer(&self.context.device, Some("Object Uniform"));
+                let object_bind_group = self
+                    .basic_pipeline
+                    .create_object_bind_group(&self.context.device, &object_buffer);
+
+                // Set object bind group
+                render_pass.set_bind_group(1, &object_bind_group, &[]);
+
+                // Set vertex and index buffers
+                render_pass.set_vertex_buffer(0, mesh_data.vertex_buffer.slice(..));
+                render_pass
+                    .set_index_buffer(mesh_data.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+
+                // Draw
+                render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
+            }
+        }
+
+        // Submit command buffer
+        self.context.submit(std::iter::once(encoder.finish()));
 
         Ok(())
     }

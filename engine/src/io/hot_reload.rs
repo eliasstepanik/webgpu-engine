@@ -28,7 +28,15 @@ struct WatcherControlHandle {
 }
 
 /// Callback function type for reload events
-pub type ReloadCallback = Box<dyn Fn(&mut World, &mut Renderer, &mut AssetManager) -> Result<(), Box<dyn std::error::Error + Send + Sync>> + Send + Sync>;
+pub type ReloadCallback = Box<
+    dyn Fn(
+            &mut World,
+            &mut Renderer,
+            &mut AssetManager,
+        ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+        + Send
+        + Sync,
+>;
 
 /// Configuration for the scene watcher
 #[derive(Debug, Clone)]
@@ -70,15 +78,13 @@ impl SceneWatcher {
 
         // Create the file system watcher
         let mut watcher = RecommendedWatcher::new(
-            move |res| {
-                match res {
-                    Ok(event) => {
-                        if let Err(e) = event_tx.send(event) {
-                            error!(error = %e, "Failed to send file event");
-                        }
+            move |res| match res {
+                Ok(event) => {
+                    if let Err(e) = event_tx.send(event) {
+                        error!(error = %e, "Failed to send file event");
                     }
-                    Err(e) => error!(error = %e, "File watcher error"),
                 }
+                Err(e) => error!(error = %e, "File watcher error"),
             },
             Config::default(),
         )?;
@@ -134,9 +140,9 @@ impl SceneWatcher {
                 Ok(event) => {
                     // Check if this event is for our scene file
                     let should_reload = event.paths.iter().any(|path| {
-                        path == &scene_path || 
-                        (path.is_dir() && scene_path.starts_with(path)) ||
-                        path.file_name() == scene_path.file_name()
+                        path == &scene_path
+                            || (path.is_dir() && scene_path.starts_with(path))
+                            || path.file_name() == scene_path.file_name()
                     });
 
                     if should_reload {
@@ -185,7 +191,7 @@ impl SceneWatcher {
         if let Ok(_callback_guard) = callback.lock() {
             // In practice, this would be called from the main thread with proper resource access
             debug!("Scene reload callback would be executed here");
-            
+
             // The actual implementation would look like:
             // match callback_guard(world, renderer, asset_manager) {
             //     Ok(()) => info!("Scene reloaded successfully"),
@@ -200,7 +206,7 @@ impl SceneWatcher {
     pub fn stop(mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let Some(control) = self.control_handle.take() {
             info!(path = ?self.scene_path, "Stopping scene watcher");
-            
+
             // Send stop signal
             if let Err(e) = control.stop_sender.send(()) {
                 warn!(error = %e, "Failed to send stop signal to watcher thread");
@@ -253,8 +259,9 @@ pub fn reload_scene_with_validation<P: AsRef<Path>>(
     }
 
     // Load scene with validation
-    let (scene, validation_report) = Scene::load_from_file_with_validation(scene_path, asset_manager)?;
-    
+    let (scene, validation_report) =
+        Scene::load_from_file_with_validation(scene_path, asset_manager)?;
+
     // Log validation results
     let summary = validation_report.summary();
     if !summary.is_valid {
@@ -306,7 +313,10 @@ mod tests {
         assert!(watcher.is_ok());
 
         let watcher = watcher.unwrap();
-        assert_eq!(watcher.scene_path().file_name().unwrap(), "test_watcher_scene.json");
+        assert_eq!(
+            watcher.scene_path().file_name().unwrap(),
+            "test_watcher_scene.json"
+        );
 
         // Stop watcher
         watcher.stop().unwrap();
@@ -319,7 +329,7 @@ mod tests {
     fn test_reload_scene_utility() {
         // This test would require actual World, Renderer, and AssetManager instances
         // For now, we just test that the function signature is correct
-        
+
         // In a real implementation, you would:
         // let mut world = World::new();
         // let mut asset_manager = AssetManager::new();

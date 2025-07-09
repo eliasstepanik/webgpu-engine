@@ -9,6 +9,7 @@ pub mod material;
 pub mod mesh;
 pub mod mesh_library;
 pub mod pipeline;
+pub mod render_target;
 pub mod renderer;
 pub mod uniform;
 
@@ -19,5 +20,6 @@ pub use material::{Material, MaterialUniform};
 pub use mesh::{Mesh, Vertex};
 pub use mesh_library::MeshLibrary;
 pub use pipeline::{DepthTexture, RenderPipeline};
+pub use render_target::RenderTarget;
 pub use renderer::{MeshId, Renderer};
 pub use uniform::{CameraUniform, ObjectUniform, UniformBuffer};

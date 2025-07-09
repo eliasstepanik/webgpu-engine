@@ -108,7 +108,7 @@ impl<'window> RenderContext<'window> {
             let mut surface_config = self.surface_config.lock().unwrap();
             surface_config.width = new_size.width;
             surface_config.height = new_size.height;
-            
+
             let surface = self.surface.lock().unwrap();
             surface.configure(&self.device, &surface_config);
         }

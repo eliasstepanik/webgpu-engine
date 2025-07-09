@@ -3,8 +3,13 @@ name = "game"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["editor"]
+editor = ["dep:editor"]
+
 [dependencies]
 engine = { path = "../engine" }
+editor = { path = "../editor", optional = true }
 winit = "0.30"
 pollster = "0.3"
 tracing = "0.1"

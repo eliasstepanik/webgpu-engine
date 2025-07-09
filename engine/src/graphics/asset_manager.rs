@@ -40,16 +40,20 @@ impl AssetManager {
 
         // Check if mesh library can generate it
         let is_valid = self.mesh_library.has_mesh(mesh_name);
-        
+
         // Cache the result
-        self.validated_meshes.insert(mesh_name.to_string(), is_valid);
-        
+        self.validated_meshes
+            .insert(mesh_name.to_string(), is_valid);
+
         if is_valid {
             debug!(mesh_name = mesh_name, "Mesh validation passed");
         } else {
-            warn!(mesh_name = mesh_name, "Mesh validation failed - mesh not available");
+            warn!(
+                mesh_name = mesh_name,
+                "Mesh validation failed - mesh not available"
+            );
         }
-        
+
         is_valid
     }
 
@@ -61,22 +65,25 @@ impl AssetManager {
                 return (mesh, true);
             }
         }
-        
+
         // Return error mesh as fallback
         warn!(mesh_name = mesh_name, "Using error mesh fallback");
         (MeshLibrary::error_mesh(), false)
     }
 
     /// Validate all assets referenced in a scene file
-    pub fn validate_scene_assets<P: AsRef<Path>>(&mut self, scene_path: P) -> Result<AssetValidationReport, Box<dyn std::error::Error>> {
+    pub fn validate_scene_assets<P: AsRef<Path>>(
+        &mut self,
+        scene_path: P,
+    ) -> Result<AssetValidationReport, Box<dyn std::error::Error>> {
         use crate::io::Scene;
-        
+
         let scene_path = scene_path.as_ref();
         info!(path = ?scene_path, "Validating scene assets");
-        
+
         let scene = Scene::load_from_file(scene_path)?;
         let mut report = AssetValidationReport::new(scene_path.to_path_buf());
-        
+
         // Check all entities for graphics components
         for (entity_index, entity) in scene.entities.iter().enumerate() {
             // Check MeshId components
@@ -87,11 +94,11 @@ impl AssetManager {
                         report.add_mesh_reference(entity_index, mesh_id.0, is_valid);
                     }
                     Err(e) => {
-                        report.add_error(entity_index, format!("Invalid MeshId format: {}", e));
+                        report.add_error(entity_index, format!("Invalid MeshId format: {e}"));
                     }
                 }
             }
-            
+
             // Check Material components
             if let Some(material_value) = entity.components.get("Material") {
                 match serde_json::from_value::<Material>(material_value.clone()) {
@@ -99,26 +106,30 @@ impl AssetManager {
                         report.add_material_reference(entity_index, true);
                     }
                     Err(e) => {
-                        report.add_error(entity_index, format!("Invalid Material format: {}", e));
+                        report.add_error(entity_index, format!("Invalid Material format: {e}"));
                     }
                 }
             }
         }
-        
+
         info!(
             total_meshes = report.mesh_references.len(),
-            valid_meshes = report.mesh_references.iter().filter(|(_, _, valid)| *valid).count(),
+            valid_meshes = report
+                .mesh_references
+                .iter()
+                .filter(|(_, _, valid)| *valid)
+                .count(),
             total_materials = report.material_references.len(),
             errors = report.errors.len(),
             "Scene asset validation complete"
         );
-        
+
         Ok(report)
     }
 
     /// Get default material for fallbacks
     pub fn default_material(&self) -> Material {
-        self.default_material.clone()
+        self.default_material
     }
 
     /// Get list of available meshes
@@ -169,7 +180,8 @@ impl AssetValidationReport {
 
     /// Add a mesh reference to the report
     pub fn add_mesh_reference(&mut self, entity_index: usize, mesh_name: String, is_valid: bool) {
-        self.mesh_references.push((entity_index, mesh_name, is_valid));
+        self.mesh_references
+            .push((entity_index, mesh_name, is_valid));
     }
 
     /// Add a material reference to the report
@@ -184,7 +196,7 @@ impl AssetValidationReport {
 
     /// Check if validation passed (no errors and all references valid)
     pub fn is_valid(&self) -> bool {
-        self.errors.is_empty() 
+        self.errors.is_empty()
             && self.mesh_references.iter().all(|(_, _, valid)| *valid)
             && self.material_references.iter().all(|(_, valid)| *valid)
     }
@@ -201,9 +213,17 @@ impl AssetValidationReport {
     pub fn summary(&self) -> AssetValidationSummary {
         AssetValidationSummary {
             total_mesh_references: self.mesh_references.len(),
-            valid_mesh_references: self.mesh_references.iter().filter(|(_, _, valid)| *valid).count(),
+            valid_mesh_references: self
+                .mesh_references
+                .iter()
+                .filter(|(_, _, valid)| *valid)
+                .count(),
             total_material_references: self.material_references.len(),
-            valid_material_references: self.material_references.iter().filter(|(_, valid)| *valid).count(),
+            valid_material_references: self
+                .material_references
+                .iter()
+                .filter(|(_, valid)| *valid)
+                .count(),
             total_errors: self.errors.len(),
             is_valid: self.is_valid(),
         }
@@ -230,7 +250,7 @@ mod tests {
     #[test]
     fn test_asset_manager_creation() {
         let manager = AssetManager::new();
-        
+
         // Should have default meshes available
         assert!(manager.has_mesh("cube"));
         assert!(manager.has_mesh("sphere"));
@@ -242,14 +262,14 @@ mod tests {
     #[test]
     fn test_mesh_validation() {
         let mut manager = AssetManager::new();
-        
+
         // Valid meshes
         assert!(manager.validate_mesh("cube"));
         assert!(manager.validate_mesh("sphere"));
-        
+
         // Invalid mesh
         assert!(!manager.validate_mesh("nonexistent"));
-        
+
         // Should cache results
         assert!(manager.validated_meshes.contains_key("cube"));
         assert!(manager.validated_meshes.contains_key("nonexistent"));
@@ -258,12 +278,12 @@ mod tests {
     #[test]
     fn test_mesh_fallback() {
         let mut manager = AssetManager::new();
-        
+
         // Valid mesh should return requested mesh
         let (mesh, is_original) = manager.get_mesh_or_fallback("cube");
         assert!(is_original);
         assert!(!mesh.vertices.is_empty());
-        
+
         // Invalid mesh should return error mesh
         let (fallback_mesh, is_original) = manager.get_mesh_or_fallback("nonexistent");
         assert!(!is_original);
@@ -273,16 +293,16 @@ mod tests {
     #[test]
     fn test_custom_mesh_registration() {
         let mut manager = AssetManager::new();
-        
+
         // Register custom mesh
         manager.register_mesh("custom_triangle", || {
             // Simple triangle mesh for testing
             Mesh::cube(0.5) // Using cube as placeholder
         });
-        
+
         assert!(manager.has_mesh("custom_triangle"));
         assert!(manager.validate_mesh("custom_triangle"));
-        
+
         let (mesh, is_original) = manager.get_mesh_or_fallback("custom_triangle");
         assert!(is_original);
         assert!(!mesh.vertices.is_empty());
@@ -291,15 +311,15 @@ mod tests {
     #[test]
     fn test_validation_report() {
         let mut report = AssetValidationReport::new("test.json".into());
-        
+
         report.add_mesh_reference(0, "cube".to_string(), true);
         report.add_mesh_reference(1, "invalid".to_string(), false);
         report.add_material_reference(0, true);
         report.add_error(2, "Test error".to_string());
-        
+
         assert!(!report.is_valid()); // Has errors and invalid mesh
         assert_eq!(report.invalid_meshes().len(), 1);
-        
+
         let summary = report.summary();
         assert_eq!(summary.total_mesh_references, 2);
         assert_eq!(summary.valid_mesh_references, 1);
@@ -313,26 +333,34 @@ mod tests {
     fn test_scene_asset_validation() {
         // Create a temporary scene file for testing
         let mut scene = Scene::new();
-        
+
         // Create test entity with components
         let mut components = HashMap::new();
         components.insert("MeshId".to_string(), serde_json::json!({"0": "cube"}));
-        components.insert("Material".to_string(), serde_json::json!({"color": [1.0, 0.0, 0.0, 1.0]}));
-        
-        scene.entities.push(crate::io::SerializedEntity { components });
-        
+        components.insert(
+            "Material".to_string(),
+            serde_json::json!({"color": [1.0, 0.0, 0.0, 1.0]}),
+        );
+
+        scene
+            .entities
+            .push(crate::io::SerializedEntity { components });
+
         // Save to temp file
         let temp_path = "test_asset_validation.json";
         scene.save_to_file(temp_path).unwrap();
-        
+
         // Validate
         let mut manager = AssetManager::new();
         let report = manager.validate_scene_assets(temp_path).unwrap();
-        
+
         // Clean up
         let _ = std::fs::remove_file(temp_path);
-        
+
         // Check report (might have validation issues due to MeshId format)
-        assert_eq!(report.scene_path.file_name().unwrap(), "test_asset_validation.json");
+        assert_eq!(
+            report.scene_path.file_name().unwrap(),
+            "test_asset_validation.json"
+        );
     }
 }

@@ -13,6 +13,22 @@ build: preflight           # run depends on a clean preflight
 run:
     cargo run -p game
 
+# Build with editor feature enabled
+build-editor:
+    cargo build -p game --features editor
+
+# Run with editor feature enabled
+run-editor:
+    cargo run -p game --features editor
+
+# Build without editor (production build)
+build-prod:
+    cargo build -p game --release --no-default-features
+
+# Run without editor (production mode)
+run-prod:
+    cargo run -p game --release --no-default-features
+
 # Roll back to a stable release tag and rebuild
 rollback tag:
     git fetch --tags

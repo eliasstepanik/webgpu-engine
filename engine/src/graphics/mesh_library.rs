@@ -26,9 +26,12 @@ impl MeshLibrary {
         library.register("cube", Box::new(|| Mesh::cube(1.0)));
         library.register("sphere", Box::new(|| Mesh::sphere(0.5, 32, 16)));
         library.register("plane", Box::new(|| Mesh::plane(2.0, 2.0)));
-        library.register("error_mesh", Box::new(|| Self::create_error_mesh()));
+        library.register("error_mesh", Box::new(Self::create_error_mesh));
 
-        debug!("Initialized mesh library with {} default meshes", library.generators.len());
+        debug!(
+            "Initialized mesh library with {} default meshes",
+            library.generators.len()
+        );
 
         library
     }
@@ -38,7 +41,8 @@ impl MeshLibrary {
     where
         F: Fn() -> Mesh + Send + Sync + 'static,
     {
-        self.generators.insert(name.to_string(), Box::new(generator));
+        self.generators
+            .insert(name.to_string(), Box::new(generator));
         debug!(mesh_name = name, "Registered mesh generator");
     }
 
@@ -90,10 +94,10 @@ mod tests {
     #[test]
     fn test_mesh_generation() {
         let library = MeshLibrary::new();
-        
+
         let cube = library.get_or_generate("cube");
         assert!(cube.is_some());
-        
+
         let nonexistent = library.get_or_generate("nonexistent");
         assert!(nonexistent.is_none());
     }
@@ -101,10 +105,10 @@ mod tests {
     #[test]
     fn test_custom_mesh_registration() {
         let mut library = MeshLibrary::new();
-        
+
         library.register("custom_cube", Box::new(|| Mesh::cube(1.0)));
         assert!(library.has_mesh("custom_cube"));
-        
+
         let custom_mesh = library.get_or_generate("custom_cube");
         assert!(custom_mesh.is_some());
     }
@@ -120,7 +124,7 @@ mod tests {
     fn test_available_meshes() {
         let library = MeshLibrary::new();
         let meshes = library.available_meshes();
-        
+
         assert!(meshes.contains(&"cube".to_string()));
         assert!(meshes.contains(&"sphere".to_string()));
         assert!(meshes.contains(&"plane".to_string()));
