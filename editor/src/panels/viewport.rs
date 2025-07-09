@@ -10,6 +10,10 @@ pub fn render_viewport_panel(
 ) {
     ui.window("Viewport").resizable(true).build(|| {
         let available_size = ui.content_region_avail();
+        tracing::debug!(
+            "Rendering viewport panel: texture_id={:?}, available_size={:?}, render_target_size={:?}",
+            texture_id, available_size, render_target.size
+        );
 
         // Check if viewport needs resizing
         let new_size = (available_size[0] as u32, available_size[1] as u32);

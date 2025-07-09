@@ -141,7 +141,7 @@ impl EditorState {
             .prepare_frame(imgui_context.io_mut(), window)
             .expect("Initial frame preparation failed");
 
-        Self {
+        let mut editor = Self {
             imgui_context,
             imgui_platform,
             imgui_renderer,
@@ -150,7 +150,20 @@ impl EditorState {
             selected_entity: None,
             ui_mode: true,
             _frame_count: 0,
+        };
+        
+        // Force proper initialization by doing a dummy frame
+        // This ensures all imgui state is properly set up
+        {
+            let io = editor.imgui_context.io_mut();
+            io.display_size = [surface_size.0 as f32, surface_size.1 as f32];
+            io.display_framebuffer_scale = [scale_factor, scale_factor];
+            
+            // Build a dummy frame to initialize imgui properly
+            let _ui = editor.imgui_context.new_frame();
         }
+        
+        editor
     }
 
     /// Handle winit events
@@ -220,9 +233,28 @@ impl EditorState {
             self.imgui_platform
                 .handle_event(self.imgui_context.io_mut(), window, event);
 
-            // Always consume events in UI mode
-            // Don't rely on want_capture flags as they may not be set correctly yet
-            return true;
+            // Check if imgui wants to capture this event
+            let io = self.imgui_context.io();
+            let wants_keyboard = io.want_capture_keyboard;
+            let wants_mouse = io.want_capture_mouse;
+            
+            // For keyboard events, only consume if imgui wants keyboard
+            if matches!(event, Event::WindowEvent { event: WindowEvent::KeyboardInput { .. }, .. }) {
+                return wants_keyboard;
+            }
+            
+            // For mouse events, only consume if imgui wants mouse
+            if matches!(event, Event::WindowEvent { 
+                event: WindowEvent::CursorMoved { .. } 
+                | WindowEvent::MouseInput { .. } 
+                | WindowEvent::MouseWheel { .. }, 
+                .. 
+            }) {
+                return wants_mouse;
+            }
+            
+            // For other events in UI mode, don't consume
+            return false;
         }
 
         false
@@ -288,6 +320,7 @@ impl EditorState {
         renderer: &mut engine::graphics::renderer::Renderer,
         world: &World,
     ) {
+        debug!("Rendering game to viewport texture, render_target size: {:?}", self.render_target.size);
         // Render the game to our render target texture
         if let Err(e) = renderer.render_to_target(world, &self.render_target) {
             tracing::error!("Failed to render to viewport: {e:?}");

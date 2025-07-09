@@ -62,13 +62,17 @@ fn main() {
                 // Let editor handle events first if enabled
                 #[cfg(feature = "editor")]
                 {
-                    if editor_state.handle_event(
+                    // Only let editor handle window events, not all events
+                    let should_consume = editor_state.handle_event(
                         &window,
                         &Event::WindowEvent {
                             event: event.clone(),
                             window_id: window.id(),
                         },
-                    ) {
+                    );
+                    
+                    // Don't return early for critical events like RedrawRequested
+                    if should_consume && !matches!(event, WindowEvent::RedrawRequested) {
                         return; // Event consumed by editor
                     }
                 }
@@ -135,6 +139,9 @@ fn main() {
                         {
                             // Begin editor frame FIRST
                             editor_state.begin_frame(&window, &render_context);
+                            
+                            // Render game to viewport texture (after imgui frame started but before UI)
+                            editor_state.render_viewport(&mut renderer, &world);
 
                             // Get surface texture for final rendering
                             let surface_texture = match render_context
@@ -209,9 +216,6 @@ fn main() {
                                     });
                                 // Render pass automatically ends when dropped
                             }
-
-                            // Now render game to viewport texture (after imgui frame started)
-                            editor_state.render_viewport(&mut renderer, &world);
 
                             // Render editor UI and ImGui to screen
                             editor_state.render_ui_and_draw(
