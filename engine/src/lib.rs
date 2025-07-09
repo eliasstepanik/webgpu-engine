@@ -9,6 +9,7 @@ pub mod graphics;
 pub mod input;
 pub mod io;
 pub mod shaders;
+pub mod utils;
 
 // Re-export commonly used types
 pub mod prelude {

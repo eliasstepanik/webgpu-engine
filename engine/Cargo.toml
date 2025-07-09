@@ -5,7 +5,7 @@ edition = "2021"
 
 [[example]]
 name = "scene_demo"
-path = "../examples/scene_demo.rs"
+path = "../.claude/examples/scene_demo.rs"
 
 [dependencies]
 wgpu = "25.0.2"
