@@ -102,6 +102,10 @@ fn main() {
                         // Renderer.resize() now handles both RenderContext and depth texture resize
                         renderer.resize(new_size);
 
+                        // Resize editor if enabled
+                        #[cfg(feature = "editor")]
+                        editor_state.resize(&render_context, new_size);
+
                         // Update camera aspect ratio
                         for (_, camera) in world.query_mut::<&mut Camera>() {
                             camera.set_aspect_ratio(new_size.width as f32 / new_size.height as f32);
@@ -129,11 +133,8 @@ fn main() {
                         // Render based on editor mode
                         #[cfg(feature = "editor")]
                         {
-                            // Begin editor frame
+                            // Begin editor frame FIRST
                             editor_state.begin_frame(&window, &render_context);
-
-                            // Render game to viewport texture
-                            editor_state.render_viewport(&mut renderer, &world);
 
                             // Get surface texture for final rendering
                             let surface_texture = match render_context
@@ -143,6 +144,28 @@ fn main() {
                                 .get_current_texture()
                             {
                                 Ok(texture) => texture,
+                                Err(wgpu::SurfaceError::Outdated) => {
+                                    // Surface is outdated, likely due to resize
+                                    info!("Surface outdated, reconfiguring");
+                                    let size = window.inner_size();
+                                    render_context.resize(size);
+                                    renderer.resize(size);
+                                    editor_state.resize(&render_context, size);
+
+                                    // Update camera aspect ratio
+                                    for (_, camera) in world.query_mut::<&mut Camera>() {
+                                        camera.set_aspect_ratio(size.width as f32 / size.height as f32);
+                                    }
+
+                                    // Try again after reconfiguration
+                                    match render_context.surface.lock().unwrap().get_current_texture() {
+                                        Ok(texture) => texture,
+                                        Err(e) => {
+                                            tracing::error!("Failed to get surface texture after reconfigure: {:?}", e);
+                                            return;
+                                        }
+                                    }
+                                }
                                 Err(e) => {
                                     tracing::error!("Failed to get surface texture: {:?}", e);
                                     return;
@@ -187,6 +210,9 @@ fn main() {
                                 // Render pass automatically ends when dropped
                             }
 
+                            // Now render game to viewport texture (after imgui frame started)
+                            editor_state.render_viewport(&mut renderer, &world);
+
                             // Render editor UI and ImGui to screen
                             editor_state.render_ui_and_draw(
                                 &mut world,
@@ -207,8 +233,8 @@ fn main() {
                             // Render frame normally when editor is disabled
                             match renderer.render(&world) {
                                 Ok(_) => {}
-                                Err(wgpu::SurfaceError::Lost) => {
-                                    info!("Surface lost, reconfiguring");
+                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                                    info!("Surface lost or outdated, reconfiguring");
                                     let size = window.inner_size();
                                     // Renderer.resize() now handles both RenderContext and depth texture resize
                                     renderer.resize(size);

@@ -29,7 +29,7 @@ pub struct EditorState {
     /// Current input mode (true = editor UI, false = game input)
     pub ui_mode: bool,
     /// Frame counter to skip initial frames during window setup
-    frame_count: u32,
+    _frame_count: u32,
 }
 
 impl EditorState {
@@ -136,6 +136,11 @@ impl EditorState {
 
         info!("Editor initialized - Press Tab to toggle between Editor UI and Game Input modes");
 
+        // Force initial event processing to ensure imgui is properly initialized
+        imgui_platform
+            .prepare_frame(imgui_context.io_mut(), window)
+            .expect("Initial frame preparation failed");
+
         Self {
             imgui_context,
             imgui_platform,
@@ -144,13 +149,17 @@ impl EditorState {
             texture_id,
             selected_entity: None,
             ui_mode: true,
-            frame_count: 0,
+            _frame_count: 0,
         }
     }
 
     /// Handle winit events
     /// Returns true if the event was consumed by the editor
     pub fn handle_event(&mut self, window: &winit::window::Window, event: &Event<()>) -> bool {
+        debug!(
+            "Editor handle_event: ui_mode={}, event={:?}",
+            self.ui_mode, event
+        );
         // Add explicit DPI handling for scale factor changes
         if let Event::WindowEvent {
             event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
@@ -207,21 +216,20 @@ impl EditorState {
 
         // If in UI mode, let imgui handle ALL events
         if self.ui_mode {
+            // Process the event
             self.imgui_platform
                 .handle_event(self.imgui_context.io_mut(), window, event);
-            return self.imgui_context.io().want_capture_mouse
-                || self.imgui_context.io().want_capture_keyboard;
+
+            // Always consume events in UI mode
+            // Don't rely on want_capture flags as they may not be set correctly yet
+            return true;
         }
 
         false
     }
 
     /// Begin a new frame
-    pub fn begin_frame(
-        &mut self,
-        window: &winit::window::Window,
-        render_context: &RenderContext,
-    ) {
+    pub fn begin_frame(&mut self, window: &winit::window::Window, render_context: &RenderContext) {
         // --- 1. Query current surface size (physical pixels) -------------------
         let surface_size = {
             let cfg = render_context.surface_config.lock().unwrap();
@@ -230,19 +238,32 @@ impl EditorState {
 
         // --- 2. Convert to logical units and write once ------------------------
         let dpi = window.scale_factor() as f32;
-        {
-            let io = self.imgui_context.io_mut();
-            io.display_size = [
-                surface_size.0 as f32 / dpi,
-                surface_size.1 as f32 / dpi,
-            ];
-            io.display_framebuffer_scale = [dpi, dpi];
-        }
+        let logical_size = [surface_size.0 as f32 / dpi, surface_size.1 as f32 / dpi];
+        debug!(
+            "Begin frame: surface_size={:?}, display_size={:?}",
+            surface_size, logical_size
+        );
 
-        // --- 3. Prepare the frame ---------------------------------------------
+        // --- 3. Prepare the frame first (this syncs with winit) ----------------
         self.imgui_platform
             .prepare_frame(self.imgui_context.io_mut(), window)
             .expect("imgui prepare_frame failed");
+
+        // --- 4. Force correct display size AFTER prepare_frame ------------------
+        // prepare_frame might have set incorrect values, so we override them
+        {
+            let io = self.imgui_context.io_mut();
+            let old_size = io.display_size;
+            io.display_size = logical_size;
+            io.display_framebuffer_scale = [dpi, dpi];
+
+            if old_size != logical_size {
+                debug!(
+                    "Corrected ImGui display size from {:?} to {:?} (surface: {:?})",
+                    old_size, logical_size, surface_size
+                );
+            }
+        }
 
         // --- 4. Sanity-check the mapping (debug only) --------------------------
         debug_assert_eq!(
@@ -288,9 +309,9 @@ impl EditorState {
         // -------------------------------------------------------------------- sizes
         let surface_size = {
             let cfg = render_context.surface_config.lock().unwrap();
-            (cfg.width, cfg.height)                         // physical pixels
+            (cfg.width, cfg.height) // physical pixels
         };
-        let dpi = window.scale_factor() as f32;
+        let _dpi = window.scale_factor() as f32;
 
         // ImGui logical → physical
         let io = self.imgui_context.io();
@@ -302,13 +323,13 @@ impl EditorState {
         // Abort the frame when sizes disagree
         if imgui_phys != surface_size {
             tracing::error!(
-            "Size mismatch: surface={}x{}, imgui(logical)={:?}, imgui(physical)={}x{}",
-            surface_size.0,
-            surface_size.1,
-            io.display_size,
-            imgui_phys.0,
-            imgui_phys.1
-        );
+                "Size mismatch: surface={}x{}, imgui(logical)={:?}, imgui(physical)={}x{}",
+                surface_size.0,
+                surface_size.1,
+                io.display_size,
+                imgui_phys.0,
+                imgui_phys.1
+            );
             return;
         }
 
@@ -318,17 +339,29 @@ impl EditorState {
         // Main-menu bar --------------------------------------------------------
         ui.main_menu_bar(|| {
             ui.menu("File", || {
-                if ui.menu_item("New Scene")      { info!("New scene requested"); }
-                if ui.menu_item("Load Scene…")    { info!("Load scene requested"); }
-                if ui.menu_item("Save Scene…")    { info!("Save scene requested"); }
+                if ui.menu_item("New Scene") {
+                    info!("New scene requested");
+                }
+                if ui.menu_item("Load Scene…") {
+                    info!("Load scene requested");
+                }
+                if ui.menu_item("Save Scene…") {
+                    info!("Save scene requested");
+                }
                 ui.separator();
-                if ui.menu_item("Exit")           { std::process::exit(0); }
+                if ui.menu_item("Exit") {
+                    std::process::exit(0);
+                }
             });
             ui.menu("View", || {
-                if ui.menu_item("Reset Layout")   { info!("Reset layout requested"); }
+                if ui.menu_item("Reset Layout") {
+                    info!("Reset layout requested");
+                }
             });
             ui.menu("Help", || {
-                if ui.menu_item("About")          { info!("About requested"); }
+                if ui.menu_item("About") {
+                    info!("About requested");
+                }
             });
         });
 
@@ -347,13 +380,21 @@ impl EditorState {
             .movable(false)
             .scroll_bar(false)
             .build(|| {
-                ui.text(if self.ui_mode { "Mode: Editor" } else { "Mode: Game" });
-                ui.same_line(); ui.separator(); ui.same_line();
+                ui.text(if self.ui_mode {
+                    "Mode: Editor"
+                } else {
+                    "Mode: Game"
+                });
+                ui.same_line();
+                ui.separator();
+                ui.same_line();
                 ui.text(format!("Entities: {}", world.query::<()>().iter().count()));
-                ui.same_line(); ui.separator(); ui.same_line();
+                ui.same_line();
+                ui.separator();
+                ui.same_line();
                 match self.selected_entity {
                     Some(e) => ui.text(format!("Selected: {e:?}")),
-                    None    => ui.text("No selection"),
+                    None => ui.text("No selection"),
                 }
             });
 
@@ -368,12 +409,12 @@ impl EditorState {
         );
         if draw_phys != surface_size {
             tracing::error!(
-            "Draw-data size mismatch: draw={}x{}, surface={}x{}",
-            draw_phys.0,
-            draw_phys.1,
-            surface_size.0,
-            surface_size.1
-        );
+                "Draw-data size mismatch: draw={}x{}, surface={}x{}",
+                draw_phys.0,
+                draw_phys.1,
+                surface_size.0,
+                surface_size.1
+            );
             return;
         }
 
@@ -383,7 +424,10 @@ impl EditorState {
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view,
                 resolve_target: None,
-                ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
             })],
             depth_stencil_attachment: None,
             timestamp_writes: None,
@@ -429,14 +473,26 @@ impl EditorState {
 
         // Get surface format from surface config
         let surface_format = render_context.surface_config.lock().unwrap().format;
-        
+
+        // Store the old texture existence status before recreating renderer
+        let old_texture_exists = self.imgui_renderer.textures.get(self.texture_id).is_some();
+        debug!(
+            "Editor resize: old_texture_exists={}, new_size={:?}",
+            old_texture_exists, new_size
+        );
+
+        // Only remove if it exists in current renderer
+        if old_texture_exists {
+            self.imgui_renderer.textures.remove(self.texture_id);
+        }
+
         // CRITICAL: Recreate the imgui renderer to ensure it uses the new viewport size
         // This prevents scissor rect validation errors from cached viewport dimensions
         let renderer_config = RendererConfig {
             texture_format: surface_format,
             ..Default::default()
         };
-        
+
         self.imgui_renderer = Renderer::new(
             &mut self.imgui_context,
             &render_context.device,
@@ -451,9 +507,6 @@ impl EditorState {
             actual_height,
             surface_format,
         );
-
-        // Remove old texture and register new one
-        self.imgui_renderer.textures.remove(self.texture_id);
 
         // Create texture configuration for the render target
         let texture_config = imgui_wgpu::RawTextureConfig {
