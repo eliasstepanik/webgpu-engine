@@ -54,22 +54,29 @@ impl EditorState {
         // Create platform integration
         let mut imgui_platform = WinitPlatform::new(&mut imgui_context);
 
-        // Get the actual window size before attaching
-        let size = window.inner_size();
+        // Get the actual surface size from render context
+        let surface_size = {
+            let surface_config = render_context.surface_config.lock().unwrap();
+            (surface_config.width, surface_config.height)
+        };
         let scale_factor = window.scale_factor() as f32;
 
         // Configure platform before attaching window
         imgui_platform.attach_window(imgui_context.io_mut(), window, HiDpiMode::Default);
-        
+
         // CRITICAL: Force correct display size after attaching window
         // This overrides any default size imgui-winit might have set
         let io = imgui_context.io_mut();
-        io.display_size = [size.width as f32, size.height as f32];
+        io.display_size = [surface_size.0 as f32, surface_size.1 as f32];
         io.display_framebuffer_scale = [scale_factor, scale_factor];
 
         debug!(
-            "ImGui initial display size forced to: {}x{}, scale: {}",
-            size.width, size.height, scale_factor
+            "ImGui initial display size forced to: {}x{}, scale: {} (window reports {}x{})",
+            surface_size.0,
+            surface_size.1,
+            scale_factor,
+            window.inner_size().width,
+            window.inner_size().height
         );
 
         // Get surface format from surface config
@@ -88,12 +95,11 @@ impl EditorState {
             renderer_config,
         );
 
-        // Create render target for viewport
-        let size = window.inner_size();
+        // Create render target for viewport using surface size
         let render_target = RenderTarget::new(
             &render_context.device,
-            size.width,
-            size.height,
+            surface_size.0,
+            surface_size.1,
             surface_format,
         );
 
@@ -112,7 +118,7 @@ impl EditorState {
                 ..Default::default()
             },
         };
-        
+
         let imgui_texture = imgui_wgpu::Texture::from_raw_parts(
             &render_context.device,
             &imgui_renderer,
@@ -121,8 +127,8 @@ impl EditorState {
             None,
             Some(&texture_config),
             wgpu::Extent3d {
-                width: size.width,
-                height: size.height,
+                width: surface_size.0,
+                height: surface_size.1,
                 depth_or_array_layers: 1,
             },
         );
@@ -151,23 +157,35 @@ impl EditorState {
             ..
         } = event
         {
+            // Note: We don't have access to surface size here, but we need to handle the scale factor
+            // The actual size will be corrected in begin_frame when we have access to render_context
             let window_size = window.inner_size();
-            let physical_size = (window_size.width, window_size.height);
-            let logical_size = (
-                (window_size.width as f64 / scale_factor) as f32,
-                (window_size.height as f64 / scale_factor) as f32,
-            );
+
+            // Calculate logical size with proper rounding to avoid fractional pixels
+            let logical_width = (window_size.width as f64 / scale_factor).round();
+            let logical_height = (window_size.height as f64 / scale_factor).round();
+
+            // Calculate the exact physical size that corresponds to the rounded logical size
+            let exact_physical_width = (logical_width * scale_factor) as u32;
+            let exact_physical_height = (logical_height * scale_factor) as u32;
 
             debug!(
-                physical_size = ?physical_size,
-                logical_size = ?logical_size,
-                scale_factor = scale_factor,
-                "Window scale factor changed"
+                "Scale factor changed to {}: window={}x{}, logical={}x{}, exact_physical={}x{}",
+                scale_factor,
+                window_size.width,
+                window_size.height,
+                logical_width,
+                logical_height,
+                exact_physical_width,
+                exact_physical_height
             );
 
             // Update ImGui's scale factor
-            self.imgui_context.io_mut().display_framebuffer_scale =
-                [*scale_factor as f32, *scale_factor as f32];
+            let io = self.imgui_context.io_mut();
+            io.display_framebuffer_scale = [*scale_factor as f32, *scale_factor as f32];
+
+            // Note: We're not updating display_size here as we should use surface size
+            // which will be set correctly in begin_frame
         }
 
         // Check for Tab key to toggle input mode
@@ -199,22 +217,25 @@ impl EditorState {
     }
 
     /// Begin a new frame
-    pub fn begin_frame(&mut self, window: &winit::window::Window) {
-        // Get the actual window size
-        let size = window.inner_size();
+    pub fn begin_frame(&mut self, window: &winit::window::Window, render_context: &RenderContext) {
+        // Get the actual surface size from render context
+        let surface_size = {
+            let surface_config = render_context.surface_config.lock().unwrap();
+            (surface_config.width, surface_config.height)
+        };
         let scale_factor = window.scale_factor() as f32;
 
         // Update ImGui's display size BEFORE prepare_frame
         let io = self.imgui_context.io_mut();
         let old_size = io.display_size;
-        io.display_size = [size.width as f32, size.height as f32];
+        io.display_size = [surface_size.0 as f32, surface_size.1 as f32];
         io.display_framebuffer_scale = [scale_factor, scale_factor];
 
         // Log if size changed
         if old_size[0] != io.display_size[0] || old_size[1] != io.display_size[1] {
             debug!(
-                "ImGui display size updated: {:?} -> {:?}",
-                old_size, io.display_size
+                "ImGui display size updated: {:?} -> {:?} (surface size: {}x{})",
+                old_size, io.display_size, surface_size.0, surface_size.1
             );
         }
 
@@ -265,41 +286,43 @@ impl EditorState {
             (surface_config.width, surface_config.height)
         };
 
-        // Double-check that ImGui's display size matches the render target
+        // Get all relevant sizes for comprehensive validation
         let window_size = window.inner_size();
-        let io = self.imgui_context.io_mut();
+        let imgui_size = self.imgui_context.io().display_size;
 
-        // Check if window size matches render target size
-        if window_size.width != render_target_size.0 || window_size.height != render_target_size.1 {
-            tracing::warn!(
-                "Window size doesn't match render target: window={}x{}, target={}x{}",
+        // Comprehensive validation - all sizes should match surface config
+        let surface_matches_imgui = render_target_size.0 as f32 == imgui_size[0]
+            && render_target_size.1 as f32 == imgui_size[1];
+
+        if !surface_matches_imgui {
+            tracing::error!(
+                "Size mismatch detected! surface={}x{}, window={}x{}, imgui={:?}",
+                render_target_size.0,
+                render_target_size.1,
                 window_size.width,
                 window_size.height,
-                render_target_size.0,
-                render_target_size.1
+                imgui_size
             );
-            // Skip rendering this frame to avoid scissor rect errors
+
+            // Force correct size and skip this frame
+            self.imgui_context.io_mut().display_size =
+                [render_target_size.0 as f32, render_target_size.1 as f32];
             return;
         }
 
-        if io.display_size[0] != window_size.width as f32
-            || io.display_size[1] != window_size.height as f32
-        {
-            tracing::warn!(
-                "ImGui display size mismatch: imgui=[{}, {}], window=[{}, {}]",
-                io.display_size[0],
-                io.display_size[1],
-                window_size.width,
-                window_size.height
+        // Additional validation: log if window size differs from surface (common on Windows)
+        if window_size.width != render_target_size.0 || window_size.height != render_target_size.1 {
+            debug!(
+                "Window inner size differs from surface: window={}x{}, surface={}x{}",
+                window_size.width, window_size.height, render_target_size.0, render_target_size.1
             );
-            // Update the size
-            io.display_size = [window_size.width as f32, window_size.height as f32];
         }
 
         // CRITICAL: Update display size one more time right before new_frame
         // to ensure it matches the render target size
-        self.imgui_context.io_mut().display_size = [render_target_size.0 as f32, render_target_size.1 as f32];
-        
+        self.imgui_context.io_mut().display_size =
+            [render_target_size.0 as f32, render_target_size.1 as f32];
+
         let ui = self.imgui_context.new_frame();
 
         // Since docking is not available, we'll use a simpler layout
@@ -394,17 +417,23 @@ impl EditorState {
         }
 
         // CRITICAL: Ensure draw data display size matches render target
-        if draw_data.display_size[0] != render_target_size.0 as f32 
-            || draw_data.display_size[1] != render_target_size.1 as f32 {
+        if draw_data.display_size[0] != render_target_size.0 as f32
+            || draw_data.display_size[1] != render_target_size.1 as f32
+        {
             tracing::error!(
                 "Draw data size mismatch! draw_data: {:?}, render_target: {:?}",
                 draw_data.display_size,
                 render_target_size
             );
             // Force correct size by updating context and skipping this frame
-            self.imgui_context.io_mut().display_size = [render_target_size.0 as f32, render_target_size.1 as f32];
+            self.imgui_context.io_mut().display_size =
+                [render_target_size.0 as f32, render_target_size.1 as f32];
             return;
         }
+
+        // Note: In imgui-rs 0.12, we cannot directly access clip rects from DrawCmd
+        // The scissor rect validation is handled internally by imgui-wgpu
+        // Our size validation above should prevent scissor rect errors
 
         // Create a render pass for ImGui
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -465,7 +494,7 @@ impl EditorState {
 
         // Remove old texture and register new one
         self.imgui_renderer.textures.remove(self.texture_id);
-        
+
         // Create texture configuration for the render target
         let texture_config = imgui_wgpu::RawTextureConfig {
             label: Some("Editor Viewport Texture"),
@@ -480,7 +509,7 @@ impl EditorState {
                 ..Default::default()
             },
         };
-        
+
         let imgui_texture = imgui_wgpu::Texture::from_raw_parts(
             &render_context.device,
             &self.imgui_renderer,

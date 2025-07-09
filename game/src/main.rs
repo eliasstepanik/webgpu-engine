@@ -130,7 +130,7 @@ fn main() {
                         #[cfg(feature = "editor")]
                         {
                             // Begin editor frame
-                            editor_state.begin_frame(&window);
+                            editor_state.begin_frame(&window, &render_context);
 
                             // Render game to viewport texture
                             editor_state.render_viewport(&mut renderer, &world);
