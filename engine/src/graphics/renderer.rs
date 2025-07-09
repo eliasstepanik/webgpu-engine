@@ -49,15 +49,18 @@ impl<'window> Renderer<'window> {
     pub fn new(context: Arc<RenderContext<'window>>) -> Self {
         info!("Initializing renderer");
 
+        // Get surface config
+        let surface_config = context.surface_config();
+
         // Create render pipeline
         let basic_pipeline =
-            RenderPipeline::new_basic_3d(&context.device, context.surface_config.format);
+            RenderPipeline::new_basic_3d(&context.device, surface_config.format);
 
         // Create depth texture
         let depth_texture = DepthTexture::new(
             &context.device,
-            context.surface_config.width,
-            context.surface_config.height,
+            surface_config.width,
+            surface_config.height,
         );
 
         // Create camera uniform buffer
@@ -83,6 +86,10 @@ impl<'window> Renderer<'window> {
     /// Resize the renderer when the window size changes
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
+            // Resize the render context surface configuration
+            self.context.resize(new_size);
+            
+            // Recreate the depth texture with the new size
             self.depth_texture =
                 DepthTexture::new(&self.context.device, new_size.width, new_size.height);
         }

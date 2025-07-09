@@ -58,8 +58,7 @@ fn main() {
                 }
                 WindowEvent::Resized(physical_size) => {
                     info!("Window resized to {:?}", physical_size);
-                    // TODO: Handle resize properly with Arc<RenderContext>
-                    // render_context.resize(physical_size);
+                    // Renderer.resize() now handles both RenderContext and depth texture resize
                     renderer.resize(physical_size);
 
                     // Update camera aspect ratio
@@ -74,8 +73,7 @@ fn main() {
                     // In winit 0.30, we need to handle scale factor changes differently
                     // The window size is automatically updated, so we just need to get the new size
                     let new_size = window.inner_size();
-                    // TODO: Handle resize properly with Arc<RenderContext>
-                    // render_context.resize(new_size);
+                    // Renderer.resize() now handles both RenderContext and depth texture resize
                     renderer.resize(new_size);
 
                     // Update camera aspect ratio
@@ -101,8 +99,7 @@ fn main() {
                         Err(wgpu::SurfaceError::Lost) => {
                             info!("Surface lost, reconfiguring");
                             let size = window.inner_size();
-                            // TODO: Handle resize properly with Arc<RenderContext>
-                            // render_context.resize(size);
+                            // Renderer.resize() now handles both RenderContext and depth texture resize
                             renderer.resize(size);
                         }
                         Err(wgpu::SurfaceError::OutOfMemory) => {

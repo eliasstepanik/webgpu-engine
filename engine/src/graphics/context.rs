@@ -3,7 +3,7 @@
 //! Provides the main rendering context that manages the WebGPU device,
 //! queue, surface, and configuration for rendering operations.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tracing::info;
 
 /// Main rendering context for the engine
@@ -18,9 +18,9 @@ pub struct RenderContext<'window> {
     /// Command queue for submitting GPU work
     pub queue: Arc<wgpu::Queue>,
     /// Surface for presenting rendered frames
-    pub surface: wgpu::Surface<'window>,
+    pub surface: Mutex<wgpu::Surface<'window>>,
     /// Current surface configuration
-    pub surface_config: wgpu::SurfaceConfiguration,
+    pub surface_config: Mutex<wgpu::SurfaceConfiguration>,
     /// Adapter information for debugging
     pub adapter_info: wgpu::AdapterInfo,
 }
@@ -96,18 +96,21 @@ impl<'window> RenderContext<'window> {
         Ok(Self {
             device: Arc::new(device),
             queue: Arc::new(queue),
-            surface,
-            surface_config,
+            surface: Mutex::new(surface),
+            surface_config: Mutex::new(surface_config),
             adapter_info,
         })
     }
 
     /// Resize the surface when the window size changes
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+    pub fn resize(&self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
-            self.surface_config.width = new_size.width;
-            self.surface_config.height = new_size.height;
-            self.surface.configure(&self.device, &self.surface_config);
+            let mut surface_config = self.surface_config.lock().unwrap();
+            surface_config.width = new_size.width;
+            surface_config.height = new_size.height;
+            
+            let surface = self.surface.lock().unwrap();
+            surface.configure(&self.device, &surface_config);
         }
     }
 
@@ -115,7 +118,8 @@ impl<'window> RenderContext<'window> {
     ///
     /// This should be called at the beginning of each frame.
     pub fn get_current_texture(&self) -> Result<wgpu::SurfaceTexture, wgpu::SurfaceError> {
-        self.surface.get_current_texture()
+        let surface = self.surface.lock().unwrap();
+        surface.get_current_texture()
     }
 
     /// Create a command encoder for recording GPU commands
@@ -127,6 +131,11 @@ impl<'window> RenderContext<'window> {
     /// Submit command buffers to the GPU queue
     pub fn submit<I: IntoIterator<Item = wgpu::CommandBuffer>>(&self, command_buffers: I) {
         self.queue.submit(command_buffers);
+    }
+
+    /// Get the current surface configuration
+    pub fn surface_config(&self) -> wgpu::SurfaceConfiguration {
+        self.surface_config.lock().unwrap().clone()
     }
 }
 
