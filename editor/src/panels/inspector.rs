@@ -2,55 +2,63 @@
 //!
 //! Displays and allows editing of components for the selected entity.
 
-use engine::prelude::{Camera, Material, MeshId, Parent, Transform, World};
+use crate::panel_state::{PanelId, PanelManager};
+use crate::panels::detachable::detachable_window;
+use crate::shared_state::EditorSharedState;
+use engine::prelude::{Camera, Material, MeshId, Parent, Transform};
 use imgui::*;
 use tracing::debug;
 
 /// Render the component inspector panel
 pub fn render_inspector_panel(
     ui: &imgui::Ui,
-    world: &mut World,
-    selected_entity: Option<hecs::Entity>,
+    shared_state: &EditorSharedState,
+    panel_manager: &mut PanelManager,
 ) {
-    ui.window("Inspector").resizable(true).build(|| {
-        if let Some(entity) = selected_entity {
+    let panel_id = PanelId("inspector".to_string());
+
+    detachable_window(ui, &panel_id, panel_manager, || {
+        if let Some(entity) = shared_state.selected_entity() {
             ui.text(format!("Entity: {entity:?}"));
             ui.separator();
 
-            // Transform component
-            if let Ok(transform) = world.get::<&Transform>(entity) {
-                if ui.collapsing_header("Transform", TreeNodeFlags::DEFAULT_OPEN) {
-                    render_transform_inspector(ui, &transform);
+            // Access world data through shared state
+            shared_state.with_world_read(|world| {
+                // Transform component
+                if let Ok(transform) = world.get::<&Transform>(entity) {
+                    if ui.collapsing_header("Transform", TreeNodeFlags::DEFAULT_OPEN) {
+                        render_transform_inspector(ui, &transform);
+                    }
                 }
-            }
 
-            // Parent component
-            if let Ok(parent) = world.get::<&Parent>(entity) {
-                ui.text("Parent:");
-                ui.same_line();
-                ui.text(format!("{:?}", parent.0));
-            }
-
-            // Camera component
-            if let Ok(camera) = world.get::<&Camera>(entity) {
-                if ui.collapsing_header("Camera", TreeNodeFlags::DEFAULT_OPEN) {
-                    render_camera_inspector(ui, &camera);
+                // Parent component
+                if let Ok(parent) = world.get::<&Parent>(entity) {
+                    ui.text("Parent:");
+                    ui.same_line();
+                    ui.text(format!("{:?}", parent.0));
                 }
-            }
 
-            // Material component
-            if let Ok(material) = world.get::<&Material>(entity) {
-                if ui.collapsing_header("Material", TreeNodeFlags::DEFAULT_OPEN) {
-                    render_material_inspector(ui, &material);
+                // Camera component
+                if let Ok(camera) = world.get::<&Camera>(entity) {
+                    if ui.collapsing_header("Camera", TreeNodeFlags::DEFAULT_OPEN) {
+                        render_camera_inspector(ui, &camera);
+                    }
                 }
-            }
 
-            // MeshId component
-            if let Ok(mesh_id) = world.get::<&MeshId>(entity) {
-                if ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
-                    render_mesh_inspector(ui, &mesh_id);
+                // Material component
+                if let Ok(material) = world.get::<&Material>(entity) {
+                    if ui.collapsing_header("Material", TreeNodeFlags::DEFAULT_OPEN) {
+                        render_material_inspector(ui, &material);
+                    }
                 }
-            }
+
+                // MeshId component
+                if let Ok(mesh_id) = world.get::<&MeshId>(entity) {
+                    if ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
+                        render_mesh_inspector(ui, &mesh_id);
+                    }
+                }
+            });
 
             // Add component button
             ui.separator();

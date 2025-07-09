@@ -3,13 +3,18 @@
 //! This module contains the EditorState struct which manages the imgui context,
 //! render target for viewport, and all editor UI state.
 
+use crate::detached_window_manager::DetachedWindowManager;
+use crate::panel_state::PanelManager;
+use crate::shared_state::EditorSharedState;
 use engine::core::entity::World;
 use engine::graphics::{context::RenderContext, render_target::RenderTarget};
+use engine::windowing::WindowManager;
 use imgui::*;
 use imgui_wgpu::{Renderer as ImGuiRenderer, RendererConfig};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use std::path::PathBuf;
-use tracing::{debug, info};
+use std::sync::Arc;
+use tracing::{debug, info, warn};
 use winit::event::{Event, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
@@ -41,8 +46,8 @@ pub struct EditorState {
     pub render_target: RenderTarget,
     /// ImGui texture ID for the render target
     pub texture_id: imgui::TextureId,
-    /// Currently selected entity in the hierarchy
-    pub selected_entity: Option<hecs::Entity>,
+    /// Shared state for multi-window synchronization
+    pub shared_state: EditorSharedState,
     /// Current input mode (true = editor UI, false = game input)
     pub ui_mode: bool,
     /// Frame counter to skip initial frames during window setup
@@ -69,11 +74,23 @@ pub struct EditorState {
     pub error_message: Option<String>,
     /// Pending scene operation to be performed by main loop
     pub pending_scene_operation: Option<SceneOperation>,
+    /// Surface format for rendering
+    surface_format: wgpu::TextureFormat,
+    /// Panel manager
+    pub panel_manager: PanelManager,
+    /// Detached window manager
+    pub detached_window_manager: Option<DetachedWindowManager>,
 }
 
 impl EditorState {
     /// Create a new editor state
-    pub fn new(render_context: &RenderContext, window: &winit::window::Window) -> Self {
+    pub fn new(
+        render_context: &RenderContext,
+        window: &winit::window::Window,
+        surface_format: wgpu::TextureFormat,
+        surface_size: (u32, u32),
+        world: World,
+    ) -> Self {
         info!("Initializing editor state with ImGui");
 
         // Create ImGui context
@@ -93,11 +110,7 @@ impl EditorState {
         // Create platform integration
         let mut imgui_platform = WinitPlatform::new(&mut imgui_context);
 
-        // Get the actual surface size from render context
-        let surface_size = {
-            let surface_config = render_context.surface_config.lock().unwrap();
-            (surface_config.width, surface_config.height)
-        };
+        // Use the provided surface size
         let scale_factor = window.scale_factor() as f32;
 
         // Configure platform before attaching window
@@ -118,8 +131,7 @@ impl EditorState {
             window.inner_size().height
         );
 
-        // Get surface format from surface config
-        let surface_format = render_context.surface_config.lock().unwrap().format;
+        // Use the provided surface format
 
         // Create renderer
         let renderer_config = RendererConfig {
@@ -180,13 +192,16 @@ impl EditorState {
             .prepare_frame(imgui_context.io_mut(), window)
             .expect("Initial frame preparation failed");
 
+        // Create shared state for multi-window synchronization
+        let shared_state = EditorSharedState::new(world);
+
         let mut editor = Self {
             imgui_context,
             imgui_platform,
             imgui_renderer,
             render_target,
             texture_id,
-            selected_entity: None,
+            shared_state,
             ui_mode: true,
             _frame_count: 0,
             pending_resize: None,
@@ -202,6 +217,9 @@ impl EditorState {
             pending_action: None,
             error_message: None,
             pending_scene_operation: None,
+            surface_format,
+            panel_manager: PanelManager::with_layout_file(PanelManager::default_layout_path()),
+            detached_window_manager: None,
         };
 
         // Force proper initialization by setting initial values
@@ -215,6 +233,15 @@ impl EditorState {
         }
 
         editor
+    }
+
+    /// Initialize the detached window manager
+    pub fn init_detached_window_manager(&mut self, render_context: Arc<RenderContext>) {
+        self.detached_window_manager = Some(DetachedWindowManager::new(
+            render_context,
+            self.surface_format,
+        ));
+        info!("Initialized detached window manager");
     }
 
     /// Handle winit events
@@ -380,10 +407,9 @@ impl EditorState {
         }
 
         // --- 1. Query current surface size (physical pixels) -------------------
-        let surface_size = {
-            let cfg = render_context.surface_config.lock().unwrap();
-            (cfg.width, cfg.height)
-        };
+        // Get surface size from window
+        let window_size = window.inner_size();
+        let surface_size = (window_size.width, window_size.height);
 
         // --- 2. Convert to logical units and write once ------------------------
         let dpi = window.scale_factor() as f32;
@@ -450,7 +476,6 @@ impl EditorState {
     /// Render editor UI, then draw ImGui to the surface ---------------------------------
     pub fn render_ui_and_draw(
         &mut self,
-        world: &mut World,
         render_context: &RenderContext,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
@@ -462,10 +487,9 @@ impl EditorState {
         // We'll mark frame as done at the end of this method
 
         // -------------------------------------------------------------------- sizes
-        let surface_size = {
-            let cfg = render_context.surface_config.lock().unwrap();
-            (cfg.width, cfg.height) // physical pixels
-        };
+        // Get surface size from window
+        let window_size = window.inner_size();
+        let surface_size = (window_size.width, window_size.height); // physical pixels
         let _dpi = window.scale_factor() as f32;
 
         // ImGui logical → physical
@@ -497,6 +521,9 @@ impl EditorState {
         let mut action_save_scene = false;
         let mut action_save_scene_as = false;
         let mut action_exit = false;
+        let mut action_save_layout = false;
+        let mut action_load_layout = false;
+        let mut action_reset_layout = false;
 
         // Main-menu bar --------------------------------------------------------
         ui.main_menu_bar(|| {
@@ -519,8 +546,15 @@ impl EditorState {
                 }
             });
             ui.menu("View", || {
+                if ui.menu_item("Save Layout") {
+                    action_save_layout = true;
+                }
+                if ui.menu_item("Load Layout") {
+                    action_load_layout = true;
+                }
+                ui.separator();
                 if ui.menu_item("Reset Layout") {
-                    info!("Reset layout requested");
+                    action_reset_layout = true;
                 }
             });
             ui.menu("Help", || {
@@ -531,10 +565,24 @@ impl EditorState {
         });
 
         // Panels ---------------------------------------------------------------
-        crate::panels::render_hierarchy_panel(ui, world, &mut self.selected_entity);
-        crate::panels::render_inspector_panel(ui, world, self.selected_entity);
-        crate::panels::render_assets_panel(ui, world);
-        crate::panels::render_viewport_panel(ui, self.texture_id, &self.render_target);
+        crate::panels::render_hierarchy_panel(
+            ui,
+            &self.shared_state,
+            &mut self.panel_manager,
+        );
+        crate::panels::render_inspector_panel(
+            ui,
+            &self.shared_state,
+            &mut self.panel_manager,
+        );
+        crate::panels::render_assets_panel(ui, &self.shared_state, &mut self.panel_manager);
+        crate::panels::render_viewport_panel(
+            ui,
+            self.texture_id,
+            &self.render_target,
+            &self.shared_state,
+            &mut self.panel_manager,
+        );
 
         // Status bar -----------------------------------------------------------
         let viewport_h = ui.io().display_size[1];
@@ -572,13 +620,16 @@ impl EditorState {
                 ui.same_line();
 
                 // Entity count
-                ui.text(format!("Entities: {}", world.query::<()>().iter().count()));
+                let entity_count = self.shared_state.with_world_read(|world| {
+                    world.query::<()>().iter().count()
+                }).unwrap_or(0);
+                ui.text(format!("Entities: {}", entity_count));
                 ui.same_line();
                 ui.separator();
                 ui.same_line();
 
                 // Selection
-                match self.selected_entity {
+                match self.shared_state.selected_entity() {
                     Some(e) => ui.text(format!("Selected: {e:?}")),
                     None => ui.text("No selection"),
                 }
@@ -736,6 +787,32 @@ impl EditorState {
         if clear_error {
             self.error_message = None;
         }
+
+        // Handle layout actions
+        if action_save_layout {
+            match self.panel_manager.save_default_layout() {
+                Ok(_) => {
+                    info!("Layout saved successfully");
+                }
+                Err(e) => {
+                    self.error_message = Some(format!("Failed to save layout: {}", e));
+                }
+            }
+        }
+        if action_load_layout {
+            match self.panel_manager.load_default_layout() {
+                Ok(_) => {
+                    info!("Layout loaded successfully");
+                }
+                Err(e) => {
+                    self.error_message = Some(format!("Failed to load layout: {}", e));
+                }
+            }
+        }
+        if action_reset_layout {
+            self.panel_manager = PanelManager::new();
+            info!("Layout reset to defaults");
+        }
     }
 
     /// Handle window resize
@@ -767,12 +844,9 @@ impl EditorState {
     ) {
         debug!("Performing actual resize");
 
-        // Get the actual surface size from render context
-        // This is critical - we must use the surface config size, not the window size
-        let (actual_width, actual_height) = {
-            let surface_config = render_context.surface_config.lock().unwrap();
-            (surface_config.width, surface_config.height)
-        };
+        // Get the actual surface size
+        // This is critical - we must use the actual size, not the requested size
+        let (actual_width, actual_height) = (new_size.width, new_size.height);
 
         debug!(
             "Surface config size: {}x{} (requested: {}x{})",
@@ -783,8 +857,8 @@ impl EditorState {
         let io = self.imgui_context.io_mut();
         io.display_size = [actual_width as f32, actual_height as f32];
 
-        // Get surface format from surface config
-        let surface_format = render_context.surface_config.lock().unwrap().format;
+        // Use the stored surface format
+        let surface_format = self.surface_format;
 
         // Store the old texture existence status before recreating renderer
         let old_texture_exists = self.imgui_renderer.textures.get(self.texture_id).is_some();
@@ -940,5 +1014,41 @@ impl EditorState {
     /// Mark the scene as modified
     pub fn mark_scene_modified(&mut self) {
         self.scene_modified = true;
+    }
+
+    /// Shutdown the editor and clean up all resources
+    pub fn shutdown(&mut self, window_manager: &mut WindowManager) {
+        info!("Shutting down editor state");
+        
+        // Save panel layout before shutdown
+        if let Err(e) = self.panel_manager.save_default_layout() {
+            warn!("Failed to save panel layout during shutdown: {}", e);
+        }
+        
+        // Clean up all detached windows
+        if let Some(detached_window_manager) = &mut self.detached_window_manager {
+            detached_window_manager.shutdown_all_windows(
+                &mut self.panel_manager,
+                window_manager,
+            );
+        }
+        
+        // Report final state
+        if let Some(detached_window_manager) = &self.detached_window_manager {
+            info!(
+                "Editor shutdown complete. Detached windows cleaned up: {}",
+                detached_window_manager.active_window_count() == 0
+            );
+        }
+        
+        info!("Editor shutdown complete");
+    }
+
+    /// Get the count of active detached windows
+    pub fn active_detached_window_count(&self) -> usize {
+        self.detached_window_manager
+            .as_ref()
+            .map(|mgr| mgr.active_window_count())
+            .unwrap_or(0)
     }
 }

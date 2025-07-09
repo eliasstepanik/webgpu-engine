@@ -28,9 +28,9 @@ struct MeshGpuData {
 }
 
 /// Main renderer that manages all rendering operations
-pub struct Renderer<'window> {
+pub struct Renderer {
     /// Render context with device and queue
-    context: Arc<RenderContext<'window>>,
+    context: Arc<RenderContext>,
     /// Basic 3D render pipeline
     basic_pipeline: RenderPipeline,
     /// Depth texture for depth testing
@@ -43,22 +43,23 @@ pub struct Renderer<'window> {
     mesh_cache: HashMap<String, MeshGpuData>,
     /// Mesh library for default meshes and fallbacks
     mesh_library: MeshLibrary,
+    /// Current surface format
+    surface_format: wgpu::TextureFormat,
 }
 
-impl<'window> Renderer<'window> {
+impl Renderer {
     /// Create a new renderer
-    pub fn new(context: Arc<RenderContext<'window>>) -> Self {
+    pub fn new(context: Arc<RenderContext>) -> Self {
         info!("Initializing renderer");
 
-        // Get surface config
-        let surface_config = context.surface_config();
+        // Default format - will be updated when rendering to a surface
+        let surface_format = wgpu::TextureFormat::Bgra8UnormSrgb;
 
         // Create render pipeline
-        let basic_pipeline = RenderPipeline::new_basic_3d(&context.device, surface_config.format);
+        let basic_pipeline = RenderPipeline::new_basic_3d(&context.device, surface_format);
 
-        // Create depth texture
-        let depth_texture =
-            DepthTexture::new(&context.device, surface_config.width, surface_config.height);
+        // Create depth texture with default size
+        let depth_texture = DepthTexture::new(&context.device, 1280, 720);
 
         // Create camera uniform buffer
         let camera_uniform = CameraUniform::default();
@@ -77,18 +78,29 @@ impl<'window> Renderer<'window> {
             camera_bind_group,
             mesh_cache: HashMap::new(),
             mesh_library: MeshLibrary::new(),
+            surface_format,
         }
     }
 
     /// Resize the renderer when the window size changes
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
-            // Resize the render context surface configuration
-            self.context.resize(new_size);
-
             // Recreate the depth texture with the new size
             self.depth_texture =
                 DepthTexture::new(&self.context.device, new_size.width, new_size.height);
+        }
+    }
+
+    /// Update the surface format if it changes
+    pub fn update_surface_format(&mut self, format: wgpu::TextureFormat) {
+        if self.surface_format != format {
+            self.surface_format = format;
+            // Recreate pipeline with new format
+            self.basic_pipeline = RenderPipeline::new_basic_3d(&self.context.device, format);
+            // Recreate camera bind group
+            self.camera_bind_group = self
+                .basic_pipeline
+                .create_camera_bind_group(&self.context.device, &self.camera_uniform_buffer);
         }
     }
 
@@ -98,7 +110,7 @@ impl<'window> Renderer<'window> {
             self.context
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Vertex Buffer"),
+                    label: Some(&format!("{name} Vertex Buffer")),
                     contents: bytemuck::cast_slice(&mesh.vertices),
                     usage: wgpu::BufferUsages::VERTEX,
                 });
@@ -107,7 +119,7 @@ impl<'window> Renderer<'window> {
             self.context
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Index Buffer"),
+                    label: Some(&format!("{name} Index Buffer")),
                     contents: bytemuck::cast_slice(&mesh.indices),
                     usage: wgpu::BufferUsages::INDEX,
                 });
@@ -121,36 +133,40 @@ impl<'window> Renderer<'window> {
         let mesh_id = MeshId(name.to_string());
         self.mesh_cache.insert(name.to_string(), mesh_data);
 
+        info!(name = %name, vertices = mesh.vertices.len(), indices = mesh.indices.len(), "Uploaded mesh to GPU");
         mesh_id
     }
 
-    /// Get or create a mesh, using fallback if not found
-    fn get_or_create_mesh(&mut self, mesh_id: &MeshId) -> &MeshGpuData {
+    /// Get or create a mesh from the library
+    fn get_or_create_mesh(&mut self, mesh_id: &MeshId) -> Result<(), String> {
         if !self.mesh_cache.contains_key(&mesh_id.0) {
-            // Try to generate the requested mesh
-            let mesh = self
-                .mesh_library
-                .get_or_generate(&mesh_id.0)
-                .unwrap_or_else(|| {
-                    debug!(mesh_name = %mesh_id.0, "Mesh not found, using error mesh");
-                    MeshLibrary::error_mesh()
-                });
-
-            // Upload the mesh (either requested or error mesh)
-            self.upload_mesh(&mesh, &mesh_id.0);
+            // Try to get mesh from library
+            if let Some(mesh) = self.mesh_library.get_or_generate(&mesh_id.0) {
+                self.upload_mesh(&mesh, &mesh_id.0);
+            } else {
+                // Use fallback cube mesh
+                let fallback = MeshLibrary::error_mesh();
+                self.upload_mesh(&fallback, &mesh_id.0);
+                debug!("Using fallback mesh for ID: {}", mesh_id.0);
+            }
         }
-        &self.mesh_cache[&mesh_id.0]
+        Ok(())
     }
 
-    /// Render a frame
-    ///
-    /// This queries the world for renderable entities and draws them.
-    pub fn render(&mut self, world: &World) -> Result<(), wgpu::SurfaceError> {
+    /// Render a frame to a surface
+    pub fn render(
+        &mut self,
+        world: &World,
+        surface: &wgpu::Surface,
+    ) -> Result<(), wgpu::SurfaceError> {
         // Get the current surface texture
-        let output = self.context.get_current_texture()?;
+        let output = surface.get_current_texture()?;
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
+
+        // Update surface format if needed
+        self.update_surface_format(self.context.get_preferred_format(surface));
 
         // Find the active camera
         let mut camera_data = None;
@@ -247,7 +263,7 @@ impl<'window> Renderer<'window> {
         Ok(())
     }
 
-    /// Render a world using a specific camera entity
+    /// Render a world using a specific camera entity to a surface
     ///
     /// This method provides more control over which camera to use for rendering
     /// and is useful for scene-loaded entities with predefined cameras.
@@ -255,12 +271,16 @@ impl<'window> Renderer<'window> {
         &mut self,
         world: &World,
         camera_entity: hecs::Entity,
+        surface: &wgpu::Surface,
     ) -> Result<(), wgpu::SurfaceError> {
         // Get the current surface texture
-        let output = self.context.get_current_texture()?;
+        let output = surface.get_current_texture()?;
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
+
+        // Update surface format if needed
+        self.update_surface_format(self.context.get_preferred_format(surface));
 
         // Get the specified camera and its transform
         let camera_data = world.query_one::<(&Camera, &GlobalTransform)>(camera_entity);

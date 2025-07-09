@@ -19,9 +19,9 @@ struct App {
     /// Window manager for multi-window support
     window_manager: Option<WindowManager>,
     /// Render context (shared GPU resources)
-    render_context: Option<Arc<RenderContext<'static>>>,
+    render_context: Option<Arc<RenderContext>>,
     /// Renderer for the game
-    renderer: Option<Renderer<'static>>,
+    renderer: Option<Renderer>,
     /// ECS world
     world: World,
     /// Time tracking
@@ -68,23 +68,36 @@ impl App {
             ..Default::default()
         }));
 
-        // Initialize renderer
-        // HACK: We leak the window Arc to get a 'static reference
-        // This is not ideal but works around the lifetime issue with RenderContext
-        // TODO: Refactor RenderContext to not own the surface
-        let window_static: &'static winit::window::Window = Box::leak(Box::new(window.clone()));
-        let render_context = pollster::block_on(RenderContext::new(window_static))
+        // Initialize render context with the same instance to ensure adapter IDs match
+        let render_context = pollster::block_on(RenderContext::new((*instance).clone(), None))
             .expect("Failed to create render context");
         let render_context = Arc::new(render_context);
 
+        // Create surface for the main window
+        let surface = instance
+            .create_surface(window.clone())
+            .expect("Failed to create surface");
+
+        // Create surface configuration
+        let surface_config = render_context.create_surface_configuration(
+            &surface,
+            window.inner_size().width,
+            window.inner_size().height,
+        );
+
         // Create window manager
-        let window_manager = WindowManager::new(
+        let mut window_manager = WindowManager::new(
             window.clone(),
             instance.clone(),
             render_context.device.clone(),
-            render_context.surface_config.lock().unwrap().clone(),
+            surface_config.clone(),
         )
         .expect("Failed to create window manager");
+
+        // Set up the main window with its surface
+        window_manager
+            .set_main_window(window.clone(), surface, surface_config.clone())
+            .expect("Failed to set up main window");
 
         let mut renderer = Renderer::new(render_context.clone());
 
@@ -93,7 +106,24 @@ impl App {
 
         // Create editor state if feature is enabled
         #[cfg(feature = "editor")]
-        let editor_state = EditorState::new(&render_context, &window);
+        let editor_state = {
+            let window_size = window.inner_size();
+            
+            // Move the world to the editor's shared state
+            let world = std::mem::replace(&mut self.world, World::new());
+            let editor = EditorState::new(
+                &render_context,
+                &window,
+                surface_config.format,
+                (window_size.width, window_size.height),
+                world,
+            );
+
+            // Note: DetachedWindowManager will be initialized lazily when first needed
+            // to avoid surface creation conflicts during startup
+
+            editor
+        };
 
         // Store initialized components
         self.instance = Some(instance);
@@ -134,14 +164,56 @@ impl App {
                 }
 
                 // Update camera aspect ratio
-                for (_, camera) in self.world.query_mut::<&mut Camera>() {
-                    camera.set_aspect_ratio(new_size.width as f32 / new_size.height as f32);
+                let aspect_ratio = new_size.width as f32 / new_size.height as f32;
+                #[cfg(feature = "editor")]
+                {
+                    if let Some(editor_state) = &self.editor_state {
+                        editor_state.shared_state.with_world_write(|world| {
+                            for (_, camera) in world.query_mut::<&mut Camera>() {
+                                camera.set_aspect_ratio(aspect_ratio);
+                            }
+                        });
+                    }
+                }
+                
+                #[cfg(not(feature = "editor"))]
+                {
+                    for (_, camera) in self.world.query_mut::<&mut Camera>() {
+                        camera.set_aspect_ratio(aspect_ratio);
+                    }
                 }
             }
         }
     }
 
-    fn render_frame(&mut self, window_id: WindowId) {
+    fn render_frame(&mut self, window_id: WindowId, event_loop: &ActiveEventLoop) {
+        // Handle detach/attach requests first (only if there are pending requests)
+        #[cfg(feature = "editor")]
+        {
+            if let (Some(editor_state), Some(window_manager)) =
+                (&mut self.editor_state, &mut self.window_manager)
+            {
+                // Initialize detached window manager lazily when needed
+                if editor_state.panel_manager.has_pending_requests() {
+                    if editor_state.detached_window_manager.is_none() {
+                        if let Some(render_context) = &self.render_context {
+                            editor_state.init_detached_window_manager(render_context.clone());
+                        }
+                    }
+                    
+                    if let Some(detached_window_manager) = &mut editor_state.detached_window_manager {
+                        detached_window_manager.process_detach_requests(
+                            &mut editor_state.panel_manager,
+                            window_manager,
+                            event_loop,
+                        );
+                        detached_window_manager
+                            .process_attach_requests(&mut editor_state.panel_manager, window_manager);
+                    }
+                }
+            }
+        }
+
         let Some(window_manager) = &self.window_manager else {
             return;
         };
@@ -164,11 +236,24 @@ impl App {
         let delta_time = (current_time - self.last_time).as_secs_f32();
         self.last_time = current_time;
 
-        // Update demo scene
-        update_demo_scene(&mut self.world, delta_time);
-
-        // Update transform hierarchy
-        update_hierarchy_system(&mut self.world);
+        // Update demo scene and hierarchy
+        #[cfg(feature = "editor")]
+        {
+            if let Some(editor_state) = &self.editor_state {
+                // Update through shared state when editor is enabled
+                editor_state.shared_state.with_world_write(|world| {
+                    update_demo_scene(world, delta_time);
+                    update_hierarchy_system(world);
+                });
+            }
+        }
+        
+        #[cfg(not(feature = "editor"))]
+        {
+            // Update directly when editor is disabled
+            update_demo_scene(&mut self.world, delta_time);
+            update_hierarchy_system(&mut self.world);
+        }
 
         // Render based on editor mode
         #[cfg(feature = "editor")]
@@ -182,17 +267,15 @@ impl App {
                 if let Some(operation) = editor_state.pending_scene_operation.take() {
                     match operation {
                         SceneOperation::NewScene => {
-                            editor::scene_operations::create_default_scene(
-                                &mut self.world,
-                                renderer,
-                            );
+                            editor_state.shared_state.with_world_write(|world| {
+                                editor::scene_operations::create_default_scene(world, renderer);
+                            });
                         }
                         SceneOperation::LoadScene(path) => {
-                            match editor::scene_operations::load_scene_from_file(
-                                &mut self.world,
-                                renderer,
-                                &path,
-                            ) {
+                            let result = editor_state.shared_state.with_world_write(|world| {
+                                editor::scene_operations::load_scene_from_file(world, renderer, &path)
+                            });
+                            match result.unwrap_or(Err("Failed to access world".into())) {
                                 Ok(_) => info!("Scene loaded successfully"),
                                 Err(e) => {
                                     tracing::error!("Failed to load scene: {:?}", e);
@@ -202,7 +285,10 @@ impl App {
                             }
                         }
                         SceneOperation::SaveScene(path) => {
-                            match editor::scene_operations::save_scene_to_file(&self.world, &path) {
+                            let result = editor_state.shared_state.with_world_read(|world| {
+                                editor::scene_operations::save_scene_to_file(world, &path)
+                            });
+                            match result.unwrap_or(Err("Failed to access world".into())) {
                                 Ok(_) => info!("Scene saved successfully"),
                                 Err(e) => {
                                     tracing::error!("Failed to save scene: {:?}", e);
@@ -218,7 +304,10 @@ impl App {
                 editor_state.begin_frame(&window_data.window, render_context);
 
                 // Render game to viewport texture
-                editor_state.render_viewport(renderer, &self.world);
+                let shared_state = editor_state.shared_state.clone();
+                shared_state.with_world_read(|world| {
+                    editor_state.render_viewport(renderer, world);
+                });
 
                 // Get surface texture for final rendering
                 let surface_texture = match window_data.surface.get_current_texture() {
@@ -272,7 +361,6 @@ impl App {
 
                 // Render editor UI and ImGui to screen
                 editor_state.render_ui_and_draw(
-                    &mut self.world,
                     render_context,
                     &mut encoder,
                     &view,
@@ -291,7 +379,7 @@ impl App {
         {
             if let Some(renderer) = &mut self.renderer {
                 // Render frame normally when editor is disabled
-                match renderer.render(&self.world) {
+                match renderer.render(&self.world, &window_data.surface) {
                     Ok(_) => {}
                     Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
                         info!("Surface lost or outdated, reconfiguring");
@@ -353,10 +441,34 @@ impl ApplicationHandler for App {
             WindowEvent::CloseRequested => {
                 if window_id == window_manager.main_window_id() {
                     info!("Main window close requested");
+                    
+                    // Clean up editor resources before exit
+                    #[cfg(feature = "editor")]
+                    {
+                        if let (Some(editor_state), Some(window_manager)) = 
+                            (&mut self.editor_state, &mut self.window_manager) {
+                            editor_state.shutdown(window_manager);
+                        }
+                    }
+                    
                     event_loop.exit();
                 } else {
-                    // TODO: Handle closing detached panels
-                    info!("Secondary window close requested");
+                    // Handle closing detached panels
+                    info!("Secondary window close requested: {:?}", window_id);
+                    
+                    #[cfg(feature = "editor")]
+                    {
+                        if let (Some(editor_state), Some(window_manager)) = 
+                            (&mut self.editor_state, &mut self.window_manager) {
+                            if let Some(detached_window_manager) = &mut editor_state.detached_window_manager {
+                                detached_window_manager.handle_window_close(
+                                    window_id,
+                                    &mut editor_state.panel_manager,
+                                    window_manager,
+                                );
+                            }
+                        }
+                    }
                 }
             }
             WindowEvent::Resized(physical_size) => {
@@ -368,7 +480,7 @@ impl ApplicationHandler for App {
                 self.handle_resize(window_id, new_size);
             }
             WindowEvent::RedrawRequested => {
-                self.render_frame(window_id);
+                self.render_frame(window_id, event_loop);
             }
             _ => {}
         }

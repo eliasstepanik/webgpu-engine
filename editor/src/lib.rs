@@ -3,9 +3,13 @@
 //! This crate provides a comprehensive editor UI for scene creation, entity management,
 //! and component editing. The editor is feature-gated and only included in development builds.
 
+pub mod detached_window;
+pub mod detached_window_manager;
 pub mod editor_state;
+pub mod panel_state;
 pub mod panels;
 pub mod scene_operations;
+pub mod shared_state;
 
 #[cfg(feature = "viewport")]
 pub mod viewport_backend;

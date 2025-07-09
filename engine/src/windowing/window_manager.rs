@@ -23,32 +23,57 @@ impl WindowManager {
         main_window: Arc<Window>,
         instance: Arc<Instance>,
         device: Arc<wgpu::Device>,
-        surface_config: SurfaceConfiguration,
+        _surface_config: SurfaceConfiguration,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let main_window_id = main_window.id();
-        let surface = instance.create_surface(Arc::clone(&main_window))?;
 
-        surface.configure(&device, &surface_config);
-
-        let mut windows = HashMap::new();
-        windows.insert(
-            main_window_id,
-            WindowData {
-                window: main_window,
-                surface,
-                surface_config,
-            },
-        );
-
-        info!(window_id = ?main_window_id, "Created window manager with main window");
+        info!(window_id = ?main_window_id, "Created window manager");
 
         Ok(Self {
-            windows,
+            windows: HashMap::new(),
             main_window_id,
             instance,
             device,
             max_windows: 4, // Limit to 4 windows as per PRP
         })
+    }
+
+    /// Set the surface for a window (must be called after creating WindowManager)
+    pub fn set_surface(
+        &mut self,
+        window_id: WindowId,
+        surface: Surface<'static>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(window_data) = self.windows.get_mut(&window_id) {
+            // Update existing window's surface
+            surface.configure(&self.device, &window_data.surface_config);
+            window_data.surface = surface;
+            Ok(())
+        } else {
+            Err("Window not found".into())
+        }
+    }
+
+    /// Set up the main window with its surface
+    pub fn set_main_window(
+        &mut self,
+        window: Arc<Window>,
+        surface: Surface<'static>,
+        surface_config: SurfaceConfiguration,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        surface.configure(&self.device, &surface_config);
+
+        self.windows.insert(
+            self.main_window_id,
+            WindowData {
+                window,
+                surface,
+                surface_config,
+            },
+        );
+
+        info!(window_id = ?self.main_window_id, "Set up main window with surface");
+        Ok(())
     }
 
     pub fn create_window(

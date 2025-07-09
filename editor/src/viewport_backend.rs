@@ -1,4 +1,3 @@
-#![cfg(feature = "viewport")]
 #![allow(unused_variables, unused_mut, dead_code)] // Temporary while implementing
 
 use imgui::Context;
@@ -12,12 +11,14 @@ use winit::window::{Window, WindowId};
 /// NOTE: This is a placeholder implementation. Full viewport support requires
 /// either upgrading to a newer imgui-rs version or using a fork with viewport support.
 /// The current imgui-rs 0.12 does not expose the necessary viewport APIs.
+#[derive(Default)]
 pub struct ViewportBackend {
     /// Mapping from viewport index to winit WindowId
     viewport_to_window: HashMap<usize, WindowId>,
     /// Mapping from winit WindowId to viewport index
     window_to_viewport: HashMap<WindowId, usize>,
     /// The main viewport index (always 0)
+    #[allow(dead_code)]
     main_viewport_idx: usize,
     /// Whether viewport support is available
     viewports_enabled: bool,
@@ -25,12 +26,7 @@ pub struct ViewportBackend {
 
 impl ViewportBackend {
     pub fn new() -> Self {
-        Self {
-            viewport_to_window: HashMap::new(),
-            window_to_viewport: HashMap::new(),
-            main_viewport_idx: 0,
-            viewports_enabled: false,
-        }
+        Self::default()
     }
 
     /// Initialize the viewport backend with ImGui context
@@ -40,15 +36,14 @@ impl ViewportBackend {
         self.viewport_to_window.insert(0, main_window_id);
         self.window_to_viewport.insert(main_window_id, 0);
 
-        // Check if viewport support is available
-        // In imgui-rs 0.12, it's not available in the safe API
+        // Viewport support is not available in imgui-rs 0.12
         self.viewports_enabled = false;
 
         if !self.viewports_enabled {
-            warn!("Viewport support not available in imgui-rs 0.12");
-            warn!("Panel detachment will be disabled until imgui-rs is upgraded");
+            warn!("Viewport support not available - using imgui-sys FFI");
+            warn!("This is experimental and may have issues");
         } else {
-            info!("Initialized viewport backend");
+            info!("Initialized viewport backend with FFI support");
         }
     }
 

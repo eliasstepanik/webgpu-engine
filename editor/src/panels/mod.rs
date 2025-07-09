@@ -4,6 +4,7 @@
 //! including the hierarchy, inspector, viewport, and asset browser.
 
 pub mod assets;
+pub mod detachable;
 pub mod hierarchy;
 pub mod inspector;
 pub mod viewport;
