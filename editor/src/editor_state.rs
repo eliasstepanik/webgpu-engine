@@ -234,14 +234,30 @@ impl EditorState {
         // Log if size changed
         if old_size[0] != io.display_size[0] || old_size[1] != io.display_size[1] {
             debug!(
-                "ImGui display size updated: {:?} -> {:?} (surface size: {}x{})",
+                "ImGui display size updated in begin_frame: {:?} -> {:?} (surface size: {}x{})",
                 old_size, io.display_size, surface_size.0, surface_size.1
             );
         }
 
+        // Note: io goes out of scope here, which is what we want
+
         self.imgui_platform
             .prepare_frame(self.imgui_context.io_mut(), window)
             .expect("Failed to prepare ImGui frame");
+
+        // CRITICAL: Verify that prepare_frame didn't change the display size
+        let prepared_size = self.imgui_context.io().display_size;
+        if prepared_size[0] != surface_size.0 as f32 || prepared_size[1] != surface_size.1 as f32 {
+            tracing::warn!(
+                "prepare_frame changed display size! Expected {}x{}, got {:?}",
+                surface_size.0,
+                surface_size.1,
+                prepared_size
+            );
+            // Force it back to the correct size
+            self.imgui_context.io_mut().display_size =
+                [surface_size.0 as f32, surface_size.1 as f32];
+        }
     }
 
     /// Render the game to the viewport texture
@@ -265,12 +281,15 @@ impl EditorState {
         view: &wgpu::TextureView,
         window: &winit::window::Window,
     ) {
+        // Log the actual surface texture size from the view
+        // Note: We can't directly query view size, but we know it matches surface config
+        tracing::trace!("render_ui_and_draw called with view: {:?}", view);
         // Increment frame counter
         self.frame_count += 1;
 
         // Skip the first few frames to let the window settle on Windows
         // This helps avoid initialization timing issues with DPI scaling
-        const SKIP_FRAMES: u32 = 5;
+        const SKIP_FRAMES: u32 = 10; // Increased from 5 to give Windows more time
         if self.frame_count < SKIP_FRAMES {
             debug!(
                 frame = self.frame_count,
@@ -407,6 +426,22 @@ impl EditorState {
         self.imgui_platform.prepare_render(ui, window);
         let draw_data = self.imgui_context.render();
 
+        // Final safety check: Verify surface size hasn't changed
+        let final_surface_size = {
+            let surface_config = render_context.surface_config.lock().unwrap();
+            (surface_config.width, surface_config.height)
+        };
+        if final_surface_size != render_target_size {
+            tracing::warn!(
+                "Surface resized during frame! Was {}x{}, now {}x{}. Skipping frame.",
+                render_target_size.0,
+                render_target_size.1,
+                final_surface_size.0,
+                final_surface_size.1
+            );
+            return;
+        }
+
         // Validate draw data before rendering
         if draw_data.display_size[0] <= 0.0 || draw_data.display_size[1] <= 0.0 {
             tracing::warn!(
@@ -435,6 +470,12 @@ impl EditorState {
         // The scissor rect validation is handled internally by imgui-wgpu
         // Our size validation above should prevent scissor rect errors
 
+        // Log render pass creation details
+        debug!(
+            "Creating ImGui render pass with surface size: {}x{}",
+            render_target_size.0, render_target_size.1
+        );
+
         // Create a render pass for ImGui
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("ImGui Render Pass"),
@@ -451,6 +492,12 @@ impl EditorState {
             occlusion_query_set: None,
         });
 
+        // Log before attempting to render
+        debug!(
+            "Attempting ImGui render with draw_data display_size: {:?}, framebuffer_scale: {:?}",
+            draw_data.display_size, draw_data.framebuffer_scale
+        );
+
         // Render ImGui - imgui-wgpu should handle scissor rects based on draw_data
         if let Err(e) = self.imgui_renderer.render(
             draw_data,
@@ -459,10 +506,19 @@ impl EditorState {
             &mut render_pass,
         ) {
             tracing::error!("Failed to render ImGui: {:?}", e);
-            tracing::error!("Render target size: {:?}", render_target_size);
+            tracing::error!("Surface config size: {:?}", render_target_size);
+            tracing::error!("Draw data display size: {:?}", draw_data.display_size);
             tracing::error!(
-                "ImGui display size: {:?}",
+                "Draw data framebuffer scale: {:?}",
+                draw_data.framebuffer_scale
+            );
+            tracing::error!(
+                "ImGui IO display size: {:?}",
                 self.imgui_context.io().display_size
+            );
+            tracing::error!(
+                "ImGui IO framebuffer scale: {:?}",
+                self.imgui_context.io().display_framebuffer_scale
             );
         }
 
@@ -475,20 +531,35 @@ impl EditorState {
         render_context: &RenderContext,
         new_size: winit::dpi::PhysicalSize<u32>,
     ) {
-        debug!("Editor resize: {}x{}", new_size.width, new_size.height);
+        debug!(
+            "Editor resize called with: {}x{}",
+            new_size.width, new_size.height
+        );
 
-        // Update ImGui display size
+        // Get the actual surface size from render context
+        // This is critical - we must use the surface config size, not the window size
+        let (actual_width, actual_height) = {
+            let surface_config = render_context.surface_config.lock().unwrap();
+            (surface_config.width, surface_config.height)
+        };
+
+        debug!(
+            "Surface config size: {}x{} (requested: {}x{})",
+            actual_width, actual_height, new_size.width, new_size.height
+        );
+
+        // Update ImGui display size to match surface configuration
         let io = self.imgui_context.io_mut();
-        io.display_size = [new_size.width as f32, new_size.height as f32];
+        io.display_size = [actual_width as f32, actual_height as f32];
 
         // Get surface format from surface config
         let surface_format = render_context.surface_config.lock().unwrap().format;
 
-        // Recreate render target with new size
+        // Recreate render target with actual surface size
         self.render_target = RenderTarget::new(
             &render_context.device,
-            new_size.width,
-            new_size.height,
+            actual_width,
+            actual_height,
             surface_format,
         );
 
@@ -518,8 +589,8 @@ impl EditorState {
             None,
             Some(&texture_config),
             wgpu::Extent3d {
-                width: new_size.width,
-                height: new_size.height,
+                width: actual_width,
+                height: actual_height,
                 depth_or_array_layers: 1,
             },
         );
