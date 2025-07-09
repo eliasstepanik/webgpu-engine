@@ -217,47 +217,48 @@ impl EditorState {
     }
 
     /// Begin a new frame
-    pub fn begin_frame(&mut self, window: &winit::window::Window, render_context: &RenderContext) {
-        // Get the actual surface size from render context
+    pub fn begin_frame(
+        &mut self,
+        window: &winit::window::Window,
+        render_context: &RenderContext,
+    ) {
+        // --- 1. Query current surface size (physical pixels) -------------------
         let surface_size = {
-            let surface_config = render_context.surface_config.lock().unwrap();
-            (surface_config.width, surface_config.height)
+            let cfg = render_context.surface_config.lock().unwrap();
+            (cfg.width, cfg.height)
         };
-        let scale_factor = window.scale_factor() as f32;
 
-        // Update ImGui's display size BEFORE prepare_frame
-        let io = self.imgui_context.io_mut();
-        let old_size = io.display_size;
-        io.display_size = [surface_size.0 as f32, surface_size.1 as f32];
-        io.display_framebuffer_scale = [scale_factor, scale_factor];
-
-        // Log if size changed
-        if old_size[0] != io.display_size[0] || old_size[1] != io.display_size[1] {
-            debug!(
-                "ImGui display size updated in begin_frame: {:?} -> {:?} (surface size: {}x{})",
-                old_size, io.display_size, surface_size.0, surface_size.1
-            );
+        // --- 2. Convert to logical units and write once ------------------------
+        let dpi = window.scale_factor() as f32;
+        {
+            let io = self.imgui_context.io_mut();
+            io.display_size = [
+                surface_size.0 as f32 / dpi,
+                surface_size.1 as f32 / dpi,
+            ];
+            io.display_framebuffer_scale = [dpi, dpi];
         }
 
-        // Note: io goes out of scope here, which is what we want
-
+        // --- 3. Prepare the frame ---------------------------------------------
         self.imgui_platform
             .prepare_frame(self.imgui_context.io_mut(), window)
-            .expect("Failed to prepare ImGui frame");
+            .expect("imgui prepare_frame failed");
 
-        // CRITICAL: Verify that prepare_frame didn't change the display size
-        let prepared_size = self.imgui_context.io().display_size;
-        if prepared_size[0] != surface_size.0 as f32 || prepared_size[1] != surface_size.1 as f32 {
-            tracing::warn!(
-                "prepare_frame changed display size! Expected {}x{}, got {:?}",
-                surface_size.0,
-                surface_size.1,
-                prepared_size
-            );
-            // Force it back to the correct size
-            self.imgui_context.io_mut().display_size =
-                [surface_size.0 as f32, surface_size.1 as f32];
-        }
+        // --- 4. Sanity-check the mapping (debug only) --------------------------
+        debug_assert_eq!(
+            (self.imgui_context.io().display_size[0]
+                * self.imgui_context.io().display_framebuffer_scale[0])
+                .round() as u32,
+            surface_size.0,
+            "width mismatch"
+        );
+        debug_assert_eq!(
+            (self.imgui_context.io().display_size[1]
+                * self.imgui_context.io().display_framebuffer_scale[1])
+                .round() as u32,
+            surface_size.1,
+            "height mismatch"
+        );
     }
 
     /// Render the game to the viewport texture
@@ -272,7 +273,7 @@ impl EditorState {
         }
     }
 
-    /// Render the editor UI and imgui to screen  
+    /// Render editor UI, then draw ImGui to the surface ---------------------------------
     pub fn render_ui_and_draw(
         &mut self,
         world: &mut World,
@@ -281,248 +282,122 @@ impl EditorState {
         view: &wgpu::TextureView,
         window: &winit::window::Window,
     ) {
-        // Log the actual surface texture size from the view
-        // Note: We can't directly query view size, but we know it matches surface config
-        tracing::trace!("render_ui_and_draw called with view: {:?}", view);
-        // Increment frame counter
-        self.frame_count += 1;
+        // Trace for debugging
+        tracing::trace!("render_ui_and_draw called");
 
-        // Skip the first few frames to let the window settle on Windows
-        // This helps avoid initialization timing issues with DPI scaling
-        const SKIP_FRAMES: u32 = 10; // Increased from 5 to give Windows more time
-        if self.frame_count < SKIP_FRAMES {
-            debug!(
-                frame = self.frame_count,
-                skip_total = SKIP_FRAMES,
-                "Skipping ImGui render during initialization"
-            );
-            return;
-        }
-
-        // Get the current render target size from the surface config
-        let render_target_size = {
-            let surface_config = render_context.surface_config.lock().unwrap();
-            (surface_config.width, surface_config.height)
+        // -------------------------------------------------------------------- sizes
+        let surface_size = {
+            let cfg = render_context.surface_config.lock().unwrap();
+            (cfg.width, cfg.height)                         // physical pixels
         };
+        let dpi = window.scale_factor() as f32;
 
-        // Get all relevant sizes for comprehensive validation
-        let window_size = window.inner_size();
-        let imgui_size = self.imgui_context.io().display_size;
+        // ImGui logical → physical
+        let io = self.imgui_context.io();
+        let imgui_phys = (
+            (io.display_size[0] * io.display_framebuffer_scale[0]).round() as u32,
+            (io.display_size[1] * io.display_framebuffer_scale[1]).round() as u32,
+        );
 
-        // Comprehensive validation - all sizes should match surface config
-        let surface_matches_imgui = render_target_size.0 as f32 == imgui_size[0]
-            && render_target_size.1 as f32 == imgui_size[1];
-
-        if !surface_matches_imgui {
+        // Abort the frame when sizes disagree
+        if imgui_phys != surface_size {
             tracing::error!(
-                "Size mismatch detected! surface={}x{}, window={}x{}, imgui={:?}",
-                render_target_size.0,
-                render_target_size.1,
-                window_size.width,
-                window_size.height,
-                imgui_size
-            );
-
-            // Force correct size and skip this frame
-            self.imgui_context.io_mut().display_size =
-                [render_target_size.0 as f32, render_target_size.1 as f32];
+            "Size mismatch: surface={}x{}, imgui(logical)={:?}, imgui(physical)={}x{}",
+            surface_size.0,
+            surface_size.1,
+            io.display_size,
+            imgui_phys.0,
+            imgui_phys.1
+        );
             return;
         }
 
-        // Additional validation: log if window size differs from surface (common on Windows)
-        if window_size.width != render_target_size.0 || window_size.height != render_target_size.1 {
-            debug!(
-                "Window inner size differs from surface: window={}x{}, surface={}x{}",
-                window_size.width, window_size.height, render_target_size.0, render_target_size.1
-            );
-        }
-
-        // CRITICAL: Update display size one more time right before new_frame
-        // to ensure it matches the render target size
-        self.imgui_context.io_mut().display_size =
-            [render_target_size.0 as f32, render_target_size.1 as f32];
-
+        // -------------------------------------------------------------------- build UI
         let ui = self.imgui_context.new_frame();
 
-        // Since docking is not available, we'll use a simpler layout
-        // with fixed windows
-
-        // Top menu bar
+        // Main-menu bar --------------------------------------------------------
         ui.main_menu_bar(|| {
             ui.menu("File", || {
-                if ui.menu_item("New Scene") {
-                    info!("New scene requested");
-                    // TODO: Implement new scene
-                }
-                if ui.menu_item("Load Scene...") {
-                    info!("Load scene requested");
-                    // TODO: Implement load scene dialog
-                }
-                if ui.menu_item("Save Scene...") {
-                    info!("Save scene requested");
-                    // TODO: Implement save scene dialog
-                }
+                if ui.menu_item("New Scene")      { info!("New scene requested"); }
+                if ui.menu_item("Load Scene…")    { info!("Load scene requested"); }
+                if ui.menu_item("Save Scene…")    { info!("Save scene requested"); }
                 ui.separator();
-                if ui.menu_item("Exit") {
-                    std::process::exit(0);
-                }
+                if ui.menu_item("Exit")           { std::process::exit(0); }
             });
-
             ui.menu("View", || {
-                if ui.menu_item("Reset Layout") {
-                    info!("Reset layout requested");
-                    // TODO: Reset layout
-                }
+                if ui.menu_item("Reset Layout")   { info!("Reset layout requested"); }
             });
-
             ui.menu("Help", || {
-                if ui.menu_item("About") {
-                    info!("About requested");
-                }
+                if ui.menu_item("About")          { info!("About requested"); }
             });
         });
 
-        // Render panels
+        // Panels ---------------------------------------------------------------
         crate::panels::render_hierarchy_panel(ui, world, &mut self.selected_entity);
         crate::panels::render_inspector_panel(ui, world, self.selected_entity);
         crate::panels::render_assets_panel(ui, world);
-
-        // Render viewport with the game texture
         crate::panels::render_viewport_panel(ui, self.texture_id, &self.render_target);
 
-        // Status bar
-        let viewport_height = ui.io().display_size[1];
+        // Status bar -----------------------------------------------------------
+        let viewport_h = ui.io().display_size[1];
         ui.window("Status Bar")
-            .position([0.0, viewport_height - 25.0], Condition::Always)
+            .position([0.0, viewport_h - 25.0], Condition::Always)
             .size([ui.io().display_size[0], 25.0], Condition::Always)
             .no_decoration()
             .movable(false)
             .scroll_bar(false)
             .build(|| {
-                let mode_text = if self.ui_mode {
-                    "Mode: Editor"
-                } else {
-                    "Mode: Game"
-                };
-                ui.text(mode_text);
-                ui.same_line();
-                ui.separator();
-                ui.same_line();
-
-                let entity_count = world.query::<()>().iter().count();
-                ui.text(format!("Entities: {entity_count}"));
-                ui.same_line();
-                ui.separator();
-                ui.same_line();
-
-                if let Some(entity) = self.selected_entity {
-                    ui.text(format!("Selected: {entity:?}"));
-                } else {
-                    ui.text("No selection");
+                ui.text(if self.ui_mode { "Mode: Editor" } else { "Mode: Game" });
+                ui.same_line(); ui.separator(); ui.same_line();
+                ui.text(format!("Entities: {}", world.query::<()>().iter().count()));
+                ui.same_line(); ui.separator(); ui.same_line();
+                match self.selected_entity {
+                    Some(e) => ui.text(format!("Selected: {e:?}")),
+                    None    => ui.text("No selection"),
                 }
             });
 
-        // Prepare render
+        // -------------------------------------------------------------------- render
         self.imgui_platform.prepare_render(ui, window);
         let draw_data = self.imgui_context.render();
 
-        // Final safety check: Verify surface size hasn't changed
-        let final_surface_size = {
-            let surface_config = render_context.surface_config.lock().unwrap();
-            (surface_config.width, surface_config.height)
-        };
-        if final_surface_size != render_target_size {
-            tracing::warn!(
-                "Surface resized during frame! Was {}x{}, now {}x{}. Skipping frame.",
-                render_target_size.0,
-                render_target_size.1,
-                final_surface_size.0,
-                final_surface_size.1
-            );
-            return;
-        }
-
-        // Validate draw data before rendering
-        if draw_data.display_size[0] <= 0.0 || draw_data.display_size[1] <= 0.0 {
-            tracing::warn!(
-                "Invalid draw data display size: {:?}",
-                draw_data.display_size
-            );
-            return;
-        }
-
-        // CRITICAL: Ensure draw data display size matches render target
-        if draw_data.display_size[0] != render_target_size.0 as f32
-            || draw_data.display_size[1] != render_target_size.1 as f32
-        {
-            tracing::error!(
-                "Draw data size mismatch! draw_data: {:?}, render_target: {:?}",
-                draw_data.display_size,
-                render_target_size
-            );
-            // Force correct size by updating context and skipping this frame
-            self.imgui_context.io_mut().display_size =
-                [render_target_size.0 as f32, render_target_size.1 as f32];
-            return;
-        }
-
-        // Note: In imgui-rs 0.12, we cannot directly access clip rects from DrawCmd
-        // The scissor rect validation is handled internally by imgui-wgpu
-        // Our size validation above should prevent scissor rect errors
-
-        // Log render pass creation details
-        debug!(
-            "Creating ImGui render pass with surface size: {}x{}",
-            render_target_size.0, render_target_size.1
+        // Final sanity check (physical) ---------------------------------------
+        let draw_phys = (
+            (draw_data.display_size[0] * draw_data.framebuffer_scale[0]).round() as u32,
+            (draw_data.display_size[1] * draw_data.framebuffer_scale[1]).round() as u32,
         );
+        if draw_phys != surface_size {
+            tracing::error!(
+            "Draw-data size mismatch: draw={}x{}, surface={}x{}",
+            draw_phys.0,
+            draw_phys.1,
+            surface_size.0,
+            surface_size.1
+        );
+            return;
+        }
 
-        // Create a render pass for ImGui
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        // Render pass ----------------------------------------------------------
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("ImGui Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view,
                 resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load, // Load existing content
-                    store: wgpu::StoreOp::Store,
-                },
+                ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
             })],
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
         });
 
-        // Log before attempting to render
-        debug!(
-            "Attempting ImGui render with draw_data display_size: {:?}, framebuffer_scale: {:?}",
-            draw_data.display_size, draw_data.framebuffer_scale
-        );
-
-        // Render ImGui - imgui-wgpu should handle scissor rects based on draw_data
         if let Err(e) = self.imgui_renderer.render(
             draw_data,
             &render_context.queue,
             &render_context.device,
-            &mut render_pass,
+            &mut pass,
         ) {
-            tracing::error!("Failed to render ImGui: {:?}", e);
-            tracing::error!("Surface config size: {:?}", render_target_size);
-            tracing::error!("Draw data display size: {:?}", draw_data.display_size);
-            tracing::error!(
-                "Draw data framebuffer scale: {:?}",
-                draw_data.framebuffer_scale
-            );
-            tracing::error!(
-                "ImGui IO display size: {:?}",
-                self.imgui_context.io().display_size
-            );
-            tracing::error!(
-                "ImGui IO framebuffer scale: {:?}",
-                self.imgui_context.io().display_framebuffer_scale
-            );
+            tracing::error!("ImGui render failed: {e:?}");
         }
-
-        drop(render_pass);
     }
 
     /// Handle window resize
@@ -554,6 +429,20 @@ impl EditorState {
 
         // Get surface format from surface config
         let surface_format = render_context.surface_config.lock().unwrap().format;
+        
+        // CRITICAL: Recreate the imgui renderer to ensure it uses the new viewport size
+        // This prevents scissor rect validation errors from cached viewport dimensions
+        let renderer_config = RendererConfig {
+            texture_format: surface_format,
+            ..Default::default()
+        };
+        
+        self.imgui_renderer = Renderer::new(
+            &mut self.imgui_context,
+            &render_context.device,
+            &render_context.queue,
+            renderer_config,
+        );
 
         // Recreate render target with actual surface size
         self.render_target = RenderTarget::new(
