@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 engine = { path = "../engine" }
-imgui = "0.12"
+imgui = { git = "https://github.com/eliasstepanik/imgui-rs", features = ["docking"] }
 imgui-sys = { version = "0.12", optional = true }
 imgui-wgpu = "0.25"
 imgui-winit-support = "0.13"

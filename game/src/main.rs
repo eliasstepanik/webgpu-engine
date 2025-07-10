@@ -128,10 +128,18 @@ impl App {
         // Store initialized components
         self.instance = Some(instance);
         self.window_manager = Some(window_manager);
-        self.render_context = Some(render_context);
+        self.render_context = Some(render_context.clone());
         self.renderer = Some(renderer);
         #[cfg(feature = "editor")]
         {
+            let mut editor_state = editor_state;
+            
+            // Initialize viewport backend if viewport feature is enabled
+            #[cfg(feature = "viewport")]
+            {
+                editor_state.init_viewport_backend(&window, &render_context);
+            }
+            
             self.editor_state = Some(editor_state);
         }
     }
@@ -193,22 +201,32 @@ impl App {
             if let (Some(editor_state), Some(window_manager)) =
                 (&mut self.editor_state, &mut self.window_manager)
             {
-                // Initialize detached window manager lazily when needed
-                if editor_state.panel_manager.has_pending_requests() {
-                    if editor_state.detached_window_manager.is_none() {
-                        if let Some(render_context) = &self.render_context {
-                            editor_state.init_detached_window_manager(render_context.clone());
+                // Handle panel detachment based on viewport feature
+                #[cfg(feature = "viewport")]
+                {
+                    // Use viewport system for detachment
+                    editor_state.process_viewport_requests(window_manager, event_loop);
+                }
+                
+                #[cfg(not(feature = "viewport"))]
+                {
+                    // Fall back to old detached window manager when viewport is disabled
+                    if editor_state.panel_manager.has_pending_requests() {
+                        if editor_state.detached_window_manager.is_none() {
+                            if let Some(render_context) = &self.render_context {
+                                editor_state.init_detached_window_manager(render_context.clone());
+                            }
                         }
-                    }
-                    
-                    if let Some(detached_window_manager) = &mut editor_state.detached_window_manager {
-                        detached_window_manager.process_detach_requests(
-                            &mut editor_state.panel_manager,
-                            window_manager,
-                            event_loop,
-                        );
-                        detached_window_manager
-                            .process_attach_requests(&mut editor_state.panel_manager, window_manager);
+                        
+                        if let Some(detached_window_manager) = &mut editor_state.detached_window_manager {
+                            detached_window_manager.process_detach_requests(
+                                &mut editor_state.panel_manager,
+                                window_manager,
+                                event_loop,
+                            );
+                            detached_window_manager
+                                .process_attach_requests(&mut editor_state.panel_manager, window_manager);
+                        }
                     }
                 }
             }
@@ -365,6 +383,7 @@ impl App {
                     &mut encoder,
                     &view,
                     &window_data.window,
+                    window_manager,
                 );
 
                 // Submit commands

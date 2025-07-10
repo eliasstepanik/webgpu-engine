@@ -5,3 +5,7 @@ members = [
     "engine",
     "editor",
 ]
+
+[patch.crates-io]
+imgui = { git = "https://github.com/eliasstepanik/imgui-rs" }
+imgui-sys = { git = "https://github.com/eliasstepanik/imgui-rs" }
