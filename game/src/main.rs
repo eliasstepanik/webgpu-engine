@@ -36,6 +36,10 @@ struct App {
     focus_tracker: HashMap<WindowId, bool>,
     /// Last focused window ID
     last_focused_window: Option<WindowId>,
+    /// Script engine
+    script_engine: Option<engine::scripting::ScriptEngine>,
+    /// Input state
+    input_state: engine::input::InputState,
 }
 
 impl App {
@@ -51,6 +55,8 @@ impl App {
             instance: None,
             focus_tracker: HashMap::new(),
             last_focused_window: None,
+            script_engine: None,
+            input_state: engine::input::InputState::new(),
         }
     }
 
@@ -183,11 +189,16 @@ impl App {
             )
         };
 
+        // Initialize script engine
+        let mut script_engine = engine::scripting::ScriptEngine::new();
+        engine::scripting::system::initialize_script_engine(&mut script_engine);
+
         // Store initialized components
         self.instance = Some(instance);
         self.window_manager = Some(window_manager);
         self.render_context = Some(render_context.clone());
         self.renderer = Some(renderer);
+        self.script_engine = Some(script_engine);
         #[cfg(feature = "editor")]
         {
             let editor_state = editor_state;
@@ -274,16 +285,32 @@ impl App {
 
         // Update time
         let current_time = std::time::Instant::now();
-        let _delta_time = (current_time - self.last_time).as_secs_f32();
+        let delta_time = (current_time - self.last_time).as_secs_f32();
         self.last_time = current_time;
+
+        // Clear per-frame input data
+        self.input_state.clear_frame_data();
 
         // Update hierarchy system only (demo scene rotation disabled for editor)
         #[cfg(feature = "editor")]
         {
-            if let Some(editor_state) = &self.editor_state {
+            if let (Some(editor_state), Some(script_engine)) =
+                (&self.editor_state, &mut self.script_engine)
+            {
+                let script_input_state = self.input_state.to_script_input_state();
+
                 // Update through shared state when editor is enabled
                 editor_state.shared_state.with_world_write(|world| {
                     // update_demo_scene(world, delta_time); // Disabled for editor
+
+                    // Execute scripts
+                    engine::scripting::script_execution_system(
+                        world,
+                        script_engine,
+                        &script_input_state,
+                        delta_time,
+                    );
+
                     update_hierarchy_system(world);
                 });
             }
@@ -293,6 +320,18 @@ impl App {
         {
             // Update directly when editor is disabled
             update_demo_scene(&mut self.world, delta_time);
+
+            // Execute scripts
+            if let Some(script_engine) = &mut self.script_engine {
+                let script_input_state = self.input_state.to_script_input_state();
+                engine::scripting::script_execution_system(
+                    &mut self.world,
+                    script_engine,
+                    &script_input_state,
+                    delta_time,
+                );
+            }
+
             update_hierarchy_system(&mut self.world);
         }
 
@@ -558,6 +597,22 @@ impl ApplicationHandler for App {
             }
             WindowEvent::RedrawRequested => {
                 self.render_frame(window_id, event_loop);
+            }
+            WindowEvent::KeyboardInput { event, .. } => {
+                self.input_state.handle_keyboard_event(&event);
+            }
+            WindowEvent::CursorMoved { position, .. } => {
+                let new_pos = (position.x as f32, position.y as f32);
+                let old_pos = self.input_state.mouse_position;
+                self.input_state.set_mouse_position(new_pos.0, new_pos.1);
+                self.input_state
+                    .add_mouse_delta(new_pos.0 - old_pos.0, new_pos.1 - old_pos.1);
+            }
+            WindowEvent::MouseInput { button, state, .. } => {
+                self.input_state.handle_mouse_button(button, state);
+            }
+            WindowEvent::MouseWheel { .. } => {
+                // Mouse wheel events can be handled here if needed
             }
             _ => {}
         }

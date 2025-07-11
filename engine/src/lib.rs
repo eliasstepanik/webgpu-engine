@@ -8,6 +8,7 @@ pub mod dev;
 pub mod graphics;
 pub mod input;
 pub mod io;
+pub mod scripting;
 pub mod shaders;
 pub mod utils;
 pub mod windowing;

@@ -107,6 +107,9 @@ impl ComponentRegistry {
         registry.register::<MeshId>("MeshId");
         registry.register::<Material>("Material");
 
+        // Register scripting components
+        registry.register::<crate::scripting::ScriptRef>("ScriptRef");
+
         debug!(
             component_count = registry.len(),
             "Created registry with default components"

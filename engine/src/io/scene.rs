@@ -306,6 +306,18 @@ impl Scene {
                             error!(error = %e, "Failed to deserialize Name");
                         }
                     },
+                    "ScriptRef" => {
+                        match serde_json::from_value::<crate::scripting::ScriptRef>(value.clone()) {
+                            Ok(script_ref) => {
+                                if let Err(e) = world.insert_one(entity, script_ref) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert ScriptRef");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize ScriptRef");
+                            }
+                        }
+                    }
                     unknown => {
                         warn!(
                             component_type = unknown,
@@ -544,6 +556,18 @@ impl Scene {
                             error!(error = %e, "Failed to deserialize Name");
                         }
                     },
+                    "ScriptRef" => {
+                        match serde_json::from_value::<crate::scripting::ScriptRef>(value.clone()) {
+                            Ok(script_ref) => {
+                                if let Err(e) = world.insert_one(entity, script_ref) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert ScriptRef");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize ScriptRef");
+                            }
+                        }
+                    }
                     unknown => {
                         warn!(
                             component_type = unknown,

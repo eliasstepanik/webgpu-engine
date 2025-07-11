@@ -1,0 +1,68 @@
+{
+  "name": "Scripted Demo Scene",
+  "entities": [
+    {
+      "id": 1,
+      "components": {
+        "Name": "Scripted Camera",
+        "Transform": {
+          "position": [0.0, 5.0, 10.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Camera": {
+          "projection_mode": {
+            "Perspective": {
+              "fov": 60.0,
+              "aspect_ratio": 1.777,
+              "near": 0.1,
+              "far": 1000.0
+            }
+          }
+        },
+        "ScriptRef": {
+          "name": "fly_camera"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "components": {
+        "Name": "Rotating Cube",
+        "Transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": {
+          "id": 0,
+          "debug_name": "cube"
+        },
+        "Material": {
+          "color": [1.0, 0.0, 0.0, 1.0]
+        },
+        "ScriptRef": {
+          "name": "rotating_cube"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "components": {
+        "Name": "Ground Plane",
+        "Transform": {
+          "position": [0.0, -2.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": {
+          "id": 1,
+          "debug_name": "plane"
+        },
+        "Material": {
+          "color": [0.3, 0.3, 0.3, 1.0]
+        }
+      }
+    }
+  ]
+}
