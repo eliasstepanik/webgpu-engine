@@ -3,7 +3,6 @@
 //! Displays all entities in the scene in a tree structure,
 //! allowing selection and basic operations.
 
-use crate::docking::check_dock_zones;
 use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
 use engine::prelude::{Parent, Transform, World};
@@ -16,17 +15,14 @@ pub fn render_hierarchy_panel(
     ui: &imgui::Ui,
     shared_state: &EditorSharedState,
     panel_manager: &mut PanelManager,
-    window_size: (f32, f32),
+    _window_size: (f32, f32),
 ) {
     let panel_id = PanelId("hierarchy".to_string());
 
     // Get panel info
-    let (panel_title, panel_position, panel_size, is_visible) = {
+    let (panel_title, is_visible) = {
         match panel_manager.get_panel(&panel_id) {
-            Some(panel) => {
-                let pos = panel.calculate_docked_position(window_size);
-                (panel.title.clone(), pos, panel.size, panel.is_visible)
-            }
+            Some(panel) => (panel.title.clone(), panel.is_visible),
             None => return,
         }
     };
@@ -38,11 +34,7 @@ pub fn render_hierarchy_panel(
     let window_name = format!("{}##{}", panel_title, panel_id.0);
 
     ui.window(&window_name)
-        .position(
-            [panel_position.0, panel_position.1],
-            Condition::FirstUseEver,
-        )
-        .size([panel_size.0, panel_size.1], Condition::FirstUseEver)
+        .size([280.0, 400.0], Condition::FirstUseEver)
         .resizable(true)
         .build(|| {
             // Access the world through shared state
@@ -117,52 +109,10 @@ pub fn render_hierarchy_panel(
             if let Some(panel) = panel_manager.get_panel_mut(&panel_id) {
                 let new_pos = ui.window_pos();
                 let new_size = ui.window_size();
-                
-                // Check if window is being moved (position changed)
-                let position_changed = (new_pos[0] - panel.position.0).abs() > 0.1 
-                    || (new_pos[1] - panel.position.1).abs() > 0.1;
-                
-                // Track drag state based on position changes and mouse state
-                if position_changed && ui.is_mouse_down(MouseButton::Left) {
-                    if !panel.is_dragging {
-                        panel.start_drag();
-                        debug!(panel = "hierarchy", "Started dragging");
-                    }
-                    
-                    // Check for docking zones while dragging
-                    if let Some(docked_state) = check_dock_zones(
-                        (new_pos[0], new_pos[1]),
-                        (new_size[0], new_size[1]),
-                        window_size,
-                        None,
-                    ) {
-                        // Visual feedback could be added here
-                        debug!(panel = "hierarchy", edge = ?docked_state.edge, "Panel in dock zone");
-                    }
-                } else if panel.is_dragging && !ui.is_mouse_down(MouseButton::Left) {
-                    // Mouse released - check if we should dock
-                    debug!(panel = "hierarchy", pos = ?(new_pos[0], new_pos[1]), "Checking for docking on mouse release");
-                    panel.stop_drag();
-                    
-                    if let Some(docked_state) = check_dock_zones(
-                        (new_pos[0], new_pos[1]),
-                        (new_size[0], new_size[1]),
-                        window_size,
-                        None,
-                    ) {
-                        debug!(panel = "hierarchy", edge = ?docked_state.edge, "Docking panel");
-                        panel.dock(docked_state);
-                    }
-                }
-                
-                // Update position and size
+
+                // Update position and size for layout saving
                 panel.position = (new_pos[0], new_pos[1]);
                 panel.size = (new_size[0], new_size[1]);
-                
-                // Check if we should undock (panel dragged away from edge)
-                if panel.is_dragging && panel.docked.is_some() {
-                    panel.check_undock((new_pos[0], new_pos[1]), window_size, 50.0);
-                }
             }
         });
 }

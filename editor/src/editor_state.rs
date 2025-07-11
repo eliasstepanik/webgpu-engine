@@ -119,6 +119,9 @@ impl EditorState {
         // Create ImGui context
         let mut imgui_context = imgui::Context::create();
 
+        // Enable docking
+        imgui_context.io_mut().config_flags |= imgui::ConfigFlags::DOCKING_ENABLE;
+
         // Configure ImGui
         imgui_context.set_ini_filename(None); // Don't save settings to file
 
@@ -297,7 +300,6 @@ impl EditorState {
 
             // Update window size for docking calculations
             self.window_size = (window_size.width as f32, window_size.height as f32);
-            self.panel_manager.update_docked_positions(self.window_size);
 
             debug!(
                 "Scale factor changed to {}: window={}x{}, logical={}x{}, exact_physical={}x{}",
@@ -440,7 +442,7 @@ impl EditorState {
         // Get surface size from window
         let window_size = window.inner_size();
         let surface_size = (window_size.width, window_size.height);
-        
+
         // Update window size for docking calculations
         self.window_size = (window_size.width as f32, window_size.height as f32);
         debug!("Window size for docking: {:?}", self.window_size);
@@ -691,6 +693,9 @@ impl EditorState {
                     }
                 });
             });
+
+            // Create main dockspace that fills the entire window (minus menu bar)
+            let _dockspace_id = ui.dockspace_over_main_viewport();
 
             // Panels ---------------------------------------------------------------
             crate::panels::render_hierarchy_panel(
