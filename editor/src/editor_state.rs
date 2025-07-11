@@ -97,6 +97,8 @@ pub struct EditorState {
     surface_format: wgpu::TextureFormat,
     /// Panel manager
     pub panel_manager: PanelManager,
+    /// Current window size for docking calculations
+    pub window_size: (f32, f32),
     /// Pending menu actions to be handled after UI rendering
     pending_menu_actions: Option<MenuActions>,
     /// Pending dialog actions to be handled after UI rendering
@@ -247,6 +249,10 @@ impl EditorState {
             pending_scene_operation: None,
             surface_format,
             panel_manager: PanelManager::with_layout_file(PanelManager::default_layout_path()),
+            window_size: (
+                window.inner_size().width as f32,
+                window.inner_size().height as f32,
+            ),
             pending_menu_actions: None,
             pending_dialog_actions: None,
         };
@@ -288,6 +294,10 @@ impl EditorState {
             // Calculate the exact physical size that corresponds to the rounded logical size
             let exact_physical_width = (logical_width * scale_factor) as u32;
             let exact_physical_height = (logical_height * scale_factor) as u32;
+
+            // Update window size for docking calculations
+            self.window_size = (window_size.width as f32, window_size.height as f32);
+            self.panel_manager.update_docked_positions(self.window_size);
 
             debug!(
                 "Scale factor changed to {}: window={}x{}, logical={}x{}, exact_physical={}x{}",
@@ -679,9 +689,24 @@ impl EditorState {
             });
 
             // Panels ---------------------------------------------------------------
-            crate::panels::render_hierarchy_panel(ui, &self.shared_state, &mut self.panel_manager);
-            crate::panels::render_inspector_panel(ui, &self.shared_state, &mut self.panel_manager);
-            crate::panels::render_assets_panel(ui, &self.shared_state, &mut self.panel_manager);
+            crate::panels::render_hierarchy_panel(
+                ui,
+                &self.shared_state,
+                &mut self.panel_manager,
+                self.window_size,
+            );
+            crate::panels::render_inspector_panel(
+                ui,
+                &self.shared_state,
+                &mut self.panel_manager,
+                self.window_size,
+            );
+            crate::panels::render_assets_panel(
+                ui,
+                &self.shared_state,
+                &mut self.panel_manager,
+                self.window_size,
+            );
 
             // Central viewport that displays the 3D scene
             crate::panels::render_viewport_panel(
@@ -690,6 +715,7 @@ impl EditorState {
                 &self.render_target,
                 &self.shared_state,
                 &mut self.panel_manager,
+                self.window_size,
             );
 
             // Dialog handling

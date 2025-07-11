@@ -1,5 +1,6 @@
 //! Panel state management for editor windows
 
+use crate::docking::DockedState;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -22,6 +23,9 @@ pub struct PanelLayout {
     pub size: (f32, f32),
     /// Whether the panel is visible
     pub is_visible: bool,
+    /// Docked state if the panel is docked to a window edge
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub docked: Option<DockedState>,
 }
 
 /// State of an individual panel
@@ -37,6 +41,12 @@ pub struct PanelState {
     pub size: (f32, f32),
     /// Whether the panel is visible
     pub is_visible: bool,
+    /// Docked state if the panel is docked to a window edge
+    pub docked: Option<DockedState>,
+    /// Track if the panel is being dragged
+    pub is_dragging: bool,
+    /// Position when drag started
+    pub drag_start_pos: Option<(f32, f32)>,
 }
 
 impl PanelState {
@@ -48,6 +58,9 @@ impl PanelState {
             position: (100.0, 100.0),
             size: (400.0, 300.0),
             is_visible: true,
+            docked: None,
+            is_dragging: false,
+            drag_start_pos: None,
         }
     }
 
@@ -71,6 +84,9 @@ impl PanelState {
             position,
             size,
             is_visible: layout.is_visible,
+            docked: layout.docked,
+            is_dragging: false,
+            drag_start_pos: None,
         }
     }
 
@@ -82,6 +98,60 @@ impl PanelState {
             position: self.position,
             size: self.size,
             is_visible: self.is_visible,
+            docked: self.docked.clone(),
+        }
+    }
+
+    /// Calculate position based on docked state and window size
+    pub fn calculate_docked_position(&self, window_size: (f32, f32)) -> (f32, f32) {
+        match &self.docked {
+            Some(docked) => docked.calculate_position(self.size, window_size),
+            None => self.position, // Not docked, use stored position
+        }
+    }
+
+    /// Start dragging the panel
+    pub fn start_drag(&mut self) {
+        self.is_dragging = true;
+        self.drag_start_pos = Some(self.position);
+    }
+
+    /// Stop dragging the panel
+    pub fn stop_drag(&mut self) {
+        self.is_dragging = false;
+        self.drag_start_pos = None;
+    }
+
+    /// Apply docking state
+    pub fn dock(&mut self, docked_state: DockedState) {
+        self.docked = Some(docked_state);
+        info!(panel = ?self.id, edge = ?self.docked.as_ref().unwrap().edge, "Panel docked");
+    }
+
+    /// Remove docking state
+    pub fn undock(&mut self) {
+        if self.docked.is_some() {
+            self.docked = None;
+            info!(panel = ?self.id, "Panel undocked");
+        }
+    }
+
+    /// Check if panel should undock based on current position
+    pub fn check_undock(
+        &mut self,
+        current_pos: (f32, f32),
+        window_size: (f32, f32),
+        threshold: f32,
+    ) {
+        if let Some(docked) = &self.docked {
+            let docked_pos = docked.calculate_position(self.size, window_size);
+            let distance = ((current_pos.0 - docked_pos.0).powi(2)
+                + (current_pos.1 - docked_pos.1).powi(2))
+            .sqrt();
+
+            if distance > threshold {
+                self.undock();
+            }
         }
     }
 }
@@ -155,6 +225,16 @@ impl PanelManager {
         self.panels.values()
     }
 
+    /// Update positions of all docked panels based on new window size
+    pub fn update_docked_positions(&mut self, window_size: (f32, f32)) {
+        for panel in self.panels.values_mut() {
+            if panel.docked.is_some() {
+                let new_pos = panel.calculate_docked_position(window_size);
+                panel.position = new_pos;
+            }
+        }
+    }
+
     /// Save current layout to JSON file
     pub fn save_layout<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
         let layouts: Vec<PanelLayout> = self
@@ -221,6 +301,9 @@ mod tests {
             position: (100.0, 200.0),
             size: (400.0, 300.0),
             is_visible: true,
+            docked: None,
+            is_dragging: false,
+            drag_start_pos: None,
         };
 
         let layout = panel.to_layout();
@@ -240,6 +323,7 @@ mod tests {
             position: (150.0, 250.0),
             size: (500.0, 400.0),
             is_visible: false,
+            docked: None,
         };
 
         let panel = PanelState::from_layout(layout);
@@ -294,6 +378,7 @@ mod tests {
             position: (10.0, 20.0),
             size: (100.0, 200.0),
             is_visible: true,
+            docked: None,
         };
 
         let json = serde_json::to_string(&layout).expect("Failed to serialize");

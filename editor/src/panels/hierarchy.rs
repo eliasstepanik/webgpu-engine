@@ -3,6 +3,7 @@
 //! Displays all entities in the scene in a tree structure,
 //! allowing selection and basic operations.
 
+use crate::docking::check_dock_zones;
 use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
 use engine::prelude::{Parent, Transform, World};
@@ -15,18 +16,17 @@ pub fn render_hierarchy_panel(
     ui: &imgui::Ui,
     shared_state: &EditorSharedState,
     panel_manager: &mut PanelManager,
+    window_size: (f32, f32),
 ) {
     let panel_id = PanelId("hierarchy".to_string());
 
     // Get panel info
     let (panel_title, panel_position, panel_size, is_visible) = {
         match panel_manager.get_panel(&panel_id) {
-            Some(panel) => (
-                panel.title.clone(),
-                panel.position,
-                panel.size,
-                panel.is_visible,
-            ),
+            Some(panel) => {
+                let pos = panel.calculate_docked_position(window_size);
+                (panel.title.clone(), pos, panel.size, panel.is_visible)
+            }
             None => return,
         }
     };
@@ -117,8 +117,47 @@ pub fn render_hierarchy_panel(
             if let Some(panel) = panel_manager.get_panel_mut(&panel_id) {
                 let new_pos = ui.window_pos();
                 let new_size = ui.window_size();
-                panel.position = (new_pos[0], new_pos[1]);
+                
+                // Track drag state
+                if ui.is_window_hovered() && ui.is_mouse_dragging(MouseButton::Left) {
+                    if !panel.is_dragging {
+                        panel.start_drag();
+                    }
+                    
+                    // Check for docking zones while dragging
+                    if let Some(docked_state) = check_dock_zones(
+                        (new_pos[0], new_pos[1]),
+                        (new_size[0], new_size[1]),
+                        window_size,
+                        None,
+                    ) {
+                        // Visual feedback could be added here
+                        debug!(panel = "hierarchy", edge = ?docked_state.edge, "Panel in dock zone");
+                    }
+                } else if panel.is_dragging && !ui.is_mouse_down(MouseButton::Left) {
+                    // Mouse released - check if we should dock
+                    panel.stop_drag();
+                    
+                    if let Some(docked_state) = check_dock_zones(
+                        (new_pos[0], new_pos[1]),
+                        (new_size[0], new_size[1]),
+                        window_size,
+                        None,
+                    ) {
+                        panel.dock(docked_state);
+                    }
+                }
+                
+                // Update position and size
+                if !panel.is_dragging {
+                    panel.position = (new_pos[0], new_pos[1]);
+                }
                 panel.size = (new_size[0], new_size[1]);
+                
+                // Check if we should undock (panel dragged away from edge)
+                if panel.is_dragging && panel.docked.is_some() {
+                    panel.check_undock((new_pos[0], new_pos[1]), window_size, 50.0);
+                }
             }
         });
 }
