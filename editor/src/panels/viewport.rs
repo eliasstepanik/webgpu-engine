@@ -33,6 +33,7 @@ pub fn render_viewport_panel(
 
     ui.window(&window_name)
         .size([800.0, 600.0], Condition::FirstUseEver)
+        .position([100.0, 100.0], Condition::FirstUseEver)
         .resizable(true)
         .build(|| {
         let available_size = ui.content_region_avail();
@@ -55,14 +56,6 @@ pub fn render_viewport_panel(
         // Display the game render target with proper aspect ratio
         imgui::Image::new(texture_id, available_size).build(ui);
 
-        // Update panel position and size if window was moved/resized
-        if let Some(panel) = panel_manager.get_panel_mut(&panel_id) {
-            let new_pos = ui.window_pos();
-            let new_size = ui.window_size();
-
-            // Update position and size for layout saving
-            panel.position = (new_pos[0], new_pos[1]);
-            panel.size = (new_size[0], new_size[1]);
-        }
+        // Panel position and size are now managed by ImGui's docking system
     });
 }

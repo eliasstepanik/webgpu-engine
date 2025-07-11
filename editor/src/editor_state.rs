@@ -123,7 +123,8 @@ impl EditorState {
         imgui_context.io_mut().config_flags |= imgui::ConfigFlags::DOCKING_ENABLE;
 
         // Configure ImGui
-        imgui_context.set_ini_filename(None); // Don't save settings to file
+        // Enable ImGui's ini file to persist docking layout
+        imgui_context.set_ini_filename(Some(std::path::PathBuf::from("imgui_docking.ini")));
 
         // Enable docking but disable viewports by default to prevent unwanted window creation
         {
@@ -549,6 +550,8 @@ impl EditorState {
 
             // Handle layout actions
             if actions.save_layout {
+                // ImGui automatically saves docking state to its ini file
+                // We just need to save our panel visibility state
                 match self.panel_manager.save_default_layout() {
                     Ok(_) => {
                         info!("Layout saved successfully");
@@ -559,6 +562,8 @@ impl EditorState {
                 }
             }
             if actions.load_layout {
+                // ImGui automatically loads docking state from its ini file
+                // We just need to load our panel visibility state
                 match self.panel_manager.load_default_layout() {
                     Ok(_) => {
                         info!("Layout loaded successfully");
@@ -570,6 +575,10 @@ impl EditorState {
             }
             if actions.reset_layout {
                 self.panel_manager = PanelManager::default();
+                // Clear ImGui's docking state to reset to default
+                if let Err(e) = std::fs::remove_file("imgui_docking.ini") {
+                    debug!("Could not remove imgui docking ini: {}", e);
+                }
                 info!("Layout reset to default");
             }
         }

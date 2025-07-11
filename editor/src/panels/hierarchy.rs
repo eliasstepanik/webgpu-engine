@@ -35,6 +35,7 @@ pub fn render_hierarchy_panel(
 
     ui.window(&window_name)
         .size([280.0, 400.0], Condition::FirstUseEver)
+        .position([20.0, 50.0], Condition::FirstUseEver)
         .resizable(true)
         .build(|| {
             // Access the world through shared state
@@ -105,15 +106,7 @@ pub fn render_hierarchy_panel(
                 ui.text("Failed to access world data");
             }
 
-            // Update panel position and size if window was moved/resized
-            if let Some(panel) = panel_manager.get_panel_mut(&panel_id) {
-                let new_pos = ui.window_pos();
-                let new_size = ui.window_size();
-
-                // Update position and size for layout saving
-                panel.position = (new_pos[0], new_pos[1]);
-                panel.size = (new_size[0], new_size[1]);
-            }
+            // Panel position and size are now managed by ImGui's docking system
         });
 }
 
