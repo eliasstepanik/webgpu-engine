@@ -16,7 +16,7 @@ pub mod windowing;
 pub mod prelude {
     // Entity system types
     pub use crate::core::entity::{
-        update_hierarchy_system, Entity, GlobalTransform, Parent, Transform, World,
+        update_hierarchy_system, Entity, GlobalTransform, Name, Parent, Transform, World,
     };
 
     // Camera types

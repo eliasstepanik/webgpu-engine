@@ -33,12 +33,16 @@ pub struct Renderer {
     context: Arc<RenderContext>,
     /// Basic 3D render pipeline
     basic_pipeline: RenderPipeline,
+    /// Outline render pipeline for selection
+    outline_pipeline: RenderPipeline,
     /// Depth texture for depth testing
     depth_texture: DepthTexture,
     /// Camera uniform buffer
     camera_uniform_buffer: wgpu::Buffer,
     /// Camera bind group
     camera_bind_group: wgpu::BindGroup,
+    /// Outline camera bind group
+    outline_camera_bind_group: wgpu::BindGroup,
     /// Cached mesh GPU data
     mesh_cache: HashMap<String, MeshGpuData>,
     /// Mesh library for default meshes and fallbacks
@@ -55,8 +59,9 @@ impl Renderer {
         // Default format - will be updated when rendering to a surface
         let surface_format = wgpu::TextureFormat::Bgra8UnormSrgb;
 
-        // Create render pipeline
+        // Create render pipelines
         let basic_pipeline = RenderPipeline::new_basic_3d(&context.device, surface_format);
+        let outline_pipeline = RenderPipeline::new_outline(&context.device, surface_format);
 
         // Create depth texture with default size
         let depth_texture = DepthTexture::new(&context.device, 1280, 720);
@@ -66,16 +71,20 @@ impl Renderer {
         let camera_uniform_buffer =
             camera_uniform.create_buffer(&context.device, Some("Camera Uniform Buffer"));
 
-        // Create camera bind group
+        // Create camera bind groups
         let camera_bind_group =
             basic_pipeline.create_camera_bind_group(&context.device, &camera_uniform_buffer);
+        let outline_camera_bind_group =
+            outline_pipeline.create_camera_bind_group(&context.device, &camera_uniform_buffer);
 
         Self {
             context,
             basic_pipeline,
+            outline_pipeline,
             depth_texture,
             camera_uniform_buffer,
             camera_bind_group,
+            outline_camera_bind_group,
             mesh_cache: HashMap::new(),
             mesh_library: MeshLibrary::new(),
             surface_format,
@@ -100,6 +109,9 @@ impl Renderer {
             // Recreate camera bind group
             self.camera_bind_group = self
                 .basic_pipeline
+                .create_camera_bind_group(&self.context.device, &self.camera_uniform_buffer);
+            self.outline_camera_bind_group = self
+                .outline_pipeline
                 .create_camera_bind_group(&self.context.device, &self.camera_uniform_buffer);
         }
     }
@@ -158,6 +170,16 @@ impl Renderer {
         &mut self,
         world: &World,
         surface: &wgpu::Surface,
+    ) -> Result<(), wgpu::SurfaceError> {
+        self.render_with_selection(world, surface, None)
+    }
+
+    /// Render a frame to a surface with optional selection highlighting
+    pub fn render_with_selection(
+        &mut self,
+        world: &World,
+        surface: &wgpu::Surface,
+        selected_entity: Option<hecs::Entity>,
     ) -> Result<(), wgpu::SurfaceError> {
         // Get the current surface texture
         let output = surface.get_current_texture()?;
@@ -226,6 +248,45 @@ impl Renderer {
                 })
                 .collect();
 
+            // First pass: Render outline for selected entity
+            if let Some(selected) = selected_entity {
+                // Find the selected entity in our render list
+                if let Some((_, mesh_id, _, transform)) = entities_to_render
+                    .iter()
+                    .find(|(e, _, _, _)| *e == selected)
+                {
+                    // Ensure mesh is loaded
+                    let _ = self.get_or_create_mesh(mesh_id);
+                    let mesh_data = &self.mesh_cache[&mesh_id.0];
+
+                    // Use outline pipeline
+                    render_pass.set_pipeline(&self.outline_pipeline.pipeline);
+                    render_pass.set_bind_group(0, &self.outline_camera_bind_group, &[]);
+
+                    // Create outline uniform with bright color
+                    let outline_color = [1.0, 0.9, 0.0, 1.0]; // Yellow outline
+                    let outline_uniform = ObjectUniform::new(transform.matrix, outline_color);
+                    let outline_buffer = outline_uniform
+                        .create_buffer(&self.context.device, Some("Outline Uniform"));
+                    let outline_bind_group = self
+                        .outline_pipeline
+                        .create_object_bind_group(&self.context.device, &outline_buffer);
+
+                    render_pass.set_bind_group(1, &outline_bind_group, &[]);
+                    render_pass.set_vertex_buffer(0, mesh_data.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(
+                        mesh_data.index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
+                    render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
+                }
+
+                // Switch back to basic pipeline for normal rendering
+                render_pass.set_pipeline(&self.basic_pipeline.pipeline);
+                render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            }
+
+            // Second pass: Render all entities normally
             for (entity, mesh_id, material, transform) in entities_to_render {
                 debug!(entity = ?entity, "Rendering entity");
 
@@ -391,6 +452,16 @@ impl Renderer {
         world: &World,
         render_target: &RenderTarget,
     ) -> Result<(), wgpu::SurfaceError> {
+        self.render_to_target_with_selection(world, render_target, None)
+    }
+
+    /// Render to a specific render target with optional selection highlighting
+    pub fn render_to_target_with_selection(
+        &mut self,
+        world: &World,
+        render_target: &RenderTarget,
+        selected_entity: Option<hecs::Entity>,
+    ) -> Result<(), wgpu::SurfaceError> {
         // Find the active camera
         let mut camera_data = None;
         let mut camera_query = world.query::<(&Camera, &GlobalTransform)>();
@@ -451,6 +522,45 @@ impl Renderer {
                 })
                 .collect();
 
+            // First pass: Render outline for selected entity
+            if let Some(selected) = selected_entity {
+                // Find the selected entity in our render list
+                if let Some((_, mesh_id, _, transform)) = entities_to_render
+                    .iter()
+                    .find(|(e, _, _, _)| *e == selected)
+                {
+                    // Ensure mesh is loaded
+                    let _ = self.get_or_create_mesh(mesh_id);
+                    let mesh_data = &self.mesh_cache[&mesh_id.0];
+
+                    // Use outline pipeline
+                    render_pass.set_pipeline(&self.outline_pipeline.pipeline);
+                    render_pass.set_bind_group(0, &self.outline_camera_bind_group, &[]);
+
+                    // Create outline uniform with bright color
+                    let outline_color = [1.0, 0.9, 0.0, 1.0]; // Yellow outline
+                    let outline_uniform = ObjectUniform::new(transform.matrix, outline_color);
+                    let outline_buffer = outline_uniform
+                        .create_buffer(&self.context.device, Some("Outline Uniform"));
+                    let outline_bind_group = self
+                        .outline_pipeline
+                        .create_object_bind_group(&self.context.device, &outline_buffer);
+
+                    render_pass.set_bind_group(1, &outline_bind_group, &[]);
+                    render_pass.set_vertex_buffer(0, mesh_data.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(
+                        mesh_data.index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
+                    render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
+                }
+
+                // Switch back to basic pipeline for normal rendering
+                render_pass.set_pipeline(&self.basic_pipeline.pipeline);
+                render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            }
+
+            // Second pass: Render all entities normally
             for (entity, mesh_id, material, transform) in entities_to_render {
                 debug!(entity = ?entity, "Rendering entity to target");
 

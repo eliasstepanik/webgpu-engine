@@ -5,7 +5,7 @@
 
 use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
-use engine::prelude::{Parent, Transform, World};
+use engine::prelude::{Name, Parent, Transform, World};
 use imgui::*;
 use std::collections::HashMap;
 use tracing::debug;
@@ -185,11 +185,17 @@ fn render_entity_tree(
 
 /// Get a display name for an entity
 fn get_entity_name(world: &World, entity: hecs::Entity) -> String {
-    // Check for common components to create a meaningful name
+    // Try Name component first
+    if let Ok(name) = world.get::<&Name>(entity) {
+        if !name.0.is_empty() {
+            return name.0.clone();
+        }
+    }
+
+    // Fallback to ID with component indicator
     if world.get::<&Transform>(entity).is_ok() {
-        // For now, just use entity ID with Transform indicator
-        format!("Entity {entity:?} [Transform]")
-    } else {
         format!("Entity {entity:?}")
+    } else {
+        format!("Entity {entity:?} [No Transform]")
     }
 }

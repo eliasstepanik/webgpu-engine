@@ -3,7 +3,7 @@
 use crate::core::{
     camera::Camera,
     entity::{
-        components::{GlobalTransform, Parent, ParentData, Transform},
+        components::{GlobalTransform, Name, Parent, ParentData, Transform},
         World,
     },
 };
@@ -178,6 +178,18 @@ impl Scene {
                 }
             }
 
+            // Serialize Name component
+            if let Ok(name) = world.get::<Name>(entity) {
+                match serde_json::to_value(&*name) {
+                    Ok(value) => {
+                        components.insert("Name".to_string(), value);
+                    }
+                    Err(e) => {
+                        error!(error = %e, "Failed to serialize Name");
+                    }
+                }
+            }
+
             entities.push(SerializedEntity { components });
         }
 
@@ -282,6 +294,16 @@ impl Scene {
                         }
                         Err(e) => {
                             error!(error = %e, "Failed to deserialize Material");
+                        }
+                    },
+                    "Name" => match serde_json::from_value::<Name>(value.clone()) {
+                        Ok(name) => {
+                            if let Err(e) = world.insert_one(entity, name) {
+                                error!(error = ?e, entity = ?entity, "Failed to insert Name");
+                            }
+                        }
+                        Err(e) => {
+                            error!(error = %e, "Failed to deserialize Name");
                         }
                     },
                     unknown => {
@@ -510,6 +532,16 @@ impl Scene {
                             if let Err(e) = world.insert_one(entity, fallback_material) {
                                 error!(error = ?e, entity = ?entity, "Failed to insert fallback Material");
                             }
+                        }
+                    },
+                    "Name" => match serde_json::from_value::<Name>(value.clone()) {
+                        Ok(name) => {
+                            if let Err(e) = world.insert_one(entity, name) {
+                                error!(error = ?e, entity = ?entity, "Failed to insert Name");
+                            }
+                        }
+                        Err(e) => {
+                            error!(error = %e, "Failed to deserialize Name");
                         }
                     },
                     unknown => {

@@ -277,13 +277,13 @@ impl App {
         let delta_time = (current_time - self.last_time).as_secs_f32();
         self.last_time = current_time;
 
-        // Update demo scene and hierarchy
+        // Update hierarchy system only (demo scene rotation disabled for editor)
         #[cfg(feature = "editor")]
         {
             if let Some(editor_state) = &self.editor_state {
                 // Update through shared state when editor is enabled
                 editor_state.shared_state.with_world_write(|world| {
-                    update_demo_scene(world, delta_time);
+                    // update_demo_scene(world, delta_time); // Disabled for editor
                     update_hierarchy_system(world);
                 });
             }

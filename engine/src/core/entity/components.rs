@@ -136,6 +136,17 @@ impl ParentData {
     }
 }
 
+/// Name component for user-friendly entity identification
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Name(pub String);
+
+impl Name {
+    /// Create a new name component
+    pub fn new(name: impl Into<String>) -> Self {
+        Self(name.into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,5 +175,20 @@ mod tests {
         let transform = Transform::from_position(Vec3::new(5.0, 10.0, 15.0));
         let global = GlobalTransform::from_matrix(transform.to_matrix());
         assert_eq!(global.position(), Vec3::new(5.0, 10.0, 15.0));
+    }
+
+    #[test]
+    fn test_name_component() {
+        let name = Name::new("Test Entity");
+        assert_eq!(name.0, "Test Entity");
+
+        // Test default
+        let default_name = Name::default();
+        assert_eq!(default_name.0, "");
+
+        // Test serialization
+        let json = serde_json::to_string(&name).unwrap();
+        let deserialized: Name = serde_json::from_str(&json).unwrap();
+        assert_eq!(name.0, deserialized.0);
     }
 }

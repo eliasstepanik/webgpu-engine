@@ -504,8 +504,13 @@ impl EditorState {
             "Rendering game to viewport texture, render_target size: {:?}",
             self.render_target.size
         );
-        // Render the game to our render target texture
-        if let Err(e) = renderer.render_to_target(world, &self.render_target) {
+        // Get the selected entity from shared state
+        let selected_entity = self.shared_state.selected_entity();
+
+        // Render the game to our render target texture with selection highlighting
+        if let Err(e) =
+            renderer.render_to_target_with_selection(world, &self.render_target, selected_entity)
+        {
             tracing::error!("Failed to render to viewport: {e:?}");
         }
     }
