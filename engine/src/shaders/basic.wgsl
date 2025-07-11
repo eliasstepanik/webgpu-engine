@@ -66,7 +66,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Simple directional light
     let light_dir = normalize(vec3<f32>(0.5, -1.0, -0.3));
     let light_color = vec3<f32>(1.0, 1.0, 1.0);
-    let ambient_strength = 0.1;
+    let ambient_strength = 0.3;
     
     // Calculate diffuse lighting
     let diff = max(dot(in.world_normal, -light_dir), 0.0);

@@ -43,7 +43,7 @@ pub fn create_default_scene(world: &mut World, renderer: &mut Renderer) {
     let _plane_entity = world.spawn((
         Name::new("Ground Plane"),
         plane_mesh_id,
-        Material::gray(0.3),
+        Material::gray(0.5),
         Transform::from_position(Vec3::new(0.0, -1.0, 0.0)),
         GlobalTransform::default(),
     ));
