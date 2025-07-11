@@ -290,14 +290,22 @@ fn render_editable_transform(
     let mut modified = false;
     let state = get_inspector_state();
 
+    // Calculate available width and column layout
+    let available_width = ui.content_region_avail()[0];
+    let label_width = 20.0; // Width for "X:", "Y:", "Z:" labels
+    let spacing = unsafe { ui.style().item_spacing[0] };
+    let input_width = (available_width - label_width * 3.0 - spacing * 4.0) / 3.0;
+
     // Position
     ui.text("Position:");
     let mut pos_x = transform.position.x;
     let mut pos_y = transform.position.y;
     let mut pos_z = transform.position.z;
 
+    // Position row with proper columns
     ui.text("X:");
     ui.same_line();
+    ui.set_next_item_width(input_width);
     if Drag::new("##pos_x")
         .speed(0.01)
         .display_format("%.3f")
@@ -309,6 +317,7 @@ fn render_editable_transform(
     ui.same_line();
     ui.text("Y:");
     ui.same_line();
+    ui.set_next_item_width(input_width);
     if Drag::new("##pos_y")
         .speed(0.01)
         .display_format("%.3f")
@@ -320,6 +329,7 @@ fn render_editable_transform(
     ui.same_line();
     ui.text("Z:");
     ui.same_line();
+    ui.set_next_item_width(input_width);
     if Drag::new("##pos_z")
         .speed(0.01)
         .display_format("%.3f")
@@ -340,8 +350,10 @@ fn render_editable_transform(
         [x.to_degrees(), y.to_degrees(), z.to_degrees()]
     };
 
+    // Rotation row with proper columns
     ui.text("X:");
     ui.same_line();
+    ui.set_next_item_width(input_width);
     if Drag::new("##rot_x")
         .speed(0.5)
         .display_format("%.1f")
@@ -352,6 +364,7 @@ fn render_editable_transform(
     ui.same_line();
     ui.text("Y:");
     ui.same_line();
+    ui.set_next_item_width(input_width);
     if Drag::new("##rot_y")
         .speed(0.5)
         .display_format("%.1f")
@@ -362,6 +375,7 @@ fn render_editable_transform(
     ui.same_line();
     ui.text("Z:");
     ui.same_line();
+    ui.set_next_item_width(input_width);
     if Drag::new("##rot_z")
         .speed(0.5)
         .display_format("%.1f")
@@ -388,8 +402,10 @@ fn render_editable_transform(
     let mut scale_y = transform.scale.y;
     let mut scale_z = transform.scale.z;
 
+    // Scale row with proper columns
     ui.text("X:");
     ui.same_line();
+    ui.set_next_item_width(input_width);
     if Drag::new("##scale_x")
         .speed(0.01)
         .display_format("%.3f")
@@ -401,6 +417,7 @@ fn render_editable_transform(
     ui.same_line();
     ui.text("Y:");
     ui.same_line();
+    ui.set_next_item_width(input_width);
     if Drag::new("##scale_y")
         .speed(0.01)
         .display_format("%.3f")
@@ -412,6 +429,7 @@ fn render_editable_transform(
     ui.same_line();
     ui.text("Z:");
     ui.same_line();
+    ui.set_next_item_width(input_width);
     if Drag::new("##scale_z")
         .speed(0.01)
         .display_format("%.3f")
@@ -421,18 +439,24 @@ fn render_editable_transform(
         modified = true;
     }
 
-    // Reset buttons
+    // Reset buttons - calculate button widths
+    let button_count = 3.0;
+    let button_width = (available_width - spacing * (button_count - 1.0)) / button_count;
+
+    ui.set_next_item_width(button_width);
     if ui.button("Reset Position") {
         transform.position = Vec3::ZERO;
         modified = true;
     }
     ui.same_line();
+    ui.set_next_item_width(button_width);
     if ui.button("Reset Rotation") {
         transform.rotation = Quat::IDENTITY;
         state.euler_angles.insert(entity, [0.0, 0.0, 0.0]);
         modified = true;
     }
     ui.same_line();
+    ui.set_next_item_width(button_width);
     if ui.button("Reset Scale") {
         transform.scale = Vec3::ONE;
         modified = true;
@@ -516,23 +540,32 @@ fn render_editable_material(ui: &imgui::Ui, material: &mut Material) -> bool {
         modified = true;
     }
 
-    // Quick color presets
+    // Quick color presets - calculate button widths
     ui.text("Presets:");
+    let available_width = ui.content_region_avail()[0];
+    let spacing = unsafe { ui.style().item_spacing[0] };
+    let button_count = 4.0;
+    let button_width = (available_width - spacing * (button_count - 1.0)) / button_count;
+
+    ui.set_next_item_width(button_width);
     if ui.button("White") {
         material.color = [1.0, 1.0, 1.0, 1.0];
         modified = true;
     }
     ui.same_line();
+    ui.set_next_item_width(button_width);
     if ui.button("Red") {
         material.color = [1.0, 0.0, 0.0, 1.0];
         modified = true;
     }
     ui.same_line();
+    ui.set_next_item_width(button_width);
     if ui.button("Green") {
         material.color = [0.0, 1.0, 0.0, 1.0];
         modified = true;
     }
     ui.same_line();
+    ui.set_next_item_width(button_width);
     if ui.button("Blue") {
         material.color = [0.0, 0.0, 1.0, 1.0];
         modified = true;
