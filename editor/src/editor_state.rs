@@ -440,6 +440,10 @@ impl EditorState {
         // Get surface size from window
         let window_size = window.inner_size();
         let surface_size = (window_size.width, window_size.height);
+        
+        // Update window size for docking calculations
+        self.window_size = (window_size.width as f32, window_size.height as f32);
+        debug!("Window size for docking: {:?}", self.window_size);
 
         // --- 2. Convert to logical units and write once ------------------------
         let dpi = window.scale_factor() as f32;

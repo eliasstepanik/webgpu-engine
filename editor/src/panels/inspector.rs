@@ -101,10 +101,15 @@ pub fn render_inspector_panel(
                 let new_pos = ui.window_pos();
                 let new_size = ui.window_size();
                 
-                // Track drag state
-                if ui.is_window_hovered() && ui.is_mouse_dragging(MouseButton::Left) {
+                // Check if window is being moved (position changed)
+                let position_changed = (new_pos[0] - panel.position.0).abs() > 0.1 
+                    || (new_pos[1] - panel.position.1).abs() > 0.1;
+                
+                // Track drag state based on position changes and mouse state
+                if position_changed && ui.is_mouse_down(MouseButton::Left) {
                     if !panel.is_dragging {
                         panel.start_drag();
+                        debug!(panel = "inspector", "Started dragging");
                     }
                     
                     // Check for docking zones while dragging
@@ -119,6 +124,7 @@ pub fn render_inspector_panel(
                     }
                 } else if panel.is_dragging && !ui.is_mouse_down(MouseButton::Left) {
                     // Mouse released - check if we should dock
+                    debug!(panel = "inspector", pos = ?(new_pos[0], new_pos[1]), "Checking for docking on mouse release");
                     panel.stop_drag();
                     
                     if let Some(docked_state) = check_dock_zones(
@@ -127,14 +133,13 @@ pub fn render_inspector_panel(
                         window_size,
                         None,
                     ) {
+                        debug!(panel = "inspector", edge = ?docked_state.edge, "Docking panel");
                         panel.dock(docked_state);
                     }
                 }
                 
                 // Update position and size
-                if !panel.is_dragging {
-                    panel.position = (new_pos[0], new_pos[1]);
-                }
+                panel.position = (new_pos[0], new_pos[1]);
                 panel.size = (new_size[0], new_size[1]);
                 
                 // Check if we should undock (panel dragged away from edge)
