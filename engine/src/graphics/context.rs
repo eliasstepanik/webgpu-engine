@@ -36,7 +36,6 @@ impl RenderContext {
         instance: wgpu::Instance,
         compatible_surface: Option<&wgpu::Surface<'_>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-
         // Request adapter
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {

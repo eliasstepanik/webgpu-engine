@@ -5,14 +5,15 @@
 
 use crate::detached_window_manager::DetachedWindowManager;
 use crate::panel_state::PanelManager;
+use crate::safe_imgui_renderer::SafeImGuiRenderer;
 use crate::shared_state::EditorSharedState;
 #[cfg(feature = "viewport")]
 use crate::viewport_backend::ViewportBackend;
 use engine::core::entity::World;
-use engine::graphics::{context::RenderContext, render_target::RenderTarget};
+use engine::graphics::{context::RenderContext, render_target::RenderTarget, RenderTargetInfo};
 use engine::windowing::WindowManager;
 use imgui::*;
-use imgui_wgpu::{Renderer as ImGuiRenderer, RendererConfig};
+use imgui_wgpu::RendererConfig;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -26,6 +27,26 @@ pub enum PendingAction {
     NewScene,
     LoadScene,
     Exit,
+}
+
+/// Menu actions that need to be handled after UI rendering
+struct MenuActions {
+    new_scene: bool,
+    load_scene: bool,
+    save_scene: bool,
+    save_scene_as: bool,
+    exit: bool,
+    save_layout: bool,
+    load_layout: bool,
+    reset_layout: bool,
+}
+
+/// Dialog actions that need to be handled after UI rendering
+struct DialogActions {
+    save_and_proceed: bool,
+    dont_save_and_proceed: bool,
+    cancel: bool,
+    clear_error: bool,
 }
 
 /// Scene operation that needs to be performed by main loop
@@ -42,8 +63,8 @@ pub struct EditorState {
     pub imgui_context: imgui::Context,
     /// ImGui-winit platform integration
     pub imgui_platform: WinitPlatform,
-    /// ImGui-wgpu renderer
-    pub imgui_renderer: ImGuiRenderer,
+    /// ImGui-wgpu renderer with safety validation
+    pub imgui_renderer: SafeImGuiRenderer,
     /// Render target for viewport texture
     pub render_target: RenderTarget,
     /// ImGui texture ID for the render target
@@ -82,6 +103,10 @@ pub struct EditorState {
     pub panel_manager: PanelManager,
     /// Detached window manager
     pub detached_window_manager: Option<DetachedWindowManager>,
+    /// Pending menu actions to be handled after UI rendering
+    pending_menu_actions: Option<MenuActions>,
+    /// Pending dialog actions to be handled after UI rendering
+    pending_dialog_actions: Option<DialogActions>,
     /// Viewport backend for multi-window support
     #[cfg(feature = "viewport")]
     pub viewport_backend: Option<ViewportBackend>,
@@ -90,7 +115,8 @@ pub struct EditorState {
     pub viewport_renderer: Option<crate::enhanced_viewport_renderer::EnhancedViewportRenderer>,
     /// Shared viewport renderer backend
     #[cfg(feature = "viewport")]
-    pub viewport_renderer_backend: Option<Arc<Mutex<crate::viewport_renderer_backend::ViewportRendererBackend>>>,
+    pub viewport_renderer_backend:
+        Option<Arc<Mutex<crate::viewport_renderer_backend::ViewportRendererBackend>>>,
 }
 
 impl EditorState {
@@ -155,7 +181,7 @@ impl EditorState {
             ..Default::default()
         };
 
-        let mut imgui_renderer = ImGuiRenderer::new(
+        let mut imgui_renderer = SafeImGuiRenderer::new(
             &mut imgui_context,
             &render_context.device,
             &render_context.queue,
@@ -188,7 +214,7 @@ impl EditorState {
 
         let imgui_texture = imgui_wgpu::Texture::from_raw_parts(
             &render_context.device,
-            &imgui_renderer,
+            imgui_renderer.inner(),
             std::sync::Arc::new(render_target.texture.clone()),
             std::sync::Arc::new(render_target.view.clone()),
             None,
@@ -199,7 +225,7 @@ impl EditorState {
                 depth_or_array_layers: 1,
             },
         );
-        let texture_id = imgui_renderer.textures.insert(imgui_texture);
+        let texture_id = imgui_renderer.textures().insert(imgui_texture);
 
         info!("Editor initialized - Press Tab to toggle between Editor UI and Game Input modes");
 
@@ -236,6 +262,8 @@ impl EditorState {
             surface_format,
             panel_manager: PanelManager::with_layout_file(PanelManager::default_layout_path()),
             detached_window_manager: None,
+            pending_menu_actions: None,
+            pending_dialog_actions: None,
             #[cfg(feature = "viewport")]
             viewport_backend: None,
             #[cfg(feature = "viewport")]
@@ -259,32 +287,36 @@ impl EditorState {
 
     /// Initialize the viewport backend for multi-window support
     #[cfg(feature = "viewport")]
-    pub fn init_viewport_backend(&mut self, window: &winit::window::Window, render_context: &RenderContext) {
+    pub fn init_viewport_backend(
+        &mut self,
+        window: &winit::window::Window,
+        render_context: &RenderContext,
+    ) {
         if self.viewport_backend.is_none() {
             let mut viewport_backend = ViewportBackend::new();
             viewport_backend.init(&mut self.imgui_context, window);
             self.viewport_backend = Some(viewport_backend);
             info!("Initialized viewport backend for multi-window support");
         }
-        
+
         if self.viewport_renderer.is_none() {
             use crate::enhanced_viewport_renderer::EnhancedViewportRenderer;
-            
+
             let renderer_config = imgui_wgpu::RendererConfig {
                 texture_format: self.surface_format,
                 ..Default::default()
             };
-            
+
             let viewport_renderer = EnhancedViewportRenderer::new(
                 &mut self.imgui_context,
                 render_context.device.clone(),
                 render_context.queue.clone(),
                 renderer_config,
             );
-            
+
             self.viewport_renderer = Some(viewport_renderer);
             info!("Initialized enhanced viewport renderer");
-            
+
             // Set up the renderer viewport backend
             use crate::viewport_renderer_backend::ViewportRendererBackend;
             let renderer_backend = ViewportRendererBackend::new(
@@ -293,41 +325,41 @@ impl EditorState {
                 self.surface_format,
                 &mut self.imgui_context,
             );
-            
+
             let shared_backend = Arc::new(Mutex::new(renderer_backend));
             self.viewport_renderer_backend = Some(shared_backend.clone());
-            
+
             // Create a wrapper that delegates to the shared backend
             struct SharedBackendWrapper {
                 backend: Arc<Mutex<ViewportRendererBackend>>,
             }
-            
+
             impl imgui::RendererViewportBackend for SharedBackendWrapper {
                 fn create_window(&mut self, viewport: &mut Viewport) {
                     self.backend.lock().unwrap().create_window(viewport);
                 }
-                
+
                 fn destroy_window(&mut self, viewport: &mut Viewport) {
                     self.backend.lock().unwrap().destroy_window(viewport);
                 }
-                
+
                 fn set_window_size(&mut self, viewport: &mut Viewport, size: [f32; 2]) {
                     self.backend.lock().unwrap().set_window_size(viewport, size);
                 }
-                
+
                 fn render_window(&mut self, viewport: &mut Viewport) {
                     self.backend.lock().unwrap().render_window(viewport);
                 }
-                
+
                 fn swap_buffers(&mut self, viewport: &mut Viewport) {
                     self.backend.lock().unwrap().swap_buffers(viewport);
                 }
             }
-            
+
             let wrapper = SharedBackendWrapper {
                 backend: shared_backend,
             };
-            
+
             self.imgui_context.set_renderer_backend(wrapper);
             info!("Set renderer viewport backend with shared access");
         }
@@ -354,7 +386,7 @@ impl EditorState {
         }
         Ok(())
     }
-    
+
     /// Process pending viewport window creation requests
     #[cfg(feature = "viewport")]
     pub fn process_viewport_requests(
@@ -365,7 +397,7 @@ impl EditorState {
         // Process pending detach requests from panel manager
         let pending_detach = self.panel_manager.take_pending_detach();
         let pending_attach = self.panel_manager.take_pending_attach();
-        
+
         // Mark panels for viewport detachment
         for panel_id in pending_detach {
             if let Some(panel) = self.panel_manager.get_panel_mut(&panel_id) {
@@ -376,7 +408,7 @@ impl EditorState {
                 info!("Marked panel for viewport detachment: {:?}", panel_id);
             }
         }
-        
+
         // Process reattachment requests
         for panel_id in pending_attach {
             if let Some(panel) = self.panel_manager.get_panel_mut(&panel_id) {
@@ -384,20 +416,23 @@ impl EditorState {
                 info!("Reattached panel: {:?}", panel_id);
             }
         }
-        
+
         if let Some(viewport_backend) = &mut self.viewport_backend {
             let requests = viewport_backend.take_pending_requests();
-            
+
             if !requests.is_empty() {
-                info!("Found {} viewport window creation requests to process", requests.len());
+                info!(
+                    "Found {} viewport window creation requests to process",
+                    requests.len()
+                );
             }
-            
+
             for request in requests {
                 info!("Processing viewport window creation request: {:?}", request);
-                
+
                 // Get the DPI scale from the main window
                 let dpi_scale = window_manager.get_main_window().window.scale_factor() as f32;
-                
+
                 // Create window attributes
                 // The request size is in logical pixels, we need to convert to physical
                 let window_attributes = winit::window::WindowAttributes::default()
@@ -416,7 +451,7 @@ impl EditorState {
                     Ok(window) => {
                         let window = Arc::new(window);
                         let _window_id = window.id();
-                        
+
                         // Create surface configuration for the new window
                         // Use the actual physical size from the created window
                         let window_size = window.inner_size();
@@ -430,25 +465,37 @@ impl EditorState {
                             view_formats: vec![],
                             desired_maximum_frame_latency: 2,
                         };
-                        
+
                         // Add window to window manager
                         match window_manager.create_window(window, surface_config) {
                             Ok(created_window_id) => {
                                 // Register the created window with viewport backend
-                                viewport_backend.register_created_window(request.viewport_id, created_window_id);
-                                
+                                viewport_backend.register_created_window(
+                                    request.viewport_id,
+                                    created_window_id,
+                                );
+
                                 // Register with viewport renderer if available
                                 if let Some(renderer) = &mut self.viewport_renderer {
-                                    renderer.on_viewport_created(&mut self.imgui_context, request.viewport_id, created_window_id);
+                                    renderer.on_viewport_created(
+                                        &mut self.imgui_context,
+                                        request.viewport_id,
+                                        created_window_id,
+                                    );
                                 }
-                                
+
                                 // Register with shared renderer backend
                                 if let Some(backend) = &self.viewport_renderer_backend {
-                                    backend.lock().unwrap().register_viewport(request.viewport_id, created_window_id);
+                                    backend
+                                        .lock()
+                                        .unwrap()
+                                        .register_viewport(request.viewport_id, created_window_id);
                                 }
-                                
-                                info!("Successfully created viewport window {:?} for viewport {:?}", 
-                                      created_window_id, request.viewport_id);
+
+                                info!(
+                                    "Successfully created viewport window {:?} for viewport {:?}",
+                                    created_window_id, request.viewport_id
+                                );
                             }
                             Err(e) => {
                                 warn!("Failed to add viewport window to manager: {}", e);
@@ -615,6 +662,49 @@ impl EditorState {
         false
     }
 
+    /// Handle viewport-specific events
+    #[cfg(feature = "viewport")]
+    pub fn handle_viewport_event(
+        &mut self,
+        event: &Event<()>,
+        window_id: winit::window::WindowId,
+        window_manager: &WindowManager,
+    ) {
+        use tracing::trace;
+
+        // Special handling for focus events
+        if let Event::WindowEvent {
+            event: WindowEvent::Focused(focused),
+            window_id: event_window_id,
+        } = event
+        {
+            if *event_window_id == window_id {
+                trace!(
+                    window_id = ?window_id,
+                    focused = focused,
+                    "Viewport focus event"
+                );
+
+                // If a viewport is focused, ensure main window continues processing
+                if *focused && window_id != window_manager.main_window_id() {
+                    let main_window_data = window_manager.get_main_window();
+                    main_window_data.window.request_redraw();
+                }
+            }
+        }
+
+        // Pass events to viewport backend if available
+        if let Some(viewport_backend) = &mut self.viewport_backend {
+            if let Event::WindowEvent {
+                event: window_event,
+                ..
+            } = event
+            {
+                viewport_backend.handle_window_event(window_id, window_event);
+            }
+        }
+    }
+
     /// Begin a new frame
     pub fn begin_frame(&mut self, window: &winit::window::Window, render_context: &RenderContext) {
         // Mark that we're in a frame
@@ -709,11 +799,11 @@ impl EditorState {
                 return;
             }
         }
-        
+
         // Fall back to single-window rendering
         self.render_single_window(render_context, encoder, view, window);
     }
-    
+
     /// Render using the enhanced viewport system
     #[cfg(feature = "viewport")]
     fn render_with_viewports(
@@ -726,7 +816,7 @@ impl EditorState {
     ) {
         // NOTE: begin_frame must have been called before this
         // which calls prepare_frame and sets up the frame
-        
+
         // Check size consistency like in single window renderer
         let window_size = window.inner_size();
         let surface_size = (window_size.width, window_size.height);
@@ -735,81 +825,159 @@ impl EditorState {
             (io.display_size[0] * io.display_framebuffer_scale[0]).round() as u32,
             (io.display_size[1] * io.display_framebuffer_scale[1]).round() as u32,
         );
-        
+
         if imgui_phys != surface_size {
             tracing::error!(
                 "Size mismatch in viewport renderer: surface={}x{}, imgui_physical={}x{}",
-                surface_size.0, surface_size.1, imgui_phys.0, imgui_phys.1
+                surface_size.0,
+                surface_size.1,
+                imgui_phys.0,
+                imgui_phys.1
             );
             return;
         }
-        
-        // Test available viewport APIs (now that we're in a frame)
-        static mut TESTED: bool = false;
-        if unsafe { !TESTED } {
-            // Run viewport diagnostics once
-            crate::check_viewport_issue::diagnose_viewport_issue(&self.imgui_context);
-            unsafe { TESTED = true; }
-        }
-        
+
         // Build the UI - this creates draw data
         let ui = self.imgui_context.new_frame();
-        
-        // TODO: Build the same UI as in render_single_window
-        // For now, just create a test window
-        // Note: Windows need to explicitly NOT have the NO_VIEWPORT flag to be draggable outside
-        let mut show_test_window = true;
-        ui.window("Viewport Test")
-            .size([300.0, 250.0], imgui::Condition::FirstUseEver)
-            .flags(imgui::WindowFlags::empty()) // Ensure no NO_VIEWPORT flag
-            .opened(&mut show_test_window)
-            .build(|| {
-                ui.text("Multi-viewport rendering test");
-                ui.text("This window should be draggable outside the main window");
-                ui.separator();
-                
-                // Show window flags to debug
-                ui.text("Debug Info:");
-                ui.text(format!("Window Flags: {:?}", imgui::WindowFlags::empty()));
-                
-                // Add button to force viewport
-                if ui.button("Force Create Viewport") {
-                    info!("Force viewport button clicked");
-                    // This would need imgui-rs to expose viewport creation API
+
+        // Build the actual editor UI inline to avoid borrow issues
+        {
+            // Store actions to take after UI rendering
+            let mut action_new_scene = false;
+            let mut action_load_scene = false;
+            let mut action_save_scene = false;
+            let mut action_save_scene_as = false;
+            let mut action_exit = false;
+            let mut action_save_layout = false;
+            let mut action_load_layout = false;
+            let mut action_reset_layout = false;
+
+            // Main-menu bar --------------------------------------------------------
+            ui.main_menu_bar(|| {
+                ui.menu("File", || {
+                    if ui.menu_item("New Scene##Ctrl+N") {
+                        action_new_scene = true;
+                    }
+                    if ui.menu_item("Load Scene...##Ctrl+O") {
+                        action_load_scene = true;
+                    }
+                    if ui.menu_item("Save Scene##Ctrl+S") {
+                        action_save_scene = true;
+                    }
+                    if ui.menu_item("Save Scene As...##Ctrl+Shift+S") {
+                        action_save_scene_as = true;
+                    }
+                    ui.separator();
+                    if ui.menu_item("Exit") {
+                        action_exit = true;
+                    }
+                });
+                ui.menu("View", || {
+                    if ui.menu_item("Save Layout") {
+                        action_save_layout = true;
+                    }
+                    if ui.menu_item("Load Layout") {
+                        action_load_layout = true;
+                    }
+                    ui.separator();
+                    if ui.menu_item("Reset Layout") {
+                        action_reset_layout = true;
+                    }
+                });
+                ui.menu("Help", || {
+                    if ui.menu_item("About") {
+                        info!("About requested");
+                    }
+                });
+            });
+
+            // Panels ---------------------------------------------------------------
+            crate::panels::render_hierarchy_panel(ui, &self.shared_state, &mut self.panel_manager);
+            crate::panels::render_inspector_panel(ui, &self.shared_state, &mut self.panel_manager);
+            crate::panels::render_assets_panel(ui, &self.shared_state, &mut self.panel_manager);
+
+            // Central viewport that displays the 3D scene
+            crate::panels::render_viewport_panel(
+                ui,
+                self.texture_id,
+                &self.render_target,
+                &self.shared_state,
+                &mut self.panel_manager,
+            );
+
+            // Dialog handling
+            let mut dialog_save_and_proceed = false;
+            let mut dialog_dont_save_and_proceed = false;
+            let mut dialog_cancel = false;
+            let mut clear_error = false;
+
+            // Unsaved changes dialog
+            if self.show_unsaved_dialog {
+                ui.open_popup("unsaved_changes");
+            }
+
+            ui.modal_popup("unsaved_changes", || {
+                ui.text("Save changes to current scene?");
+                ui.spacing();
+
+                if ui.button("Save") {
+                    dialog_save_and_proceed = true;
+                    ui.close_current_popup();
                 }
-                
+
+                ui.same_line();
+                if ui.button("Don't Save") {
+                    dialog_dont_save_and_proceed = true;
+                    ui.close_current_popup();
+                }
+
+                ui.same_line();
+                if ui.button("Cancel") {
+                    dialog_cancel = true;
+                    ui.close_current_popup();
+                }
+            });
+
+            // Error dialog
+            if self.error_message.is_some() {
+                ui.open_popup("error_dialog");
+            }
+
+            ui.modal_popup("error_dialog", || {
+                ui.text("Error");
                 ui.separator();
-                ui.text("Drag the title bar to move this window");
-                ui.text("Try dragging it outside the main window!");
+                if let Some(ref error) = self.error_message {
+                    ui.text_wrapped(error);
+                }
+                if ui.button("OK") {
+                    clear_error = true;
+                    ui.close_current_popup();
+                }
             });
-            
-        // Create another test window
-        ui.window("Second Viewport Test")
-            .size([250.0, 150.0], imgui::Condition::FirstUseEver)
-            .position([400.0, 100.0], imgui::Condition::FirstUseEver)
-            .flags(imgui::WindowFlags::empty()) // Ensure no NO_VIEWPORT flag
-            .build(|| {
-                ui.text("This is a second test window");
-                ui.text("Both windows should be draggable");
-                
-                ui.text("Try dragging outside the main window");
+
+            // Store actions for deferred handling
+            self.pending_menu_actions = Some(MenuActions {
+                new_scene: action_new_scene,
+                load_scene: action_load_scene,
+                save_scene: action_save_scene,
+                save_scene_as: action_save_scene_as,
+                exit: action_exit,
+                save_layout: action_save_layout,
+                load_layout: action_load_layout,
+                reset_layout: action_reset_layout,
             });
-            
-        // Show viewport backend status
-        ui.window("Viewport Backend Status")
-            .size([300.0, 150.0], imgui::Condition::FirstUseEver)
-            .position([100.0, 400.0], imgui::Condition::FirstUseEver)
-            .build(|| {
-                ui.text("Viewport system is active");
-                ui.text("Drag windows outside main window to detach");
-                ui.separator();
-                ui.text("Updated imgui-rs with viewport support");
-                ui.text("Windows should now detach properly");
+
+            self.pending_dialog_actions = Some(DialogActions {
+                save_and_proceed: dialog_save_and_proceed,
+                dont_save_and_proceed: dialog_dont_save_and_proceed,
+                cancel: dialog_cancel,
+                clear_error,
             });
-        
+        }
+
         // Render main viewport
         let draw_data = self.imgui_context.render();
-        
+
         // Render the main viewport to the screen
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -826,51 +994,41 @@ impl EditorState {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            
+
             self.imgui_renderer
-                .render(draw_data, &render_context.queue, &render_context.device, &mut render_pass)
+                .render_with_validation(
+                    draw_data,
+                    &render_context.queue,
+                    &render_context.device,
+                    &mut render_pass,
+                    RenderTargetInfo {
+                        width: surface_size.0,
+                        height: surface_size.1,
+                    },
+                )
                 .expect("ImGui rendering failed");
         }
-        
+
         // Update platform windows after render
         self.imgui_context.update_platform_windows();
-        
-        // Check if we have multiple viewports
-        static mut LAST_LOG_TIME: Option<std::time::Instant> = None;
-        let _platform_io = self.imgui_context.platform_io();
-        
-        // Log viewport status periodically
-        unsafe {
-            let now = std::time::Instant::now();
-            if LAST_LOG_TIME.is_none() || now.duration_since(LAST_LOG_TIME.unwrap()).as_secs() > 5 {
-                // Log viewport monitoring status
-                info!("Monitoring for viewport changes...");
-                
-                // Check main viewport flags
-                let main_vp = self.imgui_context.main_viewport();
-                info!("Main viewport flags: {:?}", main_vp.flags);
-                
-                LAST_LOG_TIME = Some(now);
-            }
-        }
-        
+
         // Set window manager on platform backend before rendering
         if let Some(backend) = &mut self.viewport_backend {
             unsafe {
                 backend.set_window_manager(window_manager);
             }
         }
-        
+
         // Set window manager on renderer backend before rendering
         if let Some(backend) = &self.viewport_renderer_backend {
             unsafe {
                 backend.lock().unwrap().set_window_manager(window_manager);
             }
         }
-        
+
         // Render additional platform windows
         self.imgui_context.render_platform_windows_default();
-        
+
         // Clear window manager reference after rendering
         if let Some(backend) = &mut self.viewport_backend {
             backend.clear_window_manager();
@@ -878,10 +1036,97 @@ impl EditorState {
         if let Some(backend) = &self.viewport_renderer_backend {
             backend.lock().unwrap().clear_window_manager();
         }
-        
+
         debug!("Viewport rendering cycle complete");
+
+        // Handle deferred actions after rendering
+        self.handle_deferred_actions();
     }
-    
+
+    /// Handle deferred menu and dialog actions after UI rendering
+    fn handle_deferred_actions(&mut self) {
+        // Handle menu actions
+        if let Some(actions) = self.pending_menu_actions.take() {
+            if actions.new_scene {
+                self.new_scene_action();
+            }
+            if actions.load_scene {
+                self.load_scene_action();
+            }
+            if actions.save_scene {
+                self.save_scene_action();
+            }
+            if actions.save_scene_as {
+                self.save_scene_as_action();
+            }
+            if actions.exit {
+                if self.scene_modified {
+                    self.show_unsaved_dialog = true;
+                    self.pending_action = Some(PendingAction::Exit);
+                } else {
+                    std::process::exit(0);
+                }
+            }
+
+            // Handle layout actions
+            if actions.save_layout {
+                match self.panel_manager.save_default_layout() {
+                    Ok(_) => {
+                        info!("Layout saved successfully");
+                    }
+                    Err(e) => {
+                        self.error_message = Some(format!("Failed to save layout: {e}"));
+                    }
+                }
+            }
+            if actions.load_layout {
+                match self.panel_manager.load_default_layout() {
+                    Ok(_) => {
+                        info!("Layout loaded successfully");
+                    }
+                    Err(e) => {
+                        self.error_message = Some(format!("Failed to load layout: {e}"));
+                    }
+                }
+            }
+            if actions.reset_layout {
+                self.panel_manager = PanelManager::default();
+                info!("Layout reset to default");
+            }
+        }
+
+        // Handle dialog actions
+        if let Some(actions) = self.pending_dialog_actions.take() {
+            if actions.save_and_proceed && self.save_scene_action() {
+                self.show_unsaved_dialog = false;
+                if let Some(action) = self.pending_action.take() {
+                    match action {
+                        PendingAction::NewScene => self.perform_new_scene(),
+                        PendingAction::LoadScene => self.perform_load_scene(),
+                        PendingAction::Exit => std::process::exit(0),
+                    }
+                }
+            }
+            if actions.dont_save_and_proceed {
+                self.show_unsaved_dialog = false;
+                if let Some(action) = self.pending_action.take() {
+                    match action {
+                        PendingAction::NewScene => self.perform_new_scene(),
+                        PendingAction::LoadScene => self.perform_load_scene(),
+                        PendingAction::Exit => std::process::exit(0),
+                    }
+                }
+            }
+            if actions.cancel {
+                self.show_unsaved_dialog = false;
+                self.pending_action = None;
+            }
+            if actions.clear_error {
+                self.error_message = None;
+            }
+        }
+    }
+
     /// Render using single window (original implementation)
     fn render_single_window(
         &mut self,
@@ -890,7 +1135,6 @@ impl EditorState {
         view: &wgpu::TextureView,
         window: &winit::window::Window,
     ) {
-
         // -------------------------------------------------------------------- sizes
         // Get surface size from window
         let window_size = window.inner_size();
@@ -920,74 +1164,140 @@ impl EditorState {
         // -------------------------------------------------------------------- build UI
         let ui = self.imgui_context.new_frame();
 
-        // Store actions to take after UI rendering
-        let mut action_new_scene = false;
-        let mut action_load_scene = false;
-        let mut action_save_scene = false;
-        let mut action_save_scene_as = false;
-        let mut action_exit = false;
-        let mut action_save_layout = false;
-        let mut action_load_layout = false;
-        let mut action_reset_layout = false;
+        // Build the editor UI inline to avoid borrow issues
+        {
+            // Store actions to take after UI rendering
+            let mut action_new_scene = false;
+            let mut action_load_scene = false;
+            let mut action_save_scene = false;
+            let mut action_save_scene_as = false;
+            let mut action_exit = false;
+            let mut action_save_layout = false;
+            let mut action_load_layout = false;
+            let mut action_reset_layout = false;
 
-        // Main-menu bar --------------------------------------------------------
-        ui.main_menu_bar(|| {
-            ui.menu("File", || {
-                if ui.menu_item("New Scene##Ctrl+N") {
-                    action_new_scene = true;
-                }
-                if ui.menu_item("Load Scene...##Ctrl+O") {
-                    action_load_scene = true;
-                }
-                if ui.menu_item("Save Scene##Ctrl+S") {
-                    action_save_scene = true;
-                }
-                if ui.menu_item("Save Scene As...##Ctrl+Shift+S") {
-                    action_save_scene_as = true;
-                }
-                ui.separator();
-                if ui.menu_item("Exit") {
-                    action_exit = true;
-                }
+            // Main-menu bar --------------------------------------------------------
+            ui.main_menu_bar(|| {
+                ui.menu("File", || {
+                    if ui.menu_item("New Scene##Ctrl+N") {
+                        action_new_scene = true;
+                    }
+                    if ui.menu_item("Load Scene...##Ctrl+O") {
+                        action_load_scene = true;
+                    }
+                    if ui.menu_item("Save Scene##Ctrl+S") {
+                        action_save_scene = true;
+                    }
+                    if ui.menu_item("Save Scene As...##Ctrl+Shift+S") {
+                        action_save_scene_as = true;
+                    }
+                    ui.separator();
+                    if ui.menu_item("Exit") {
+                        action_exit = true;
+                    }
+                });
+                ui.menu("View", || {
+                    if ui.menu_item("Save Layout") {
+                        action_save_layout = true;
+                    }
+                    if ui.menu_item("Load Layout") {
+                        action_load_layout = true;
+                    }
+                    ui.separator();
+                    if ui.menu_item("Reset Layout") {
+                        action_reset_layout = true;
+                    }
+                });
+                ui.menu("Help", || {
+                    if ui.menu_item("About") {
+                        info!("About requested");
+                    }
+                });
             });
-            ui.menu("View", || {
-                if ui.menu_item("Save Layout") {
-                    action_save_layout = true;
-                }
-                if ui.menu_item("Load Layout") {
-                    action_load_layout = true;
-                }
-                ui.separator();
-                if ui.menu_item("Reset Layout") {
-                    action_reset_layout = true;
-                }
-            });
-            ui.menu("Help", || {
-                if ui.menu_item("About") {
-                    info!("About requested");
-                }
-            });
-        });
 
-        // Panels ---------------------------------------------------------------
-        crate::panels::render_hierarchy_panel(
-            ui,
-            &self.shared_state,
-            &mut self.panel_manager,
-        );
-        crate::panels::render_inspector_panel(
-            ui,
-            &self.shared_state,
-            &mut self.panel_manager,
-        );
-        crate::panels::render_assets_panel(ui, &self.shared_state, &mut self.panel_manager);
-        crate::panels::render_viewport_panel(
-            ui,
-            self.texture_id,
-            &self.render_target,
-            &self.shared_state,
-            &mut self.panel_manager,
-        );
+            // Panels ---------------------------------------------------------------
+            crate::panels::render_hierarchy_panel(ui, &self.shared_state, &mut self.panel_manager);
+            crate::panels::render_inspector_panel(ui, &self.shared_state, &mut self.panel_manager);
+            crate::panels::render_assets_panel(ui, &self.shared_state, &mut self.panel_manager);
+
+            // Central viewport that displays the 3D scene
+            crate::panels::render_viewport_panel(
+                ui,
+                self.texture_id,
+                &self.render_target,
+                &self.shared_state,
+                &mut self.panel_manager,
+            );
+
+            // Dialog handling
+            let mut dialog_save_and_proceed = false;
+            let mut dialog_dont_save_and_proceed = false;
+            let mut dialog_cancel = false;
+            let mut clear_error = false;
+
+            // Unsaved changes dialog
+            if self.show_unsaved_dialog {
+                ui.open_popup("unsaved_changes");
+            }
+
+            ui.modal_popup("unsaved_changes", || {
+                ui.text("Save changes to current scene?");
+                ui.spacing();
+
+                if ui.button("Save") {
+                    dialog_save_and_proceed = true;
+                    ui.close_current_popup();
+                }
+
+                ui.same_line();
+                if ui.button("Don't Save") {
+                    dialog_dont_save_and_proceed = true;
+                    ui.close_current_popup();
+                }
+
+                ui.same_line();
+                if ui.button("Cancel") {
+                    dialog_cancel = true;
+                    ui.close_current_popup();
+                }
+            });
+
+            // Error dialog
+            if self.error_message.is_some() {
+                ui.open_popup("error_dialog");
+            }
+
+            ui.modal_popup("error_dialog", || {
+                ui.text("Error");
+                ui.separator();
+                if let Some(ref error) = self.error_message {
+                    ui.text_wrapped(error);
+                }
+                if ui.button("OK") {
+                    clear_error = true;
+                    ui.close_current_popup();
+                }
+            });
+
+            // Defer action handling until after UI is rendered (important for viewport mode)
+            self.pending_menu_actions = Some(MenuActions {
+                new_scene: action_new_scene,
+                load_scene: action_load_scene,
+                save_scene: action_save_scene,
+                save_scene_as: action_save_scene_as,
+                exit: action_exit,
+                save_layout: action_save_layout,
+                load_layout: action_load_layout,
+                reset_layout: action_reset_layout,
+            });
+
+            self.pending_dialog_actions = Some(DialogActions {
+                save_and_proceed: dialog_save_and_proceed,
+                dont_save_and_proceed: dialog_dont_save_and_proceed,
+                cancel: dialog_cancel,
+                clear_error,
+            });
+        }
 
         // Status bar -----------------------------------------------------------
         let viewport_h = ui.io().display_size[1];
@@ -1025,10 +1335,11 @@ impl EditorState {
                 ui.same_line();
 
                 // Entity count
-                let entity_count = self.shared_state.with_world_read(|world| {
-                    world.query::<()>().iter().count()
-                }).unwrap_or(0);
-                ui.text(format!("Entities: {}", entity_count));
+                let entity_count = self
+                    .shared_state
+                    .with_world_read(|world| world.query::<()>().iter().count())
+                    .unwrap_or(0);
+                ui.text(format!("Entities: {entity_count}"));
                 ui.same_line();
                 ui.separator();
                 ui.same_line();
@@ -1039,58 +1350,6 @@ impl EditorState {
                     None => ui.text("No selection"),
                 }
             });
-
-        // Dialogs --------------------------------------------------------------
-
-        // Store dialog actions
-        let mut dialog_save_and_proceed = false;
-        let mut dialog_dont_save_and_proceed = false;
-        let mut dialog_cancel = false;
-        let mut clear_error = false;
-
-        // Unsaved changes dialog
-        if self.show_unsaved_dialog {
-            ui.open_popup("unsaved_changes");
-        }
-
-        ui.modal_popup("unsaved_changes", || {
-            ui.text("Save changes to current scene?");
-            ui.spacing();
-
-            if ui.button("Save") {
-                dialog_save_and_proceed = true;
-                ui.close_current_popup();
-            }
-
-            ui.same_line();
-            if ui.button("Don't Save") {
-                dialog_dont_save_and_proceed = true;
-                ui.close_current_popup();
-            }
-
-            ui.same_line();
-            if ui.button("Cancel") {
-                dialog_cancel = true;
-                ui.close_current_popup();
-            }
-        });
-
-        // Error dialog
-        if self.error_message.is_some() {
-            ui.open_popup("error_dialog");
-        }
-
-        ui.modal_popup("error_dialog", || {
-            ui.text("Error");
-            ui.separator();
-            if let Some(ref error) = self.error_message {
-                ui.text_wrapped(error);
-            }
-            if ui.button("OK") {
-                clear_error = true;
-                ui.close_current_popup();
-            }
-        });
 
         // -------------------------------------------------------------------- render
         self.imgui_platform.prepare_render(ui, window);
@@ -1129,11 +1388,15 @@ impl EditorState {
                 occlusion_query_set: None,
             });
 
-            if let Err(e) = self.imgui_renderer.render(
+            if let Err(e) = self.imgui_renderer.render_with_validation(
                 draw_data,
                 &render_context.queue,
                 &render_context.device,
                 &mut pass,
+                RenderTargetInfo {
+                    width: surface_size.0,
+                    height: surface_size.1,
+                },
             ) {
                 tracing::error!("ImGui render failed: {e:?}");
             }
@@ -1153,81 +1416,7 @@ impl EditorState {
         self.in_frame = false;
 
         // Handle deferred actions after UI rendering
-        if action_new_scene {
-            self.new_scene_action();
-        }
-        if action_load_scene {
-            self.load_scene_action();
-        }
-        if action_save_scene {
-            self.save_scene_action();
-        }
-        if action_save_scene_as {
-            self.save_scene_as_action();
-        }
-        if action_exit {
-            if self.scene_modified {
-                self.show_unsaved_dialog = true;
-                self.pending_action = Some(PendingAction::Exit);
-            } else {
-                std::process::exit(0);
-            }
-        }
-
-        // Handle dialog actions
-        if dialog_save_and_proceed && self.save_scene_action() {
-            self.show_unsaved_dialog = false;
-            if let Some(action) = self.pending_action.take() {
-                match action {
-                    PendingAction::NewScene => self.perform_new_scene(),
-                    PendingAction::LoadScene => self.perform_load_scene(),
-                    PendingAction::Exit => std::process::exit(0),
-                }
-            }
-        }
-        if dialog_dont_save_and_proceed {
-            self.show_unsaved_dialog = false;
-            if let Some(action) = self.pending_action.take() {
-                match action {
-                    PendingAction::NewScene => self.perform_new_scene(),
-                    PendingAction::LoadScene => self.perform_load_scene(),
-                    PendingAction::Exit => std::process::exit(0),
-                }
-            }
-        }
-        if dialog_cancel {
-            self.show_unsaved_dialog = false;
-            self.pending_action = None;
-        }
-        if clear_error {
-            self.error_message = None;
-        }
-
-        // Handle layout actions
-        if action_save_layout {
-            match self.panel_manager.save_default_layout() {
-                Ok(_) => {
-                    info!("Layout saved successfully");
-                }
-                Err(e) => {
-                    self.error_message = Some(format!("Failed to save layout: {}", e));
-                }
-            }
-        }
-        if action_load_layout {
-            match self.panel_manager.load_default_layout() {
-                Ok(_) => {
-                    info!("Layout loaded successfully");
-                }
-                Err(e) => {
-                    self.error_message = Some(format!("Failed to load layout: {}", e));
-                }
-            }
-        }
-        if action_reset_layout {
-            self.panel_manager = PanelManager::new();
-            info!("Layout reset to defaults");
-        }
+        self.handle_deferred_actions();
     }
 
     /// Handle window resize
@@ -1282,7 +1471,11 @@ impl EditorState {
         let surface_format = self.surface_format;
 
         // Store the old texture existence status before recreating renderer
-        let old_texture_exists = self.imgui_renderer.textures.get(self.texture_id).is_some();
+        let old_texture_exists = self
+            .imgui_renderer
+            .textures()
+            .get(self.texture_id)
+            .is_some();
         debug!(
             "Editor resize: old_texture_exists={}, new_size={:?}",
             old_texture_exists, new_size
@@ -1290,7 +1483,7 @@ impl EditorState {
 
         // Only remove if it exists in current renderer
         if old_texture_exists {
-            self.imgui_renderer.textures.remove(self.texture_id);
+            self.imgui_renderer.textures().remove(self.texture_id);
         }
 
         // CRITICAL: Recreate the imgui renderer to ensure it uses the new viewport size
@@ -1300,7 +1493,7 @@ impl EditorState {
             ..Default::default()
         };
 
-        self.imgui_renderer = ImGuiRenderer::new(
+        self.imgui_renderer = SafeImGuiRenderer::new(
             &mut self.imgui_context,
             &render_context.device,
             &render_context.queue,
@@ -1332,7 +1525,7 @@ impl EditorState {
 
         let imgui_texture = imgui_wgpu::Texture::from_raw_parts(
             &render_context.device,
-            &self.imgui_renderer,
+            self.imgui_renderer.inner(),
             std::sync::Arc::new(self.render_target.texture.clone()),
             std::sync::Arc::new(self.render_target.view.clone()),
             None,
@@ -1343,7 +1536,7 @@ impl EditorState {
                 depth_or_array_layers: 1,
             },
         );
-        self.texture_id = self.imgui_renderer.textures.insert(imgui_texture);
+        self.texture_id = self.imgui_renderer.textures().insert(imgui_texture);
     }
 
     // Scene management methods
@@ -1440,20 +1633,17 @@ impl EditorState {
     /// Shutdown the editor and clean up all resources
     pub fn shutdown(&mut self, window_manager: &mut WindowManager) {
         info!("Shutting down editor state");
-        
+
         // Save panel layout before shutdown
         if let Err(e) = self.panel_manager.save_default_layout() {
             warn!("Failed to save panel layout during shutdown: {}", e);
         }
-        
+
         // Clean up all detached windows
         if let Some(detached_window_manager) = &mut self.detached_window_manager {
-            detached_window_manager.shutdown_all_windows(
-                &mut self.panel_manager,
-                window_manager,
-            );
+            detached_window_manager.shutdown_all_windows(&mut self.panel_manager, window_manager);
         }
-        
+
         // Report final state
         if let Some(detached_window_manager) = &self.detached_window_manager {
             info!(
@@ -1461,7 +1651,7 @@ impl EditorState {
                 detached_window_manager.active_window_count() == 0
             );
         }
-        
+
         info!("Editor shutdown complete");
     }
 

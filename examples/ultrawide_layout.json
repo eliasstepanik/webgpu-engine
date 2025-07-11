@@ -1,0 +1,34 @@
+[
+  {
+    "id": "hierarchy",
+    "title": "Hierarchy",
+    "position": [10.0, 50.0],
+    "size": [350.0, 600.0],
+    "was_detached": false,
+    "is_visible": true
+  },
+  {
+    "id": "viewport",
+    "title": "Main Viewport",
+    "position": [370.0, 50.0],
+    "size": [1000.0, 600.0],
+    "was_detached": false,
+    "is_visible": true
+  },
+  {
+    "id": "inspector",
+    "title": "Inspector",
+    "position": [1380.0, 50.0],
+    "size": [350.0, 400.0],
+    "was_detached": false,
+    "is_visible": true
+  },
+  {
+    "id": "assets",
+    "title": "Assets",
+    "position": [1380.0, 460.0],
+    "size": [350.0, 190.0],
+    "was_detached": false,
+    "is_visible": true
+  }
+]

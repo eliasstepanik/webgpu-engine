@@ -11,6 +11,7 @@ pub mod mesh_library;
 pub mod pipeline;
 pub mod render_target;
 pub mod renderer;
+pub mod safe_scissor;
 pub mod uniform;
 
 // Re-export commonly used types
@@ -22,4 +23,7 @@ pub use mesh_library::MeshLibrary;
 pub use pipeline::{DepthTexture, RenderPipeline};
 pub use render_target::RenderTarget;
 pub use renderer::{MeshId, Renderer};
+pub use safe_scissor::{
+    safe_set_scissor_rect, viewport_to_render_target_scissor, RenderTargetInfo,
+};
 pub use uniform::{CameraUniform, ObjectUniform, UniformBuffer};

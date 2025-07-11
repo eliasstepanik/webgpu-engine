@@ -1,0 +1,58 @@
+[
+  {
+    "id": "assets",
+    "title": "Asset Browser",
+    "position": [
+      -327.0,
+      677.0
+    ],
+    "size": [
+      880.0,
+      180.0
+    ],
+    "was_detached": false,
+    "is_visible": true
+  },
+  {
+    "id": "inspector",
+    "title": "Entity Inspector",
+    "position": [
+      1311.0,
+      -89.0
+    ],
+    "size": [
+      320.0,
+      529.0
+    ],
+    "was_detached": false,
+    "is_visible": true
+  },
+  {
+    "id": "viewport",
+    "title": "3D Viewport",
+    "position": [
+      188.0,
+      27.0
+    ],
+    "size": [
+      1030.0,
+      643.0
+    ],
+    "was_detached": false,
+    "is_visible": true
+  },
+  {
+    "id": "hierarchy",
+    "title": "Scene Hierarchy",
+    "position": [
+      492.0,
+      1131.0
+    ],
+    "size": [
+      280.0,
+      400.0
+    ],
+    "was_detached": false,
+    "is_visible": true
+  }
+]

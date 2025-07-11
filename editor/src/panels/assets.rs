@@ -8,7 +8,11 @@ use crate::shared_state::EditorSharedState;
 
 #[allow(unused_variables)]
 /// Render the assets panel
-pub fn render_assets_panel(ui: &imgui::Ui, _shared_state: &EditorSharedState, panel_manager: &mut PanelManager) {
+pub fn render_assets_panel(
+    ui: &imgui::Ui,
+    _shared_state: &EditorSharedState,
+    panel_manager: &mut PanelManager,
+) {
     let panel_id = PanelId("assets".to_string());
 
     detachable_window(ui, &panel_id, panel_manager, || {

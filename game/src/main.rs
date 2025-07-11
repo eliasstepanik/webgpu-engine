@@ -2,8 +2,9 @@
 
 use engine::prelude::*;
 use engine::windowing::WindowManager;
+use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::info;
+use tracing::{debug, info};
 use winit::{
     application::ApplicationHandler,
     event::{StartCause, WindowEvent},
@@ -31,6 +32,10 @@ struct App {
     editor_state: Option<EditorState>,
     /// WebGPU instance
     instance: Option<Arc<wgpu::Instance>>,
+    /// Focus tracking for window management
+    focus_tracker: HashMap<WindowId, bool>,
+    /// Last focused window ID
+    last_focused_window: Option<WindowId>,
 }
 
 impl App {
@@ -44,6 +49,8 @@ impl App {
             #[cfg(feature = "editor")]
             editor_state: None,
             instance: None,
+            focus_tracker: HashMap::new(),
+            last_focused_window: None,
         }
     }
 
@@ -108,21 +115,20 @@ impl App {
         #[cfg(feature = "editor")]
         let editor_state = {
             let window_size = window.inner_size();
-            
+
             // Move the world to the editor's shared state
             let world = std::mem::replace(&mut self.world, World::new());
-            let editor = EditorState::new(
+
+            // Note: DetachedWindowManager will be initialized lazily when first needed
+            // to avoid surface creation conflicts during startup
+
+            EditorState::new(
                 &render_context,
                 &window,
                 surface_config.format,
                 (window_size.width, window_size.height),
                 world,
-            );
-
-            // Note: DetachedWindowManager will be initialized lazily when first needed
-            // to avoid surface creation conflicts during startup
-
-            editor
+            )
         };
 
         // Store initialized components
@@ -133,13 +139,13 @@ impl App {
         #[cfg(feature = "editor")]
         {
             let mut editor_state = editor_state;
-            
+
             // Initialize viewport backend if viewport feature is enabled
             #[cfg(feature = "viewport")]
             {
                 editor_state.init_viewport_backend(&window, &render_context);
             }
-            
+
             self.editor_state = Some(editor_state);
         }
     }
@@ -183,7 +189,7 @@ impl App {
                         });
                     }
                 }
-                
+
                 #[cfg(not(feature = "editor"))]
                 {
                     for (_, camera) in self.world.query_mut::<&mut Camera>() {
@@ -207,7 +213,7 @@ impl App {
                     // Use viewport system for detachment
                     editor_state.process_viewport_requests(window_manager, event_loop);
                 }
-                
+
                 #[cfg(not(feature = "viewport"))]
                 {
                     // Fall back to old detached window manager when viewport is disabled
@@ -217,15 +223,19 @@ impl App {
                                 editor_state.init_detached_window_manager(render_context.clone());
                             }
                         }
-                        
-                        if let Some(detached_window_manager) = &mut editor_state.detached_window_manager {
+
+                        if let Some(detached_window_manager) =
+                            &mut editor_state.detached_window_manager
+                        {
                             detached_window_manager.process_detach_requests(
                                 &mut editor_state.panel_manager,
                                 window_manager,
                                 event_loop,
                             );
-                            detached_window_manager
-                                .process_attach_requests(&mut editor_state.panel_manager, window_manager);
+                            detached_window_manager.process_attach_requests(
+                                &mut editor_state.panel_manager,
+                                window_manager,
+                            );
                         }
                     }
                 }
@@ -265,7 +275,7 @@ impl App {
                 });
             }
         }
-        
+
         #[cfg(not(feature = "editor"))]
         {
             // Update directly when editor is disabled
@@ -291,7 +301,9 @@ impl App {
                         }
                         SceneOperation::LoadScene(path) => {
                             let result = editor_state.shared_state.with_world_write(|world| {
-                                editor::scene_operations::load_scene_from_file(world, renderer, &path)
+                                editor::scene_operations::load_scene_from_file(
+                                    world, renderer, &path,
+                                )
                             });
                             match result.unwrap_or(Err("Failed to access world".into())) {
                                 Ok(_) => info!("Scene loaded successfully"),
@@ -447,6 +459,18 @@ impl ApplicationHandler for App {
                     window_id,
                 };
 
+                // Handle viewport-specific events when viewport feature is enabled
+                #[cfg(feature = "viewport")]
+                {
+                    if let Some(window_manager) = &self.window_manager {
+                        editor_state.handle_viewport_event(
+                            &window_event,
+                            window_id,
+                            window_manager,
+                        );
+                    }
+                }
+
                 let should_consume = editor_state.handle_event(&window_data.window, &window_event);
 
                 // Don't return early for critical events like RedrawRequested
@@ -457,29 +481,77 @@ impl ApplicationHandler for App {
         }
 
         match event {
+            WindowEvent::Focused(focused) => {
+                self.focus_tracker.insert(window_id, focused);
+
+                // Platform-specific focus handling
+                #[cfg(target_os = "windows")]
+                {
+                    // Windows has focus event ordering issues
+                    if focused && self.last_focused_window != Some(window_id) {
+                        // Force update all other windows as unfocused
+                        for (wid, focus) in self.focus_tracker.iter_mut() {
+                            if *wid != window_id {
+                                *focus = false;
+                            }
+                        }
+                    }
+                }
+
+                self.last_focused_window = if focused { Some(window_id) } else { None };
+
+                // Ensure main window continues processing
+                if window_id == window_manager.main_window_id() && !focused {
+                    window_data.window.request_redraw();
+                }
+
+                // Pass focus event to editor for viewport handling
+                #[cfg(feature = "editor")]
+                {
+                    if let Some(editor_state) = &mut self.editor_state {
+                        // Create event for editor
+                        let window_event = winit::event::Event::WindowEvent {
+                            event: WindowEvent::Focused(focused),
+                            window_id,
+                        };
+                        editor_state.handle_event(&window_data.window, &window_event);
+                    }
+                }
+
+                debug!(
+                    window_id = ?window_id,
+                    focused = focused,
+                    main_window = window_id == window_manager.main_window_id(),
+                    "Window focus changed"
+                );
+            }
             WindowEvent::CloseRequested => {
                 if window_id == window_manager.main_window_id() {
                     info!("Main window close requested");
-                    
+
                     // Clean up editor resources before exit
                     #[cfg(feature = "editor")]
                     {
-                        if let (Some(editor_state), Some(window_manager)) = 
-                            (&mut self.editor_state, &mut self.window_manager) {
+                        if let (Some(editor_state), Some(window_manager)) =
+                            (&mut self.editor_state, &mut self.window_manager)
+                        {
                             editor_state.shutdown(window_manager);
                         }
                     }
-                    
+
                     event_loop.exit();
                 } else {
                     // Handle closing detached panels
                     info!("Secondary window close requested: {:?}", window_id);
-                    
+
                     #[cfg(feature = "editor")]
                     {
-                        if let (Some(editor_state), Some(window_manager)) = 
-                            (&mut self.editor_state, &mut self.window_manager) {
-                            if let Some(detached_window_manager) = &mut editor_state.detached_window_manager {
+                        if let (Some(editor_state), Some(window_manager)) =
+                            (&mut self.editor_state, &mut self.window_manager)
+                        {
+                            if let Some(detached_window_manager) =
+                                &mut editor_state.detached_window_manager
+                            {
                                 detached_window_manager.handle_window_close(
                                     window_id,
                                     &mut editor_state.panel_manager,

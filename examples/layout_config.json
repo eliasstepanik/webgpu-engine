@@ -1,0 +1,108 @@
+{
+  "layouts": {
+    "compact": {
+      "name": "Compact Layout",
+      "description": "Small panels optimized for laptop screens and compact setups",
+      "file": "compact_layout.json",
+      "recommended_resolution": "1366x768+",
+      "use_cases": ["Laptop development", "Small screens", "Limited space"]
+    },
+    "developer": {
+      "name": "Developer Layout", 
+      "description": "Balanced layout for general development work",
+      "file": "developer_layout.json",
+      "recommended_resolution": "1920x1080+",
+      "use_cases": ["General development", "Single monitor", "Code editing"]
+    },
+    "artist": {
+      "name": "Artist Layout",
+      "description": "Viewport-focused layout for content creation",
+      "file": "artist_layout.json", 
+      "recommended_resolution": "1920x1080+",
+      "use_cases": ["3D modeling", "Asset creation", "Visual design"]
+    },
+    "dual_monitor": {
+      "name": "Dual Monitor Layout",
+      "description": "Optimized for dual monitor setups with detached viewport",
+      "file": "dual_monitor_layout.json",
+      "recommended_resolution": "3840x1080+ (dual 1920x1080)",
+      "use_cases": ["Dual monitor setup", "Extended workspace", "Professional workflow"]
+    },
+    "minimal": {
+      "name": "Minimal Layout",
+      "description": "Clean interface with essential panels only",
+      "file": "minimal_layout.json",
+      "recommended_resolution": "1280x720+",
+      "use_cases": ["Focus mode", "Presentation", "Performance testing"]
+    },
+    "ultrawide": {
+      "name": "Ultrawide Layout",
+      "description": "Optimized for ultrawide monitors with horizontal panel arrangement",
+      "file": "ultrawide_layout.json",
+      "recommended_resolution": "2560x1080+ or 3440x1440+",
+      "use_cases": ["Ultrawide monitors", "Panoramic workspace", "Side-by-side workflow"]
+    },
+    "detached_workflow": {
+      "name": "Multi-Window Workflow",
+      "description": "Most panels detached for maximum flexibility",
+      "file": "detached_workflow.json",
+      "recommended_resolution": "1920x1080+ with good GPU",
+      "use_cases": ["Multi-monitor", "Complex workflows", "Power users"]
+    }
+  },
+  "panel_descriptions": {
+    "hierarchy": {
+      "name": "Scene Hierarchy",
+      "description": "Tree view of all entities in the scene with parent-child relationships",
+      "typical_size": "250-350px wide, 300-600px tall",
+      "placement_tips": "Usually placed on left or right side for easy entity navigation"
+    },
+    "inspector": {
+      "name": "Entity Inspector", 
+      "description": "Shows and allows editing of the selected entity's components and properties",
+      "typical_size": "300-400px wide, 400-600px tall",
+      "placement_tips": "Best placed adjacent to hierarchy for quick entity property access"
+    },
+    "viewport": {
+      "name": "3D Viewport",
+      "description": "Real-time 3D view of the scene with camera navigation and object selection",
+      "typical_size": "600-1200px wide, 400-800px tall",
+      "placement_tips": "Usually center or largest panel; great for detaching to secondary monitor"
+    },
+    "assets": {
+      "name": "Asset Browser",
+      "description": "File browser and asset management interface for importing and organizing content",
+      "typical_size": "400-800px wide, 150-300px tall", 
+      "placement_tips": "Often placed at bottom for easy access to project files"
+    }
+  },
+  "performance_guidelines": {
+    "max_detached_windows": 4,
+    "recommended_detached_windows": 2,
+    "gpu_memory_per_window": "~50-100MB",
+    "cpu_overhead_per_window": "~5-10%",
+    "notes": [
+      "Each detached window creates a separate ImGui context",
+      "More detached windows = more GPU memory usage",
+      "Viewport detachment has highest performance impact",
+      "Monitor refresh rates affect multi-window performance"
+    ]
+  },
+  "tips": {
+    "layout_switching": [
+      "Copy layout files to editor_layout.json to use them",
+      "Use View menu to save/load layouts during runtime",
+      "Create custom layouts by arranging panels and saving"
+    ],
+    "multi_monitor": [
+      "Detach viewport to secondary monitor for immersive 3D work", 
+      "Keep editor panels on primary monitor for easy access",
+      "Consider monitor resolution differences when positioning detached windows"
+    ],
+    "performance": [
+      "Limit detached windows on lower-end systems",
+      "Close unused detached windows to save resources",
+      "Monitor FPS when using multiple detached viewports"
+    ]
+  }
+}
