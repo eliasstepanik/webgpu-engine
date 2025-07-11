@@ -274,7 +274,7 @@ impl App {
 
         // Update time
         let current_time = std::time::Instant::now();
-        let delta_time = (current_time - self.last_time).as_secs_f32();
+        let _delta_time = (current_time - self.last_time).as_secs_f32();
         self.last_time = current_time;
 
         // Update hierarchy system only (demo scene rotation disabled for editor)
@@ -306,8 +306,10 @@ impl App {
             ) {
                 // Handle pending scene operations
                 if let Some(operation) = editor_state.pending_scene_operation.take() {
+                    eprintln!("MAIN DEBUG: Processing scene operation: {operation:?}");
                     match operation {
                         SceneOperation::NewScene => {
+                            eprintln!("MAIN DEBUG: Creating new default scene (this will clear existing entities)");
                             editor_state.shared_state.with_world_write(|world| {
                                 editor::scene_operations::create_default_scene(world, renderer);
                             });
@@ -596,6 +598,7 @@ fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
 
     // Create camera
     let camera_entity = world.spawn((
+        Name::new("Main Camera"),
         Camera::perspective(60.0, 16.0 / 9.0, 0.1, 1000.0),
         Transform::from_position(Vec3::new(0.0, 2.0, 5.0)).looking_at(Vec3::ZERO, Vec3::Y),
         GlobalTransform::default(),
@@ -607,6 +610,7 @@ fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
     let cube_mesh_id = renderer.upload_mesh(&cube_mesh, "cube");
 
     let cube_entity = world.spawn((
+        Name::new("Center Cube"),
         cube_mesh_id.clone(),
         Material::red(),
         Transform::from_position(Vec3::new(0.0, 0.0, 0.0)),
@@ -619,6 +623,7 @@ fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
     let plane_mesh_id = renderer.upload_mesh(&plane_mesh, "plane");
 
     let plane_entity = world.spawn((
+        Name::new("Ground Plane"),
         plane_mesh_id,
         Material::gray(0.3),
         Transform::from_position(Vec3::new(0.0, -1.0, 0.0)),
@@ -638,7 +643,14 @@ fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
             _ => Material::from_rgb(1.0, 1.0, 0.0), // Yellow
         };
 
+        let color_name = match i % 3 {
+            0 => "Blue",
+            1 => "Green",
+            _ => "Yellow",
+        };
+
         world.spawn((
+            Name::new(format!("Orbital Cube {} ({})", i + 1, color_name)),
             cube_mesh_id.clone(),
             color,
             Transform::from_position(Vec3::new(x, 0.0, z)).with_scale(Vec3::splat(0.5)),
@@ -648,6 +660,7 @@ fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
 }
 
 /// Update the demo scene (rotate objects)
+#[allow(dead_code)]
 fn update_demo_scene(world: &mut World, delta_time: f32) {
     // Rotate the center cube
     for (_entity, transform) in world.query_mut::<&mut Transform>() {

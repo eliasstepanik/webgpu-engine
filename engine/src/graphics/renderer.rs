@@ -235,10 +235,6 @@ impl Renderer {
                 timestamp_writes: None,
             });
 
-            // Set pipeline and camera bind group
-            render_pass.set_pipeline(&self.basic_pipeline.pipeline);
-            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-
             // Query and render all entities with mesh, material, and transform
             let mut render_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
             let entities_to_render: Vec<_> = render_query
@@ -280,11 +276,11 @@ impl Renderer {
                     );
                     render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
                 }
-
-                // Switch back to basic pipeline for normal rendering
-                render_pass.set_pipeline(&self.basic_pipeline.pipeline);
-                render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             }
+
+            // Always ensure basic pipeline is set for normal rendering
+            render_pass.set_pipeline(&self.basic_pipeline.pipeline);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
             // Second pass: Render all entities normally
             for (entity, mesh_id, material, transform) in entities_to_render {
@@ -392,10 +388,6 @@ impl Renderer {
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
-
-            // Set pipeline and camera bind group
-            render_pass.set_pipeline(&self.basic_pipeline.pipeline);
-            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
             // Query and render all entities with mesh, material, and transform
             let mut render_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
@@ -509,10 +501,6 @@ impl Renderer {
                 timestamp_writes: None,
             });
 
-            // Set pipeline and camera bind group
-            render_pass.set_pipeline(&self.basic_pipeline.pipeline);
-            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-
             // Query and render all entities with mesh, material, and transform
             let mut render_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
             let entities_to_render: Vec<_> = render_query
@@ -554,11 +542,11 @@ impl Renderer {
                     );
                     render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
                 }
-
-                // Switch back to basic pipeline for normal rendering
-                render_pass.set_pipeline(&self.basic_pipeline.pipeline);
-                render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             }
+
+            // Always ensure basic pipeline is set for normal rendering
+            render_pass.set_pipeline(&self.basic_pipeline.pipeline);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
             // Second pass: Render all entities normally
             for (entity, mesh_id, material, transform) in entities_to_render {

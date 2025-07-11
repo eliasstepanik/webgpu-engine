@@ -217,3 +217,80 @@ impl EditorSharedState {
         with_world_write(&self.world, f)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine::core::entity::{Name, Transform, World};
+
+    #[test]
+    fn test_shared_state_world_access() {
+        let world = World::new();
+        let shared_state = EditorSharedState::new(world);
+
+        // Test read access works
+        let result = shared_state.with_world_read(|world| world.query::<()>().iter().count());
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), 0);
+    }
+
+    #[test]
+    fn test_shared_state_world_write() {
+        let world = World::new();
+        let shared_state = EditorSharedState::new(world);
+
+        // Test write access works
+        let entity =
+            shared_state.with_world_write(|world| world.spawn((Name::new("Test Entity"),)));
+        assert!(entity.is_some());
+
+        // Verify entity was created
+        let count = shared_state.with_world_read(|world| world.query::<&Name>().iter().count());
+        assert_eq!(count.unwrap(), 1);
+    }
+
+    #[test]
+    fn test_entity_with_name_component() {
+        let mut world = World::new();
+        let entity = world.spawn((Name::new("Test Entity"), Transform::default()));
+
+        // Verify component exists
+        assert!(world.get::<Name>(entity).is_ok());
+        let name = world.get::<Name>(entity).unwrap();
+        assert_eq!(name.0, "Test Entity");
+    }
+
+    #[test]
+    fn test_selected_entity_management() {
+        let world = World::new();
+        let shared_state = EditorSharedState::new(world);
+
+        // Initially no entity selected
+        assert_eq!(shared_state.selected_entity(), None);
+
+        // Create and select an entity
+        let entity = shared_state
+            .with_world_write(|world| world.spawn((Name::new("Selected Entity"),)))
+            .unwrap();
+
+        shared_state.set_selected_entity(Some(entity));
+        assert_eq!(shared_state.selected_entity(), Some(entity));
+
+        // Clear selection
+        shared_state.set_selected_entity(None);
+        assert_eq!(shared_state.selected_entity(), None);
+    }
+
+    #[test]
+    fn test_scene_modification_tracking() {
+        let world = World::new();
+        let shared_state = EditorSharedState::new(world);
+
+        // Initially not modified
+        assert!(!shared_state.is_scene_modified());
+
+        // Mark as modified
+        shared_state.mark_scene_modified();
+        assert!(shared_state.is_scene_modified());
+    }
+}

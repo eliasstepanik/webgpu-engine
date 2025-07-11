@@ -18,6 +18,7 @@ pub fn create_default_scene(world: &mut World, renderer: &mut Renderer) {
 
     // Create camera
     let _camera_entity = world.spawn((
+        Name::new("Main Camera"),
         Camera::perspective(60.0, 16.0 / 9.0, 0.1, 1000.0),
         Transform::from_position(Vec3::new(0.0, 5.0, 10.0)).looking_at(Vec3::ZERO, Vec3::Y),
         GlobalTransform::default(),
@@ -28,6 +29,7 @@ pub fn create_default_scene(world: &mut World, renderer: &mut Renderer) {
     let cube_mesh_id = renderer.upload_mesh(&cube_mesh, "cube");
 
     let _cube_entity = world.spawn((
+        Name::new("Default Cube"),
         cube_mesh_id,
         Material::gray(0.8),
         Transform::from_position(Vec3::new(0.0, 0.0, 0.0)),
@@ -39,6 +41,7 @@ pub fn create_default_scene(world: &mut World, renderer: &mut Renderer) {
     let plane_mesh_id = renderer.upload_mesh(&plane_mesh, "plane");
 
     let _plane_entity = world.spawn((
+        Name::new("Ground Plane"),
         plane_mesh_id,
         Material::gray(0.3),
         Transform::from_position(Vec3::new(0.0, -1.0, 0.0)),

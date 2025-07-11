@@ -5,7 +5,7 @@
 
 use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
-use engine::prelude::{Name, Parent, Transform, World};
+use engine::prelude::{Camera, Material, MeshId, Name, Parent, Transform, World};
 use imgui::*;
 use std::collections::HashMap;
 use tracing::debug;
@@ -41,6 +41,31 @@ pub fn render_hierarchy_panel(
             // Access the world through shared state
             if let Some((parent_map, root_entities, other_entities, selected_entity)) = shared_state
                 .with_world_read(|world| {
+                    // Debug info for troubleshooting
+                    let total_entities = world.query::<()>().iter().count();
+                    let entities_with_transform = world.query::<&Transform>().iter().count();
+                    let entities_with_name = world.query::<&Name>().iter().count();
+                    let entities_with_camera = world.query::<&Camera>().iter().count();
+                    let entities_with_material = world.query::<&Material>().iter().count();
+                    let entities_with_mesh = world.query::<&MeshId>().iter().count();
+
+                    eprintln!("HIERARCHY DEBUG: Total entities: {total_entities}, with Name: {entities_with_name}, with Transform: {entities_with_transform}");
+                    eprintln!("HIERARCHY DEBUG: Camera: {entities_with_camera}, Material: {entities_with_material}, Mesh: {entities_with_mesh}");
+
+                    // Log detailed component info for first few entities
+                    for (entity, _) in world.query::<()>().iter().take(5) {
+                        let has_name = world.get::<Name>(entity).is_ok();
+                        let has_transform = world.get::<Transform>(entity).is_ok();
+                        let has_camera = world.get::<Camera>(entity).is_ok();
+                        let has_material = world.get::<Material>(entity).is_ok();
+                        let has_mesh = world.get::<MeshId>(entity).is_ok();
+                        let name = if has_name {
+                            world.get::<Name>(entity).map(|n| n.0.clone()).unwrap_or_default()
+                        } else { "NO_NAME".to_string() };
+
+                        eprintln!("  Entity {entity:?}: Name='{name}' ({has_name}), Transform={has_transform}, Camera={has_camera}, Material={has_material}, Mesh={has_mesh}");
+                    }
+
                     // Build parent-child relationships
                     let mut parent_map: HashMap<hecs::Entity, Vec<hecs::Entity>> = HashMap::new();
                     let mut root_entities = Vec::new();
@@ -57,7 +82,7 @@ pub fn render_hierarchy_panel(
 
                     // Entities with transforms but no parents are roots
                     for entity in all_entities_with_transform {
-                        if world.get::<&Parent>(entity).is_err() {
+                        if world.get::<Parent>(entity).is_err() {
                             root_entities.push(entity);
                         }
                     }
@@ -186,16 +211,63 @@ fn render_entity_tree(
 /// Get a display name for an entity
 fn get_entity_name(world: &World, entity: hecs::Entity) -> String {
     // Try Name component first
-    if let Ok(name) = world.get::<&Name>(entity) {
+    if let Ok(name) = world.get::<Name>(entity) {
         if !name.0.is_empty() {
+            eprintln!("Found name '{}' for entity {:?}", name.0, entity);
             return name.0.clone();
         }
     }
 
+    eprintln!("No name found for entity {entity:?}, checking Transform...");
+
     // Fallback to ID with component indicator
-    if world.get::<&Transform>(entity).is_ok() {
+    if world.get::<Transform>(entity).is_ok() {
         format!("Entity {entity:?}")
     } else {
         format!("Entity {entity:?} [No Transform]")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine::core::entity::{Name, Transform, World};
+
+    #[test]
+    fn test_get_entity_name_with_name_component() {
+        let mut world = World::new();
+        let entity = world.spawn((Name::new("Test Entity"),));
+
+        let name = get_entity_name(&world, entity);
+        assert_eq!(name, "Test Entity");
+    }
+
+    #[test]
+    fn test_get_entity_name_with_transform_no_name() {
+        let mut world = World::new();
+        let entity = world.spawn((Transform::default(),));
+
+        let name = get_entity_name(&world, entity);
+        assert!(name.starts_with("Entity"));
+        assert!(!name.contains("[No Transform]"));
+    }
+
+    #[test]
+    fn test_get_entity_name_no_components() {
+        let mut world = World::new();
+        let entity = world.spawn(());
+
+        let name = get_entity_name(&world, entity);
+        assert!(name.contains("[No Transform]"));
+    }
+
+    #[test]
+    fn test_get_entity_name_empty_name() {
+        let mut world = World::new();
+        let entity = world.spawn((Name::new(""), Transform::default()));
+
+        let name = get_entity_name(&world, entity);
+        assert!(name.starts_with("Entity"));
+        assert!(!name.contains("[No Transform]"));
     }
 }

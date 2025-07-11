@@ -14,22 +14,14 @@ use tracing::debug;
 /// State for tracking euler angles per entity to avoid recalculation
 static mut INSPECTOR_STATE: Option<InspectorState> = None;
 
+#[derive(Default)]
 struct InspectorState {
     euler_angles: HashMap<hecs::Entity, [f32; 3]>,
     component_filter: String,
     show_add_component_popup: bool,
 }
 
-impl Default for InspectorState {
-    fn default() -> Self {
-        Self {
-            euler_angles: HashMap::new(),
-            component_filter: String::new(),
-            show_add_component_popup: false,
-        }
-    }
-}
-
+#[allow(static_mut_refs)]
 fn get_inspector_state() -> &'static mut InspectorState {
     unsafe {
         if INSPECTOR_STATE.is_none() {
@@ -71,12 +63,29 @@ pub fn render_inspector_panel(
                 ui.text(format!("Entity: {entity:?}"));
                 ui.separator();
 
-                // Access world data through shared state with write access for editing
-                shared_state.with_world_write(|world| {
-                    // Name component
-                    if world.get::<&Name>(entity).is_ok() {
-                        if ui.collapsing_header("Name", TreeNodeFlags::DEFAULT_OPEN) {
-                            // Extract the component for editing
+                // Check which components exist first
+                let (has_name, has_transform, has_camera, has_material, has_mesh) = shared_state.with_world_read(|world| {
+                    let components = (
+                        world.get::<Name>(entity).is_ok(),
+                        world.get::<Transform>(entity).is_ok(),
+                        world.get::<Camera>(entity).is_ok(),
+                        world.get::<Material>(entity).is_ok(),
+                        world.get::<MeshId>(entity).is_ok(),
+                    );
+                    eprintln!("INSPECTOR DEBUG: Entity {entity:?} components: Name={}, Transform={}, Camera={}, Material={}, Mesh={}",
+                              components.0, components.1, components.2, components.3, components.4);
+                    components
+                }).unwrap_or_else(|| {
+                    eprintln!("WARNING: Failed to access world for entity {entity:?}");
+                    (false, false, false, false, false)
+                });
+
+
+
+                // Name component
+                if has_name {
+                    if ui.collapsing_header("Name", TreeNodeFlags::DEFAULT_OPEN) {
+                        shared_state.with_world_write(|world| {
                             if let Ok(mut name) = world.inner_mut().remove_one::<Name>(entity) {
                                 let mut name_buffer = name.0.clone();
                                 if ui.input_text("##name", &mut name_buffer).build() {
@@ -87,13 +96,16 @@ pub fn render_inspector_panel(
                                 // Re-insert the component
                                 let _ = world.insert_one(entity, name);
                             }
-                        }
+                        });
                     }
-                    
-                    // Transform component
-                    if world.get::<&Transform>(entity).is_ok() {
-                        if ui.collapsing_header("Transform", TreeNodeFlags::DEFAULT_OPEN) {
-                            // Extract the component for editing
+                } else {
+                    eprintln!("WARNING: Entity {entity:?} missing Name component");
+                }
+
+                // Transform component
+                if has_transform
+                    && ui.collapsing_header("Transform", TreeNodeFlags::DEFAULT_OPEN) {
+                        shared_state.with_world_write(|world| {
                             if let Ok(mut transform) = world.inner_mut().remove_one::<Transform>(entity) {
                                 if render_editable_transform(ui, &mut transform, entity) {
                                     shared_state.mark_scene_modified();
@@ -102,20 +114,22 @@ pub fn render_inspector_panel(
                                 // Re-insert the component
                                 let _ = world.insert_one(entity, transform);
                             }
-                        }
+                        });
                     }
 
-                    // Parent component
-                    if let Ok(parent) = world.get::<&Parent>(entity) {
-                        ui.text("Parent:");
-                        ui.same_line();
-                        ui.text(format!("{:?}", parent.0));
-                    }
+                // Parent component (read-only)
+                if let Some(parent_entity) = shared_state.with_world_read(|world| {
+                    world.get::<Parent>(entity).map(|p| p.0).ok()
+                }).flatten() {
+                    ui.text("Parent:");
+                    ui.same_line();
+                    ui.text(format!("{parent_entity:?}"));
+                }
 
-                    // Camera component
-                    if world.get::<&Camera>(entity).is_ok() {
-                        if ui.collapsing_header("Camera", TreeNodeFlags::DEFAULT_OPEN) {
-                            // Extract the component for editing
+                // Camera component
+                if has_camera
+                    && ui.collapsing_header("Camera", TreeNodeFlags::DEFAULT_OPEN) {
+                        shared_state.with_world_write(|world| {
                             if let Ok(mut camera) = world.inner_mut().remove_one::<Camera>(entity) {
                                 if render_editable_camera(ui, &mut camera) {
                                     shared_state.mark_scene_modified();
@@ -124,13 +138,13 @@ pub fn render_inspector_panel(
                                 // Re-insert the component
                                 let _ = world.insert_one(entity, camera);
                             }
-                        }
+                        });
                     }
 
-                    // Material component
-                    if world.get::<&Material>(entity).is_ok() {
-                        if ui.collapsing_header("Material", TreeNodeFlags::DEFAULT_OPEN) {
-                            // Extract the component for editing
+                // Material component
+                if has_material
+                    && ui.collapsing_header("Material", TreeNodeFlags::DEFAULT_OPEN) {
+                        shared_state.with_world_write(|world| {
                             if let Ok(mut material) = world.inner_mut().remove_one::<Material>(entity) {
                                 if render_editable_material(ui, &mut material) {
                                     shared_state.mark_scene_modified();
@@ -139,18 +153,18 @@ pub fn render_inspector_panel(
                                 // Re-insert the component
                                 let _ = world.insert_one(entity, material);
                             }
-                        }
+                        });
                     }
 
-                    // MeshId component
-                    if world.get::<&MeshId>(entity).is_ok() {
-                        if ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
-                            if let Ok(mesh_id) = world.get::<&MeshId>(entity) {
-                                render_mesh_inspector(ui, &mesh_id);
-                            }
+                // MeshId component
+                if has_mesh
+                    && ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
+                        if let Some(mesh_name) = shared_state.with_world_read(|world| {
+                            world.get::<MeshId>(entity).map(|m| m.0.clone()).ok()
+                        }).flatten() {
+                            ui.text(format!("Mesh ID: {mesh_name}"));
                         }
                     }
-                });
 
                 // Add component button
                 ui.separator();
@@ -160,12 +174,12 @@ pub fn render_inspector_panel(
                     state.component_filter.clear();
                     debug!("Add component requested for entity {:?}", entity);
                 }
-                
+
                 // Component addition popup
                 if state.show_add_component_popup {
                     ui.open_popup("##add_component_popup");
                 }
-                
+
                 if let Some(_token) = ui.modal_popup_config("##add_component_popup")
                     .resizable(false)
                     .movable(false)
@@ -173,7 +187,7 @@ pub fn render_inspector_panel(
                 {
                     ui.text("Add Component");
                     ui.separator();
-                    
+
                     // Filter input
                     if ui.input_text("Filter", &mut state.component_filter)
                         .hint("Type to filter...")
@@ -181,23 +195,23 @@ pub fn render_inspector_panel(
                     {
                         // Filter changed
                     }
-                    
+
                     ui.separator();
-                    
+
                     // Component list
                     let filter = state.component_filter.to_lowercase();
                     let mut component_added = false;
-                    
+
                     // Check which components the entity already has
-                    let has_transform = shared_state.with_world_read(|world| world.get::<&Transform>(entity).is_ok()).unwrap_or(false);
-                    let has_camera = shared_state.with_world_read(|world| world.get::<&Camera>(entity).is_ok()).unwrap_or(false);
-                    let has_material = shared_state.with_world_read(|world| world.get::<&Material>(entity).is_ok()).unwrap_or(false);
-                    let has_mesh = shared_state.with_world_read(|world| world.get::<&MeshId>(entity).is_ok()).unwrap_or(false);
-                    let has_name = shared_state.with_world_read(|world| world.get::<&Name>(entity).is_ok()).unwrap_or(false);
-                    
+                    let has_transform = shared_state.with_world_read(|world| world.get::<Transform>(entity).is_ok()).unwrap_or(false);
+                    let has_camera = shared_state.with_world_read(|world| world.get::<Camera>(entity).is_ok()).unwrap_or(false);
+                    let has_material = shared_state.with_world_read(|world| world.get::<Material>(entity).is_ok()).unwrap_or(false);
+                    let has_mesh = shared_state.with_world_read(|world| world.get::<MeshId>(entity).is_ok()).unwrap_or(false);
+                    let has_name = shared_state.with_world_read(|world| world.get::<Name>(entity).is_ok()).unwrap_or(false);
+
                     // Transform
-                    if !has_transform && "transform".contains(&filter) {
-                        if ui.selectable("Transform") {
+                    if !has_transform && "transform".contains(&filter)
+                        && ui.selectable("Transform") {
                             shared_state.with_world_write(|world| {
                                 let _ = world.insert_one(entity, Transform::default());
                                 let _ = world.insert_one(entity, engine::prelude::GlobalTransform::default());
@@ -206,11 +220,10 @@ pub fn render_inspector_panel(
                             component_added = true;
                             debug!(entity = ?entity, "Added Transform component");
                         }
-                    }
-                    
+
                     // Camera
-                    if !has_camera && "camera".contains(&filter) {
-                        if ui.selectable("Camera") {
+                    if !has_camera && "camera".contains(&filter)
+                        && ui.selectable("Camera") {
                             shared_state.with_world_write(|world| {
                                 let _ = world.insert_one(entity, Camera::default());
                             });
@@ -218,11 +231,10 @@ pub fn render_inspector_panel(
                             component_added = true;
                             debug!(entity = ?entity, "Added Camera component");
                         }
-                    }
-                    
+
                     // Material
-                    if !has_material && "material".contains(&filter) {
-                        if ui.selectable("Material") {
+                    if !has_material && "material".contains(&filter)
+                        && ui.selectable("Material") {
                             shared_state.with_world_write(|world| {
                                 let _ = world.insert_one(entity, Material::default());
                             });
@@ -230,11 +242,10 @@ pub fn render_inspector_panel(
                             component_added = true;
                             debug!(entity = ?entity, "Added Material component");
                         }
-                    }
-                    
+
                     // MeshId
-                    if !has_mesh && "mesh".contains(&filter) {
-                        if ui.selectable("Mesh (Cube)") {
+                    if !has_mesh && "mesh".contains(&filter)
+                        && ui.selectable("Mesh (Cube)") {
                             shared_state.with_world_write(|world| {
                                 let _ = world.insert_one(entity, MeshId("cube".to_string()));
                             });
@@ -242,11 +253,10 @@ pub fn render_inspector_panel(
                             component_added = true;
                             debug!(entity = ?entity, "Added MeshId component");
                         }
-                    }
-                    
+
                     // Name
-                    if !has_name && "name".contains(&filter) {
-                        if ui.selectable("Name") {
+                    if !has_name && "name".contains(&filter)
+                        && ui.selectable("Name") {
                             shared_state.with_world_write(|world| {
                                 let _ = world.insert_one(entity, Name::new("New Entity"));
                             });
@@ -254,10 +264,9 @@ pub fn render_inspector_panel(
                             component_added = true;
                             debug!(entity = ?entity, "Added Name component");
                         }
-                    }
-                    
+
                     ui.separator();
-                    
+
                     if ui.button("Cancel") || component_added {
                         state.show_add_component_popup = false;
                         ui.close_current_popup();
@@ -533,6 +542,7 @@ fn render_editable_material(ui: &imgui::Ui, material: &mut Material) -> bool {
 }
 
 /// Render mesh component viewer
+#[allow(dead_code)]
 fn render_mesh_inspector(ui: &imgui::Ui, mesh_id: &MeshId) {
     ui.text(format!("Mesh ID: {}", mesh_id.0));
 }
