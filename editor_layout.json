@@ -1,42 +1,28 @@
 [
   {
-    "id": "assets",
-    "title": "Asset Browser",
-    "position": [
-      -327.0,
-      677.0
-    ],
-    "size": [
-      880.0,
-      180.0
-    ],
-    "was_detached": false,
-    "is_visible": true
-  },
-  {
     "id": "inspector",
     "title": "Entity Inspector",
     "position": [
-      1311.0,
-      -89.0
+      1467.0,
+      341.0
     ],
     "size": [
-      320.0,
-      529.0
+      280.0,
+      300.0
     ],
     "was_detached": false,
     "is_visible": true
   },
   {
-    "id": "viewport",
-    "title": "3D Viewport",
+    "id": "assets",
+    "title": "Asset Browser",
     "position": [
-      188.0,
-      27.0
+      50.0,
+      461.0
     ],
     "size": [
-      1030.0,
-      643.0
+      800.0,
+      180.0
     ],
     "was_detached": false,
     "is_visible": true
@@ -45,12 +31,26 @@
     "id": "hierarchy",
     "title": "Scene Hierarchy",
     "position": [
-      492.0,
-      1131.0
+      1307.0,
+      79.0
     ],
     "size": [
       280.0,
       400.0
+    ],
+    "was_detached": false,
+    "is_visible": true
+  },
+  {
+    "id": "viewport",
+    "title": "3D Viewport",
+    "position": [
+      412.0,
+      56.0
+    ],
+    "size": [
+      800.0,
+      600.0
     ],
     "was_detached": false,
     "is_visible": true

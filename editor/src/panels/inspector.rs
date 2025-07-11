@@ -3,7 +3,6 @@
 //! Displays and allows editing of components for the selected entity.
 
 use crate::panel_state::{PanelId, PanelManager};
-use crate::panels::detachable::detachable_window;
 use crate::shared_state::EditorSharedState;
 use engine::prelude::{Camera, Material, MeshId, Parent, Transform};
 use imgui::*;
@@ -17,60 +16,94 @@ pub fn render_inspector_panel(
 ) {
     let panel_id = PanelId("inspector".to_string());
 
-    detachable_window(ui, &panel_id, panel_manager, || {
-        if let Some(entity) = shared_state.selected_entity() {
-            ui.text(format!("Entity: {entity:?}"));
-            ui.separator();
-
-            // Access world data through shared state
-            shared_state.with_world_read(|world| {
-                // Transform component
-                if let Ok(transform) = world.get::<&Transform>(entity) {
-                    if ui.collapsing_header("Transform", TreeNodeFlags::DEFAULT_OPEN) {
-                        render_transform_inspector(ui, &transform);
-                    }
-                }
-
-                // Parent component
-                if let Ok(parent) = world.get::<&Parent>(entity) {
-                    ui.text("Parent:");
-                    ui.same_line();
-                    ui.text(format!("{:?}", parent.0));
-                }
-
-                // Camera component
-                if let Ok(camera) = world.get::<&Camera>(entity) {
-                    if ui.collapsing_header("Camera", TreeNodeFlags::DEFAULT_OPEN) {
-                        render_camera_inspector(ui, &camera);
-                    }
-                }
-
-                // Material component
-                if let Ok(material) = world.get::<&Material>(entity) {
-                    if ui.collapsing_header("Material", TreeNodeFlags::DEFAULT_OPEN) {
-                        render_material_inspector(ui, &material);
-                    }
-                }
-
-                // MeshId component
-                if let Ok(mesh_id) = world.get::<&MeshId>(entity) {
-                    if ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
-                        render_mesh_inspector(ui, &mesh_id);
-                    }
-                }
-            });
-
-            // Add component button
-            ui.separator();
-            if ui.button("Add Component") {
-                debug!("Add component requested for entity {:?}", entity);
-                // TODO: Implement component addition
-            }
-        } else {
-            ui.text("No entity selected");
-            ui.text("Select an entity from the hierarchy to inspect its components.");
+    // Get panel info
+    let (panel_title, panel_position, panel_size, is_visible) = {
+        match panel_manager.get_panel(&panel_id) {
+            Some(panel) => (
+                panel.title.clone(),
+                panel.position,
+                panel.size,
+                panel.is_visible,
+            ),
+            None => return,
         }
-    });
+    };
+
+    if !is_visible {
+        return;
+    }
+
+    let window_name = format!("{}##{}", panel_title, panel_id.0);
+
+    ui.window(&window_name)
+        .position(
+            [panel_position.0, panel_position.1],
+            Condition::FirstUseEver,
+        )
+        .size([panel_size.0, panel_size.1], Condition::FirstUseEver)
+        .resizable(true)
+        .build(|| {
+            if let Some(entity) = shared_state.selected_entity() {
+                ui.text(format!("Entity: {entity:?}"));
+                ui.separator();
+
+                // Access world data through shared state
+                shared_state.with_world_read(|world| {
+                    // Transform component
+                    if let Ok(transform) = world.get::<&Transform>(entity) {
+                        if ui.collapsing_header("Transform", TreeNodeFlags::DEFAULT_OPEN) {
+                            render_transform_inspector(ui, &transform);
+                        }
+                    }
+
+                    // Parent component
+                    if let Ok(parent) = world.get::<&Parent>(entity) {
+                        ui.text("Parent:");
+                        ui.same_line();
+                        ui.text(format!("{:?}", parent.0));
+                    }
+
+                    // Camera component
+                    if let Ok(camera) = world.get::<&Camera>(entity) {
+                        if ui.collapsing_header("Camera", TreeNodeFlags::DEFAULT_OPEN) {
+                            render_camera_inspector(ui, &camera);
+                        }
+                    }
+
+                    // Material component
+                    if let Ok(material) = world.get::<&Material>(entity) {
+                        if ui.collapsing_header("Material", TreeNodeFlags::DEFAULT_OPEN) {
+                            render_material_inspector(ui, &material);
+                        }
+                    }
+
+                    // MeshId component
+                    if let Ok(mesh_id) = world.get::<&MeshId>(entity) {
+                        if ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
+                            render_mesh_inspector(ui, &mesh_id);
+                        }
+                    }
+                });
+
+                // Add component button
+                ui.separator();
+                if ui.button("Add Component") {
+                    debug!("Add component requested for entity {:?}", entity);
+                    // TODO: Implement component addition
+                }
+            } else {
+                ui.text("No entity selected");
+                ui.text("Select an entity from the hierarchy to inspect its components.");
+            }
+
+            // Update panel position and size if window was moved/resized
+            if let Some(panel) = panel_manager.get_panel_mut(&panel_id) {
+                let new_pos = ui.window_pos();
+                let new_size = ui.window_size();
+                panel.position = (new_pos[0], new_pos[1]);
+                panel.size = (new_size[0], new_size[1]);
+            }
+        });
 }
 
 /// Render transform component viewer (read-only for now)

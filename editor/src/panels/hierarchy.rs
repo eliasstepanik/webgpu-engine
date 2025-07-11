@@ -4,7 +4,6 @@
 //! allowing selection and basic operations.
 
 use crate::panel_state::{PanelId, PanelManager};
-use crate::panels::detachable::detachable_window;
 use crate::shared_state::EditorSharedState;
 use engine::prelude::{Parent, Transform, World};
 use imgui::*;
@@ -19,75 +18,109 @@ pub fn render_hierarchy_panel(
 ) {
     let panel_id = PanelId("hierarchy".to_string());
 
-    detachable_window(ui, &panel_id, panel_manager, || {
-        // Access the world through shared state
-        if let Some((parent_map, root_entities, other_entities, selected_entity)) = shared_state
-            .with_world_read(|world| {
-                // Build parent-child relationships
-                let mut parent_map: HashMap<hecs::Entity, Vec<hecs::Entity>> = HashMap::new();
-                let mut root_entities = Vec::new();
+    // Get panel info
+    let (panel_title, panel_position, panel_size, is_visible) = {
+        match panel_manager.get_panel(&panel_id) {
+            Some(panel) => (
+                panel.title.clone(),
+                panel.position,
+                panel.size,
+                panel.is_visible,
+            ),
+            None => return,
+        }
+    };
 
-                // First pass: identify all entities and their parents
-                // Get all entities with transforms
-                let all_entities_with_transform: Vec<hecs::Entity> =
-                    world.query::<&Transform>().iter().map(|(e, _)| e).collect();
+    if !is_visible {
+        return;
+    }
 
-                // Check which entities have parents
-                for (entity, parent) in world.query::<&Parent>().iter() {
-                    parent_map.entry(parent.0).or_default().push(entity);
+    let window_name = format!("{}##{}", panel_title, panel_id.0);
+
+    ui.window(&window_name)
+        .position(
+            [panel_position.0, panel_position.1],
+            Condition::FirstUseEver,
+        )
+        .size([panel_size.0, panel_size.1], Condition::FirstUseEver)
+        .resizable(true)
+        .build(|| {
+            // Access the world through shared state
+            if let Some((parent_map, root_entities, other_entities, selected_entity)) = shared_state
+                .with_world_read(|world| {
+                    // Build parent-child relationships
+                    let mut parent_map: HashMap<hecs::Entity, Vec<hecs::Entity>> = HashMap::new();
+                    let mut root_entities = Vec::new();
+
+                    // First pass: identify all entities and their parents
+                    // Get all entities with transforms
+                    let all_entities_with_transform: Vec<hecs::Entity> =
+                        world.query::<&Transform>().iter().map(|(e, _)| e).collect();
+
+                    // Check which entities have parents
+                    for (entity, parent) in world.query::<&Parent>().iter() {
+                        parent_map.entry(parent.0).or_default().push(entity);
+                    }
+
+                    // Entities with transforms but no parents are roots
+                    for entity in all_entities_with_transform {
+                        if world.get::<&Parent>(entity).is_err() {
+                            root_entities.push(entity);
+                        }
+                    }
+
+                    // Get entities without Transform components
+                    let other_entities: Vec<hecs::Entity> = world
+                        .query::<()>()
+                        .without::<&Transform>()
+                        .iter()
+                        .map(|(e, _)| e)
+                        .collect();
+
+                    // Get current selection
+                    let selected_entity = shared_state.selected_entity();
+
+                    (parent_map, root_entities, other_entities, selected_entity)
+                })
+            {
+                // Render the hierarchy tree
+                for root_entity in root_entities {
+                    render_entity_tree(
+                        ui,
+                        shared_state,
+                        root_entity,
+                        &parent_map,
+                        selected_entity,
+                        0,
+                    );
                 }
 
-                // Entities with transforms but no parents are roots
-                for entity in all_entities_with_transform {
-                    if world.get::<&Parent>(entity).is_err() {
-                        root_entities.push(entity);
+                // Also show entities without Transform components
+                ui.separator();
+                ui.text("Other Entities:");
+                for entity in other_entities {
+                    let is_selected = Some(entity) == selected_entity;
+                    if ui
+                        .selectable_config(format!("Entity {entity:?}"))
+                        .selected(is_selected)
+                        .build()
+                    {
+                        shared_state.set_selected_entity(Some(entity));
+                        debug!("Selected entity: {:?}", entity);
                     }
                 }
-
-                // Get entities without Transform components
-                let other_entities: Vec<hecs::Entity> = world
-                    .query::<()>()
-                    .without::<&Transform>()
-                    .iter()
-                    .map(|(e, _)| e)
-                    .collect();
-
-                // Get current selection
-                let selected_entity = shared_state.selected_entity();
-
-                (parent_map, root_entities, other_entities, selected_entity)
-            })
-        {
-            // Render the hierarchy tree
-            for root_entity in root_entities {
-                render_entity_tree(
-                    ui,
-                    shared_state,
-                    root_entity,
-                    &parent_map,
-                    selected_entity,
-                    0,
-                );
+            } else {
+                ui.text("Failed to access world data");
             }
 
-            // Also show entities without Transform components
-            ui.separator();
-            ui.text("Other Entities:");
-            for entity in other_entities {
-                let is_selected = Some(entity) == selected_entity;
-                if ui
-                    .selectable_config(format!("Entity {entity:?}"))
-                    .selected(is_selected)
-                    .build()
-                {
-                    shared_state.set_selected_entity(Some(entity));
-                    debug!("Selected entity: {:?}", entity);
-                }
+            // Update panel position and size if window was moved/resized
+            if let Some(panel) = panel_manager.get_panel_mut(&panel_id) {
+                let new_pos = ui.window_pos();
+                let new_size = ui.window_size();
+                panel.position = (new_pos[0], new_pos[1]);
+                panel.size = (new_size[0], new_size[1]);
             }
-        } else {
-            ui.text("Failed to access world data");
-        }
-    });
+        });
 }
 
 /// Recursively render an entity and its children

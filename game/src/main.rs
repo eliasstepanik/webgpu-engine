@@ -58,10 +58,62 @@ impl App {
     fn init(&mut self, event_loop: &ActiveEventLoop) {
         info!("Initializing application");
 
+        // Get window size from environment variables or use screen resolution
+        let (width, height) = if let (Ok(w), Ok(h)) = (
+            std::env::var("WINDOW_WIDTH"),
+            std::env::var("WINDOW_HEIGHT"),
+        ) {
+            match (w.parse::<u32>(), h.parse::<u32>()) {
+                (Ok(width), Ok(height)) => {
+                    info!(
+                        "Using window size from environment variables: {}x{}",
+                        width, height
+                    );
+                    (width, height)
+                }
+                _ => {
+                    tracing::warn!(
+                        "Invalid window size in environment variables, using screen resolution"
+                    );
+                    // Get primary monitor size
+                    event_loop
+                        .primary_monitor()
+                        .map(|monitor| {
+                            let size = monitor.size();
+                            info!(
+                                "Using primary monitor resolution: {}x{}",
+                                size.width, size.height
+                            );
+                            (size.width, size.height)
+                        })
+                        .unwrap_or_else(|| {
+                            info!("No primary monitor found, using default size 1280x720");
+                            (1280, 720)
+                        })
+                }
+            }
+        } else {
+            // Get primary monitor size
+            event_loop
+                .primary_monitor()
+                .map(|monitor| {
+                    let size = monitor.size();
+                    info!(
+                        "Using primary monitor resolution: {}x{}",
+                        size.width, size.height
+                    );
+                    (size.width, size.height)
+                })
+                .unwrap_or_else(|| {
+                    info!("No primary monitor found, using default size 1280x720");
+                    (1280, 720)
+                })
+        };
+
         // Create main window
         let window_attributes = WindowAttributes::default()
             .with_title("WebGPU Game Engine Demo")
-            .with_inner_size(winit::dpi::PhysicalSize::new(1280, 720));
+            .with_inner_size(winit::dpi::PhysicalSize::new(width, height));
 
         let window = Arc::new(
             event_loop
@@ -138,13 +190,7 @@ impl App {
         self.renderer = Some(renderer);
         #[cfg(feature = "editor")]
         {
-            let mut editor_state = editor_state;
-
-            // Initialize viewport backend if viewport feature is enabled
-            #[cfg(feature = "viewport")]
-            {
-                editor_state.init_viewport_backend(&window, &render_context);
-            }
+            let editor_state = editor_state;
 
             self.editor_state = Some(editor_state);
         }
@@ -200,46 +246,13 @@ impl App {
         }
     }
 
-    fn render_frame(&mut self, window_id: WindowId, event_loop: &ActiveEventLoop) {
+    fn render_frame(&mut self, window_id: WindowId, _event_loop: &ActiveEventLoop) {
         // Handle detach/attach requests first (only if there are pending requests)
         #[cfg(feature = "editor")]
         {
-            if let (Some(editor_state), Some(window_manager)) =
+            if let (Some(_editor_state), Some(_window_manager)) =
                 (&mut self.editor_state, &mut self.window_manager)
-            {
-                // Handle panel detachment based on viewport feature
-                #[cfg(feature = "viewport")]
-                {
-                    // Use viewport system for detachment
-                    editor_state.process_viewport_requests(window_manager, event_loop);
-                }
-
-                #[cfg(not(feature = "viewport"))]
-                {
-                    // Fall back to old detached window manager when viewport is disabled
-                    if editor_state.panel_manager.has_pending_requests() {
-                        if editor_state.detached_window_manager.is_none() {
-                            if let Some(render_context) = &self.render_context {
-                                editor_state.init_detached_window_manager(render_context.clone());
-                            }
-                        }
-
-                        if let Some(detached_window_manager) =
-                            &mut editor_state.detached_window_manager
-                        {
-                            detached_window_manager.process_detach_requests(
-                                &mut editor_state.panel_manager,
-                                window_manager,
-                                event_loop,
-                            );
-                            detached_window_manager.process_attach_requests(
-                                &mut editor_state.panel_manager,
-                                window_manager,
-                            );
-                        }
-                    }
-                }
-            }
+            {}
         }
 
         let Some(window_manager) = &self.window_manager else {
@@ -330,7 +343,7 @@ impl App {
                     }
                 }
 
-                // Begin editor frame FIRST
+                // Begin editor frame
                 editor_state.begin_frame(&window_data.window, render_context);
 
                 // Render game to viewport texture
@@ -459,18 +472,6 @@ impl ApplicationHandler for App {
                     window_id,
                 };
 
-                // Handle viewport-specific events when viewport feature is enabled
-                #[cfg(feature = "viewport")]
-                {
-                    if let Some(window_manager) = &self.window_manager {
-                        editor_state.handle_viewport_event(
-                            &window_event,
-                            window_id,
-                            window_manager,
-                        );
-                    }
-                }
-
                 let should_consume = editor_state.handle_event(&window_data.window, &window_event);
 
                 // Don't return early for critical events like RedrawRequested
@@ -541,25 +542,8 @@ impl ApplicationHandler for App {
 
                     event_loop.exit();
                 } else {
-                    // Handle closing detached panels
+                    // Handle closing secondary windows
                     info!("Secondary window close requested: {:?}", window_id);
-
-                    #[cfg(feature = "editor")]
-                    {
-                        if let (Some(editor_state), Some(window_manager)) =
-                            (&mut self.editor_state, &mut self.window_manager)
-                        {
-                            if let Some(detached_window_manager) =
-                                &mut editor_state.detached_window_manager
-                            {
-                                detached_window_manager.handle_window_close(
-                                    window_id,
-                                    &mut editor_state.panel_manager,
-                                    window_manager,
-                                );
-                            }
-                        }
-                    }
                 }
             }
             WindowEvent::Resized(physical_size) => {

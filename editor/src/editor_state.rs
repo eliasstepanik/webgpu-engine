@@ -3,12 +3,9 @@
 //! This module contains the EditorState struct which manages the imgui context,
 //! render target for viewport, and all editor UI state.
 
-use crate::detached_window_manager::DetachedWindowManager;
 use crate::panel_state::PanelManager;
 use crate::safe_imgui_renderer::SafeImGuiRenderer;
 use crate::shared_state::EditorSharedState;
-#[cfg(feature = "viewport")]
-use crate::viewport_backend::ViewportBackend;
 use engine::core::entity::World;
 use engine::graphics::{context::RenderContext, render_target::RenderTarget, RenderTargetInfo};
 use engine::windowing::WindowManager;
@@ -16,7 +13,6 @@ use imgui::*;
 use imgui_wgpu::RendererConfig;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 use tracing::{debug, info, warn};
 use winit::event::{Event, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -101,22 +97,10 @@ pub struct EditorState {
     surface_format: wgpu::TextureFormat,
     /// Panel manager
     pub panel_manager: PanelManager,
-    /// Detached window manager
-    pub detached_window_manager: Option<DetachedWindowManager>,
     /// Pending menu actions to be handled after UI rendering
     pending_menu_actions: Option<MenuActions>,
     /// Pending dialog actions to be handled after UI rendering
     pending_dialog_actions: Option<DialogActions>,
-    /// Viewport backend for multi-window support
-    #[cfg(feature = "viewport")]
-    pub viewport_backend: Option<ViewportBackend>,
-    /// Enhanced viewport renderer
-    #[cfg(feature = "viewport")]
-    pub viewport_renderer: Option<crate::enhanced_viewport_renderer::EnhancedViewportRenderer>,
-    /// Shared viewport renderer backend
-    #[cfg(feature = "viewport")]
-    pub viewport_renderer_backend:
-        Option<Arc<Mutex<crate::viewport_renderer_backend::ViewportRendererBackend>>>,
 }
 
 impl EditorState {
@@ -136,13 +120,15 @@ impl EditorState {
         // Configure ImGui
         imgui_context.set_ini_filename(None); // Don't save settings to file
 
-        // Enable viewport support for multi-window functionality
+        // Enable docking but disable viewports by default to prevent unwanted window creation
         {
             let io = imgui_context.io_mut();
-            io.config_flags |= ConfigFlags::VIEWPORTS_ENABLE;
+            // NOTE: Viewports are disabled by default to prevent panels from automatically
+            // creating separate windows. Enable VIEWPORTS_ENABLE only when explicitly needed.
+            // io.config_flags |= ConfigFlags::VIEWPORTS_ENABLE;
             io.config_flags |= ConfigFlags::DOCKING_ENABLE;
         }
-        info!("Enabled ImGui viewport and docking support");
+        info!("Enabled ImGui docking support (viewports disabled by default)");
 
         // Set up some styling
         let style = imgui_context.style_mut();
@@ -261,15 +247,8 @@ impl EditorState {
             pending_scene_operation: None,
             surface_format,
             panel_manager: PanelManager::with_layout_file(PanelManager::default_layout_path()),
-            detached_window_manager: None,
             pending_menu_actions: None,
             pending_dialog_actions: None,
-            #[cfg(feature = "viewport")]
-            viewport_backend: None,
-            #[cfg(feature = "viewport")]
-            viewport_renderer: None,
-            #[cfg(feature = "viewport")]
-            viewport_renderer_backend: None,
         };
 
         // Force proper initialization by setting initial values
@@ -283,231 +262,6 @@ impl EditorState {
         }
 
         editor
-    }
-
-    /// Initialize the viewport backend for multi-window support
-    #[cfg(feature = "viewport")]
-    pub fn init_viewport_backend(
-        &mut self,
-        window: &winit::window::Window,
-        render_context: &RenderContext,
-    ) {
-        if self.viewport_backend.is_none() {
-            let mut viewport_backend = ViewportBackend::new();
-            viewport_backend.init(&mut self.imgui_context, window);
-            self.viewport_backend = Some(viewport_backend);
-            info!("Initialized viewport backend for multi-window support");
-        }
-
-        if self.viewport_renderer.is_none() {
-            use crate::enhanced_viewport_renderer::EnhancedViewportRenderer;
-
-            let renderer_config = imgui_wgpu::RendererConfig {
-                texture_format: self.surface_format,
-                ..Default::default()
-            };
-
-            let viewport_renderer = EnhancedViewportRenderer::new(
-                &mut self.imgui_context,
-                render_context.device.clone(),
-                render_context.queue.clone(),
-                renderer_config,
-            );
-
-            self.viewport_renderer = Some(viewport_renderer);
-            info!("Initialized enhanced viewport renderer");
-
-            // Set up the renderer viewport backend
-            use crate::viewport_renderer_backend::ViewportRendererBackend;
-            let renderer_backend = ViewportRendererBackend::new(
-                render_context.device.clone(),
-                render_context.queue.clone(),
-                self.surface_format,
-                &mut self.imgui_context,
-            );
-
-            let shared_backend = Arc::new(Mutex::new(renderer_backend));
-            self.viewport_renderer_backend = Some(shared_backend.clone());
-
-            // Create a wrapper that delegates to the shared backend
-            struct SharedBackendWrapper {
-                backend: Arc<Mutex<ViewportRendererBackend>>,
-            }
-
-            impl imgui::RendererViewportBackend for SharedBackendWrapper {
-                fn create_window(&mut self, viewport: &mut Viewport) {
-                    self.backend.lock().unwrap().create_window(viewport);
-                }
-
-                fn destroy_window(&mut self, viewport: &mut Viewport) {
-                    self.backend.lock().unwrap().destroy_window(viewport);
-                }
-
-                fn set_window_size(&mut self, viewport: &mut Viewport, size: [f32; 2]) {
-                    self.backend.lock().unwrap().set_window_size(viewport, size);
-                }
-
-                fn render_window(&mut self, viewport: &mut Viewport) {
-                    self.backend.lock().unwrap().render_window(viewport);
-                }
-
-                fn swap_buffers(&mut self, viewport: &mut Viewport) {
-                    self.backend.lock().unwrap().swap_buffers(viewport);
-                }
-            }
-
-            let wrapper = SharedBackendWrapper {
-                backend: shared_backend,
-            };
-
-            self.imgui_context.set_renderer_backend(wrapper);
-            info!("Set renderer viewport backend with shared access");
-        }
-    }
-
-    /// Initialize the detached window manager
-    pub fn init_detached_window_manager(&mut self, render_context: Arc<RenderContext>) {
-        self.detached_window_manager = Some(DetachedWindowManager::new(
-            render_context,
-            self.surface_format,
-        ));
-        info!("Initialized detached window manager");
-    }
-
-    /// Render all viewports using the enhanced renderer
-    #[cfg(feature = "viewport")]
-    pub fn render_all_viewports(
-        &mut self,
-        window_manager: &engine::windowing::WindowManager,
-        clear_color: wgpu::Color,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(renderer) = &mut self.viewport_renderer {
-            renderer.render_all_viewports(&mut self.imgui_context, window_manager, clear_color)?;
-        }
-        Ok(())
-    }
-
-    /// Process pending viewport window creation requests
-    #[cfg(feature = "viewport")]
-    pub fn process_viewport_requests(
-        &mut self,
-        window_manager: &mut engine::windowing::WindowManager,
-        event_loop: &winit::event_loop::ActiveEventLoop,
-    ) {
-        // Process pending detach requests from panel manager
-        let pending_detach = self.panel_manager.take_pending_detach();
-        let pending_attach = self.panel_manager.take_pending_attach();
-
-        // Mark panels for viewport detachment
-        for panel_id in pending_detach {
-            if let Some(panel) = self.panel_manager.get_panel_mut(&panel_id) {
-                // For viewport system, we just mark the panel as wanting to be detached
-                // The actual viewport/window will be created by ImGui when we render
-                // the window without the NoViewport flag
-                panel.is_detached = true;
-                info!("Marked panel for viewport detachment: {:?}", panel_id);
-            }
-        }
-
-        // Process reattachment requests
-        for panel_id in pending_attach {
-            if let Some(panel) = self.panel_manager.get_panel_mut(&panel_id) {
-                panel.attach();
-                info!("Reattached panel: {:?}", panel_id);
-            }
-        }
-
-        if let Some(viewport_backend) = &mut self.viewport_backend {
-            let requests = viewport_backend.take_pending_requests();
-
-            if !requests.is_empty() {
-                info!(
-                    "Found {} viewport window creation requests to process",
-                    requests.len()
-                );
-            }
-
-            for request in requests {
-                info!("Processing viewport window creation request: {:?}", request);
-
-                // Get the DPI scale from the main window
-                let dpi_scale = window_manager.get_main_window().window.scale_factor() as f32;
-
-                // Create window attributes
-                // The request size is in logical pixels, we need to convert to physical
-                let window_attributes = winit::window::WindowAttributes::default()
-                    .with_title(&request.title)
-                    .with_inner_size(winit::dpi::PhysicalSize::new(
-                        (request.size[0] * dpi_scale) as u32,
-                        (request.size[1] * dpi_scale) as u32,
-                    ))
-                    .with_position(winit::dpi::PhysicalPosition::new(
-                        (request.position[0] * dpi_scale) as i32,
-                        (request.position[1] * dpi_scale) as i32,
-                    ));
-
-                // Create the window
-                match event_loop.create_window(window_attributes) {
-                    Ok(window) => {
-                        let window = Arc::new(window);
-                        let _window_id = window.id();
-
-                        // Create surface configuration for the new window
-                        // Use the actual physical size from the created window
-                        let window_size = window.inner_size();
-                        let surface_config = wgpu::SurfaceConfiguration {
-                            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                            format: self.surface_format,
-                            width: window_size.width,
-                            height: window_size.height,
-                            present_mode: wgpu::PresentMode::Fifo,
-                            alpha_mode: wgpu::CompositeAlphaMode::Auto,
-                            view_formats: vec![],
-                            desired_maximum_frame_latency: 2,
-                        };
-
-                        // Add window to window manager
-                        match window_manager.create_window(window, surface_config) {
-                            Ok(created_window_id) => {
-                                // Register the created window with viewport backend
-                                viewport_backend.register_created_window(
-                                    request.viewport_id,
-                                    created_window_id,
-                                );
-
-                                // Register with viewport renderer if available
-                                if let Some(renderer) = &mut self.viewport_renderer {
-                                    renderer.on_viewport_created(
-                                        &mut self.imgui_context,
-                                        request.viewport_id,
-                                        created_window_id,
-                                    );
-                                }
-
-                                // Register with shared renderer backend
-                                if let Some(backend) = &self.viewport_renderer_backend {
-                                    backend
-                                        .lock()
-                                        .unwrap()
-                                        .register_viewport(request.viewport_id, created_window_id);
-                                }
-
-                                info!(
-                                    "Successfully created viewport window {:?} for viewport {:?}",
-                                    created_window_id, request.viewport_id
-                                );
-                            }
-                            Err(e) => {
-                                warn!("Failed to add viewport window to manager: {}", e);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        warn!("Failed to create viewport window: {}", e);
-                    }
-                }
-            }
-        }
     }
 
     /// Handle winit events
@@ -662,49 +416,6 @@ impl EditorState {
         false
     }
 
-    /// Handle viewport-specific events
-    #[cfg(feature = "viewport")]
-    pub fn handle_viewport_event(
-        &mut self,
-        event: &Event<()>,
-        window_id: winit::window::WindowId,
-        window_manager: &WindowManager,
-    ) {
-        use tracing::trace;
-
-        // Special handling for focus events
-        if let Event::WindowEvent {
-            event: WindowEvent::Focused(focused),
-            window_id: event_window_id,
-        } = event
-        {
-            if *event_window_id == window_id {
-                trace!(
-                    window_id = ?window_id,
-                    focused = focused,
-                    "Viewport focus event"
-                );
-
-                // If a viewport is focused, ensure main window continues processing
-                if *focused && window_id != window_manager.main_window_id() {
-                    let main_window_data = window_manager.get_main_window();
-                    main_window_data.window.request_redraw();
-                }
-            }
-        }
-
-        // Pass events to viewport backend if available
-        if let Some(viewport_backend) = &mut self.viewport_backend {
-            if let Event::WindowEvent {
-                event: window_event,
-                ..
-            } = event
-            {
-                viewport_backend.handle_window_event(window_id, window_event);
-            }
-        }
-    }
-
     /// Begin a new frame
     pub fn begin_frame(&mut self, window: &winit::window::Window, render_context: &RenderContext) {
         // Mark that we're in a frame
@@ -789,258 +500,10 @@ impl EditorState {
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
         window: &winit::window::Window,
-        window_manager: &WindowManager,
+        _window_manager: &WindowManager,
     ) {
-        #[cfg(feature = "viewport")]
-        {
-            // If viewport renderer is available, use it for all rendering
-            if let Some(_viewport_renderer) = &mut self.viewport_renderer {
-                self.render_with_viewports(render_context, encoder, view, window, window_manager);
-                return;
-            }
-        }
-
-        // Fall back to single-window rendering
+        // Always use single-window rendering
         self.render_single_window(render_context, encoder, view, window);
-    }
-
-    /// Render using the enhanced viewport system
-    #[cfg(feature = "viewport")]
-    fn render_with_viewports(
-        &mut self,
-        render_context: &RenderContext,
-        encoder: &mut wgpu::CommandEncoder,
-        view: &wgpu::TextureView,
-        window: &winit::window::Window,
-        window_manager: &WindowManager,
-    ) {
-        // NOTE: begin_frame must have been called before this
-        // which calls prepare_frame and sets up the frame
-
-        // Check size consistency like in single window renderer
-        let window_size = window.inner_size();
-        let surface_size = (window_size.width, window_size.height);
-        let io = self.imgui_context.io();
-        let imgui_phys = (
-            (io.display_size[0] * io.display_framebuffer_scale[0]).round() as u32,
-            (io.display_size[1] * io.display_framebuffer_scale[1]).round() as u32,
-        );
-
-        if imgui_phys != surface_size {
-            tracing::error!(
-                "Size mismatch in viewport renderer: surface={}x{}, imgui_physical={}x{}",
-                surface_size.0,
-                surface_size.1,
-                imgui_phys.0,
-                imgui_phys.1
-            );
-            return;
-        }
-
-        // Build the UI - this creates draw data
-        let ui = self.imgui_context.new_frame();
-
-        // Build the actual editor UI inline to avoid borrow issues
-        {
-            // Store actions to take after UI rendering
-            let mut action_new_scene = false;
-            let mut action_load_scene = false;
-            let mut action_save_scene = false;
-            let mut action_save_scene_as = false;
-            let mut action_exit = false;
-            let mut action_save_layout = false;
-            let mut action_load_layout = false;
-            let mut action_reset_layout = false;
-
-            // Main-menu bar --------------------------------------------------------
-            ui.main_menu_bar(|| {
-                ui.menu("File", || {
-                    if ui.menu_item("New Scene##Ctrl+N") {
-                        action_new_scene = true;
-                    }
-                    if ui.menu_item("Load Scene...##Ctrl+O") {
-                        action_load_scene = true;
-                    }
-                    if ui.menu_item("Save Scene##Ctrl+S") {
-                        action_save_scene = true;
-                    }
-                    if ui.menu_item("Save Scene As...##Ctrl+Shift+S") {
-                        action_save_scene_as = true;
-                    }
-                    ui.separator();
-                    if ui.menu_item("Exit") {
-                        action_exit = true;
-                    }
-                });
-                ui.menu("View", || {
-                    if ui.menu_item("Save Layout") {
-                        action_save_layout = true;
-                    }
-                    if ui.menu_item("Load Layout") {
-                        action_load_layout = true;
-                    }
-                    ui.separator();
-                    if ui.menu_item("Reset Layout") {
-                        action_reset_layout = true;
-                    }
-                });
-                ui.menu("Help", || {
-                    if ui.menu_item("About") {
-                        info!("About requested");
-                    }
-                });
-            });
-
-            // Panels ---------------------------------------------------------------
-            crate::panels::render_hierarchy_panel(ui, &self.shared_state, &mut self.panel_manager);
-            crate::panels::render_inspector_panel(ui, &self.shared_state, &mut self.panel_manager);
-            crate::panels::render_assets_panel(ui, &self.shared_state, &mut self.panel_manager);
-
-            // Central viewport that displays the 3D scene
-            crate::panels::render_viewport_panel(
-                ui,
-                self.texture_id,
-                &self.render_target,
-                &self.shared_state,
-                &mut self.panel_manager,
-            );
-
-            // Dialog handling
-            let mut dialog_save_and_proceed = false;
-            let mut dialog_dont_save_and_proceed = false;
-            let mut dialog_cancel = false;
-            let mut clear_error = false;
-
-            // Unsaved changes dialog
-            if self.show_unsaved_dialog {
-                ui.open_popup("unsaved_changes");
-            }
-
-            ui.modal_popup("unsaved_changes", || {
-                ui.text("Save changes to current scene?");
-                ui.spacing();
-
-                if ui.button("Save") {
-                    dialog_save_and_proceed = true;
-                    ui.close_current_popup();
-                }
-
-                ui.same_line();
-                if ui.button("Don't Save") {
-                    dialog_dont_save_and_proceed = true;
-                    ui.close_current_popup();
-                }
-
-                ui.same_line();
-                if ui.button("Cancel") {
-                    dialog_cancel = true;
-                    ui.close_current_popup();
-                }
-            });
-
-            // Error dialog
-            if self.error_message.is_some() {
-                ui.open_popup("error_dialog");
-            }
-
-            ui.modal_popup("error_dialog", || {
-                ui.text("Error");
-                ui.separator();
-                if let Some(ref error) = self.error_message {
-                    ui.text_wrapped(error);
-                }
-                if ui.button("OK") {
-                    clear_error = true;
-                    ui.close_current_popup();
-                }
-            });
-
-            // Store actions for deferred handling
-            self.pending_menu_actions = Some(MenuActions {
-                new_scene: action_new_scene,
-                load_scene: action_load_scene,
-                save_scene: action_save_scene,
-                save_scene_as: action_save_scene_as,
-                exit: action_exit,
-                save_layout: action_save_layout,
-                load_layout: action_load_layout,
-                reset_layout: action_reset_layout,
-            });
-
-            self.pending_dialog_actions = Some(DialogActions {
-                save_and_proceed: dialog_save_and_proceed,
-                dont_save_and_proceed: dialog_dont_save_and_proceed,
-                cancel: dialog_cancel,
-                clear_error,
-            });
-        }
-
-        // Render main viewport
-        let draw_data = self.imgui_context.render();
-
-        // Render the main viewport to the screen
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("ImGui Main Viewport Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
-
-            self.imgui_renderer
-                .render_with_validation(
-                    draw_data,
-                    &render_context.queue,
-                    &render_context.device,
-                    &mut render_pass,
-                    RenderTargetInfo {
-                        width: surface_size.0,
-                        height: surface_size.1,
-                    },
-                )
-                .expect("ImGui rendering failed");
-        }
-
-        // Update platform windows after render
-        self.imgui_context.update_platform_windows();
-
-        // Set window manager on platform backend before rendering
-        if let Some(backend) = &mut self.viewport_backend {
-            unsafe {
-                backend.set_window_manager(window_manager);
-            }
-        }
-
-        // Set window manager on renderer backend before rendering
-        if let Some(backend) = &self.viewport_renderer_backend {
-            unsafe {
-                backend.lock().unwrap().set_window_manager(window_manager);
-            }
-        }
-
-        // Render additional platform windows
-        self.imgui_context.render_platform_windows_default();
-
-        // Clear window manager reference after rendering
-        if let Some(backend) = &mut self.viewport_backend {
-            backend.clear_window_manager();
-        }
-        if let Some(backend) = &self.viewport_renderer_backend {
-            backend.lock().unwrap().clear_window_manager();
-        }
-
-        debug!("Viewport rendering cycle complete");
-
-        // Handle deferred actions after rendering
-        self.handle_deferred_actions();
     }
 
     /// Handle deferred menu and dialog actions after UI rendering
@@ -1402,16 +865,6 @@ impl EditorState {
             }
         } // Pass is dropped here
 
-        // Update and render viewports (for multi-window support)
-        #[cfg(feature = "viewport")]
-        {
-            if self.viewport_backend.is_some() {
-                // Don't call render_platform_windows_default here
-                // It will be handled by the viewport renderer in main loop
-                debug!("Viewport rendering will be handled by enhanced renderer");
-            }
-        }
-
         // Mark that we're no longer in a frame
         self.in_frame = false;
 
@@ -1631,7 +1084,7 @@ impl EditorState {
     }
 
     /// Shutdown the editor and clean up all resources
-    pub fn shutdown(&mut self, window_manager: &mut WindowManager) {
+    pub fn shutdown(&mut self, _window_manager: &mut WindowManager) {
         info!("Shutting down editor state");
 
         // Save panel layout before shutdown
@@ -1639,27 +1092,6 @@ impl EditorState {
             warn!("Failed to save panel layout during shutdown: {}", e);
         }
 
-        // Clean up all detached windows
-        if let Some(detached_window_manager) = &mut self.detached_window_manager {
-            detached_window_manager.shutdown_all_windows(&mut self.panel_manager, window_manager);
-        }
-
-        // Report final state
-        if let Some(detached_window_manager) = &self.detached_window_manager {
-            info!(
-                "Editor shutdown complete. Detached windows cleaned up: {}",
-                detached_window_manager.active_window_count() == 0
-            );
-        }
-
         info!("Editor shutdown complete");
-    }
-
-    /// Get the count of active detached windows
-    pub fn active_detached_window_count(&self) -> usize {
-        self.detached_window_manager
-            .as_ref()
-            .map(|mgr| mgr.active_window_count())
-            .unwrap_or(0)
     }
 }

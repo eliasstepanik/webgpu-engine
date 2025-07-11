@@ -101,35 +101,19 @@ impl SafeImGuiRenderer {
             for cmd in draw_list.commands() {
                 if let imgui::DrawCmd::Elements { count, cmd_params } = cmd {
                     let clip_rect = cmd_params.clip_rect;
-
-                    // Validate clip rect bounds
                     let clip_x = clip_rect[0].max(0.0) as u32;
                     let clip_y = clip_rect[1].max(0.0) as u32;
                     let clip_w = (clip_rect[2] - clip_rect[0]).max(0.0) as u32;
                     let clip_h = (clip_rect[3] - clip_rect[1]).max(0.0) as u32;
 
-                    // Apply framebuffer scale to clip rect
                     let scaled_x = (clip_x as f32 * draw_data.framebuffer_scale[0]) as u32;
                     let scaled_y = (clip_y as f32 * draw_data.framebuffer_scale[1]) as u32;
                     let scaled_w = (clip_w as f32 * draw_data.framebuffer_scale[0]) as u32;
                     let scaled_h = (clip_h as f32 * draw_data.framebuffer_scale[1]) as u32;
 
-                    // Check if scissor rect would exceed bounds
                     if scaled_x + scaled_w > target_info.width
                         || scaled_y + scaled_h > target_info.height
                     {
-                        if self.debug_mode {
-                            debug!(
-                                "Clip rect ({}, {}, {}, {}) scaled to ({}, {}, {}, {}) would exceed target {}x{}",
-                                clip_x, clip_y, clip_w, clip_h,
-                                scaled_x, scaled_y, scaled_w, scaled_h,
-                                target_info.width, target_info.height
-                            );
-                        }
-
-                        // This is where imgui-wgpu would set an invalid scissor rect
-                        // We've already validated the overall draw data size, so this
-                        // shouldn't happen, but log it if it does
                         warn!(
                             "Potential scissor rect overflow detected: ({}, {}, {}, {}) in {}x{} target",
                             scaled_x, scaled_y, scaled_w, scaled_h,

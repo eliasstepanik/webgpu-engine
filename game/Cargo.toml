@@ -4,9 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["editor", "viewport"]
+default = ["editor"]
 editor = ["dep:editor"]
-viewport = ["editor/viewport"]
 
 [dependencies]
 engine = { path = "../engine" }
