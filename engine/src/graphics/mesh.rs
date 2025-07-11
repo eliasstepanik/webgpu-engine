@@ -157,9 +157,14 @@ impl Mesh {
             Vertex::new([-half_width, 0.0, half_depth], [0.0, 1.0, 0.0], [0.0, 1.0]),
         ];
 
+        // Create double-sided plane by including both winding orders
         let indices = vec![
+            // Top face (viewed from above)
             0, 1, 2, // First triangle
             0, 2, 3, // Second triangle
+            // Bottom face (viewed from below)
+            0, 2, 1, // First triangle reversed
+            0, 3, 2, // Second triangle reversed
         ];
 
         Self { vertices, indices }
@@ -245,7 +250,7 @@ mod tests {
     fn test_mesh_plane() {
         let plane = Mesh::plane(10.0, 10.0);
         assert_eq!(plane.vertices.len(), 4); // 4 corners
-        assert_eq!(plane.indices.len(), 6); // 2 triangles * 3 indices
+        assert_eq!(plane.indices.len(), 12); // 2 faces * 2 triangles * 3 indices
 
         // Check that all vertices have Y=0 (on XZ plane)
         for vertex in &plane.vertices {
