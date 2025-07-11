@@ -31,8 +31,8 @@ fn vs_main(
     var out: VertexOutput;
     
     // Scale the vertex position along the normal to create an outline
-    let scale_factor = 1.02; // 2% larger
-    let scaled_position = input.position + input.normal * 0.02;
+    let scale_factor = 1.05; // 5% larger for more visible outline
+    let scaled_position = input.position + input.normal * 0.05;
     
     let world_position = object.model * vec4<f32>(scaled_position, 1.0);
     out.clip_position = camera.view_proj * world_position;

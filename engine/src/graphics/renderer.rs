@@ -260,7 +260,7 @@ impl Renderer {
                     render_pass.set_bind_group(0, &self.outline_camera_bind_group, &[]);
 
                     // Create outline uniform with bright color
-                    let outline_color = [1.0, 0.9, 0.0, 1.0]; // Yellow outline
+                    let outline_color = [0.0, 1.0, 1.0, 1.0]; // Bright cyan outline for better visibility
                     let outline_uniform = ObjectUniform::new(transform.matrix, outline_color);
                     let outline_buffer = outline_uniform
                         .create_buffer(&self.context.device, Some("Outline Uniform"));
@@ -526,7 +526,7 @@ impl Renderer {
                     render_pass.set_bind_group(0, &self.outline_camera_bind_group, &[]);
 
                     // Create outline uniform with bright color
-                    let outline_color = [1.0, 0.9, 0.0, 1.0]; // Yellow outline
+                    let outline_color = [0.0, 1.0, 1.0, 1.0]; // Bright cyan outline for better visibility
                     let outline_uniform = ObjectUniform::new(transform.matrix, outline_color);
                     let outline_buffer = outline_uniform
                         .create_buffer(&self.context.device, Some("Outline Uniform"));
