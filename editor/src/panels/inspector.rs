@@ -9,7 +9,7 @@ use engine::prelude::{
 };
 use imgui::*;
 use std::collections::HashMap;
-use tracing::debug;
+use tracing::{debug, warn};
 
 /// State for tracking euler angles per entity to avoid recalculation
 static mut INSPECTOR_STATE: Option<InspectorState> = None;
@@ -72,11 +72,10 @@ pub fn render_inspector_panel(
                         world.get::<Material>(entity).is_ok(),
                         world.get::<MeshId>(entity).is_ok(),
                     );
-                    eprintln!("INSPECTOR DEBUG: Entity {entity:?} components: Name={}, Transform={}, Camera={}, Material={}, Mesh={}",
-                              components.0, components.1, components.2, components.3, components.4);
+                    debug!(entity = ?entity, has_name = components.0, has_transform = components.1, has_camera = components.2, has_material = components.3, has_mesh = components.4, "Entity components");
                     components
                 }).unwrap_or_else(|| {
-                    eprintln!("WARNING: Failed to access world for entity {entity:?}");
+                    warn!(entity = ?entity, "Failed to access world for entity");
                     (false, false, false, false, false)
                 });
 
@@ -99,7 +98,7 @@ pub fn render_inspector_panel(
                         });
                     }
                 } else {
-                    eprintln!("WARNING: Entity {entity:?} missing Name component");
+                    warn!(entity = ?entity, "Entity missing Name component");
                 }
 
                 // Transform component

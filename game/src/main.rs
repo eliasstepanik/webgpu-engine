@@ -345,10 +345,12 @@ impl App {
             ) {
                 // Handle pending scene operations
                 if let Some(operation) = editor_state.pending_scene_operation.take() {
-                    eprintln!("MAIN DEBUG: Processing scene operation: {operation:?}");
+                    debug!(operation = ?operation, "Processing scene operation");
                     match operation {
                         SceneOperation::NewScene => {
-                            eprintln!("MAIN DEBUG: Creating new default scene (this will clear existing entities)");
+                            debug!(
+                                "Creating new default scene (this will clear existing entities)"
+                            );
                             editor_state.shared_state.with_world_write(|world| {
                                 editor::scene_operations::create_default_scene(world, renderer);
                             });

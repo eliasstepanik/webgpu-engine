@@ -9,6 +9,7 @@
 use engine::prelude::*;
 use glam::Vec3;
 use std::f32::consts::PI;
+use tracing::{debug, info};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
@@ -17,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a world and build a demo scene
     let mut world = World::new();
 
-    println!("🏗️  Building demo scene...");
+    info!("Building demo scene...");
 
     // Camera entity (looking down at the scene)
     let _camera = world.spawn((
@@ -81,90 +82,72 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ));
     }
 
-    println!("📊 Scene statistics:");
-    println!("   Entities: {}", world.query::<()>().iter().count());
-    println!(
-        "   With Transform: {}",
-        world.query::<&Transform>().iter().count()
-    );
-    println!(
-        "   With Parent: {}",
-        world.query::<&Parent>().iter().count()
-    );
-    println!(
-        "   With Camera: {}",
-        world.query::<&Camera>().iter().count()
-    );
+    info!("Scene statistics:");
+    info!(entity_count = world.query::<()>().iter().count(), "Entities in scene");
+    info!(transform_count = world.query::<&Transform>().iter().count(), "Entities with Transform");
+    info!(parent_count = world.query::<&Parent>().iter().count(), "Entities with Parent");
+    info!(camera_count = world.query::<&Camera>().iter().count(), "Entities with Camera");
 
     // Save the scene
     let scene_path = "assets/scenes/demo_scene_generated.json";
-    println!("\n💾 Saving scene to: {scene_path}");
+    info!(path = %scene_path, "Saving scene");
     world.save_scene(scene_path)?;
 
     // Load the scene into a new world
-    println!("📂 Loading scene into new world...");
+    info!("Loading scene into new world...");
     let mut new_world = World::new();
     let entity_mapper = new_world.load_scene_additive(scene_path)?;
 
     // Verify the scene loaded correctly
-    println!("✅ Scene loaded successfully!");
-    println!("📊 New world statistics:");
-    println!("   Entities: {}", new_world.query::<()>().iter().count());
-    println!(
-        "   With Transform: {}",
-        new_world.query::<&Transform>().iter().count()
-    );
-    println!(
-        "   With Parent: {}",
-        new_world.query::<&Parent>().iter().count()
-    );
-    println!(
-        "   With Camera: {}",
-        new_world.query::<&Camera>().iter().count()
-    );
+    info!("Scene loaded successfully");
+    info!("New world statistics:");
+    info!(entity_count = new_world.query::<()>().iter().count(), "Entities in new world");
+    info!(transform_count = new_world.query::<&Transform>().iter().count(), "Entities with Transform in new world");
+    info!(parent_count = new_world.query::<&Parent>().iter().count(), "Entities with Parent in new world");
+    info!(camera_count = new_world.query::<&Camera>().iter().count(), "Entities with Camera in new world");
 
     // Show entity mapping
-    println!("\n🔗 Entity ID mappings:");
+    info!("Entity ID mappings:");
     for (old_id, new_entity) in entity_mapper.iter().take(5) {
-        println!("   {old_id} -> {new_entity:?}");
+        info!(old_id = %old_id, new_entity = ?new_entity, "Entity ID mapping");
     }
     if entity_mapper.len() > 5 {
-        println!("   ... and {} more", entity_mapper.len() - 5);
+        info!(additional_mappings = entity_mapper.len() - 5, "Additional entity mappings");
     }
 
     // Verify parent-child relationships are preserved
-    println!("\n👨‍👧‍👦 Verifying parent-child relationships...");
+    info!("Verifying parent-child relationships...");
     let parent_count = new_world.query::<&Parent>().iter().count();
-    println!("   Found {parent_count} parent-child relationships");
+    info!(parent_count, "Found parent-child relationships");
 
     // Check for any orphaned entities (parents that don't exist)
     let mut orphaned = 0;
     for (entity, parent) in new_world.query::<&Parent>().iter() {
         if !new_world.contains(parent.0) {
             orphaned += 1;
-            println!("   ⚠️  Orphaned entity: {:?} -> {:?}", entity, parent.0);
+            info!(entity = ?entity, parent = ?parent.0, "Warning: Orphaned entity");
         }
     }
 
     if orphaned == 0 {
-        println!("   ✅ All parent references are valid!");
+        info!("All parent references are valid");
     } else {
-        println!("   ❌ Found {orphaned} orphaned entities");
+        info!(orphaned_count = orphaned, "Found orphaned entities");
     }
 
     // Show the JSON structure
-    println!("\n📄 Scene file structure:");
+    info!("Scene file structure:");
     let scene_content = std::fs::read_to_string(scene_path)?;
     let lines: Vec<&str> = scene_content.lines().take(10).collect();
     for line in lines {
-        println!("   {line}");
+        info!("  {line}");
     }
     if scene_content.lines().count() > 10 {
-        println!("   ... ({} total lines)", scene_content.lines().count());
+        info!(total_lines = scene_content.lines().count(), "Total lines in scene file");
     }
 
-    println!("\n🎉 Demo completed successfully!");
-    println!("💡 Try editing {scene_path} and loading it back!");
+    info!("Demo completed successfully");
+    info!(scene_path = %scene_path, "Try editing the scene file and loading it back");
 
     Ok(())
 }

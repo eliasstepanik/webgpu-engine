@@ -49,8 +49,8 @@ pub fn render_hierarchy_panel(
                     let entities_with_material = world.query::<&Material>().iter().count();
                     let entities_with_mesh = world.query::<&MeshId>().iter().count();
 
-                    eprintln!("HIERARCHY DEBUG: Total entities: {total_entities}, with Name: {entities_with_name}, with Transform: {entities_with_transform}");
-                    eprintln!("HIERARCHY DEBUG: Camera: {entities_with_camera}, Material: {entities_with_material}, Mesh: {entities_with_mesh}");
+                    debug!(total_entities, entities_with_name, entities_with_transform, "Hierarchy entity counts");
+                    debug!(entities_with_camera, entities_with_material, entities_with_mesh, "Hierarchy component counts");
 
                     // Log detailed component info for first few entities
                     for (entity, _) in world.query::<()>().iter().take(5) {
@@ -63,7 +63,7 @@ pub fn render_hierarchy_panel(
                             world.get::<Name>(entity).map(|n| n.0.clone()).unwrap_or_default()
                         } else { "NO_NAME".to_string() };
 
-                        eprintln!("  Entity {entity:?}: Name='{name}' ({has_name}), Transform={has_transform}, Camera={has_camera}, Material={has_material}, Mesh={has_mesh}");
+                        debug!(entity = ?entity, name = %name, has_name, has_transform, has_camera, has_material, has_mesh, "Entity details");
                     }
 
                     // Build parent-child relationships
@@ -213,12 +213,12 @@ fn get_entity_name(world: &World, entity: hecs::Entity) -> String {
     // Try Name component first
     if let Ok(name) = world.get::<Name>(entity) {
         if !name.0.is_empty() {
-            eprintln!("Found name '{}' for entity {:?}", name.0, entity);
+            debug!(name = %name.0, entity = ?entity, "Found entity name");
             return name.0.clone();
         }
     }
 
-    eprintln!("No name found for entity {entity:?}, checking Transform...");
+    debug!(entity = ?entity, "No name found for entity, checking Transform");
 
     // Fallback to ID with component indicator
     if world.get::<Transform>(entity).is_ok() {
