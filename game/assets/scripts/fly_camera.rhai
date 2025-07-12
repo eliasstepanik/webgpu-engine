@@ -4,15 +4,16 @@
 // NOTE: Component modifications are queued and applied after all scripts finish executing.
 // This ensures thread safety and prevents race conditions between scripts.
 
-let move_speed = 5.0;
-let look_speed = 0.005;
-let sprint_multiplier = 2.0;
-
 fn on_start(entity) {
     print("Fly camera initialized for entity " + entity);
 }
 
 fn on_update(entity, delta_time) {
+    // Movement parameters
+    let move_speed = 5.0;
+    let look_speed = 0.005;
+    let sprint_multiplier = 2.0;
+    
     // Get the transform component
     let transform = world::get_component(entity, "Transform");
     

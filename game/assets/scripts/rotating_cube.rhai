@@ -4,15 +4,16 @@
 // NOTE: Component modifications are queued and applied after all scripts finish executing.
 // This ensures thread safety and prevents race conditions between scripts.
 
-let rotation_speed = 1.0; // Radians per second
-let bob_speed = 2.0;      // Oscillation frequency
-let bob_amplitude = 0.5;  // Oscillation amplitude
-
 fn on_start(entity) {
     print("Rotating cube script started for entity " + entity);
 }
 
 fn on_update(entity, delta_time) {
+    // Animation parameters
+    let rotation_speed = 1.0; // Radians per second
+    let bob_speed = 2.0;      // Oscillation frequency
+    let bob_amplitude = 0.5;  // Oscillation amplitude
+    
     // Get the transform
     let transform = world::get_component(entity, "Transform");
     
