@@ -1,27 +1,14 @@
 [
   {
-    "id": "inspector",
-    "title": "Entity Inspector",
-    "position": [
-      60.0,
-      60.0
-    ],
-    "size": [
-      280.0,
-      300.0
-    ],
-    "is_visible": true
-  },
-  {
-    "id": "viewport",
-    "title": "3D Viewport",
+    "id": "assets",
+    "title": "Asset Browser",
     "position": [
       60.0,
       60.0
     ],
     "size": [
       800.0,
-      600.0
+      328.0
     ],
     "is_visible": true
   },
@@ -39,15 +26,28 @@
     "is_visible": true
   },
   {
-    "id": "assets",
-    "title": "Asset Browser",
+    "id": "viewport",
+    "title": "3D Viewport",
     "position": [
       60.0,
       60.0
     ],
     "size": [
       800.0,
-      328.0
+      600.0
+    ],
+    "is_visible": true
+  },
+  {
+    "id": "inspector",
+    "title": "Entity Inspector",
+    "position": [
+      60.0,
+      60.0
+    ],
+    "size": [
+      280.0,
+      300.0
     ],
     "is_visible": true
   }

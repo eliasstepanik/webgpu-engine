@@ -358,6 +358,10 @@ impl ApplicationHandler for GameApp {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         self.engine.new_events(event_loop, cause);
     }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        self.engine.about_to_wait(event_loop);
+    }
 }
 
 fn main() {

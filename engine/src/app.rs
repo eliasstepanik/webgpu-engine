@@ -393,6 +393,17 @@ impl ApplicationHandler for EngineApp {
             }
         }
     }
+
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        // Request redraw for continuous rendering
+        if let Some(window_manager) = &self.window_manager {
+            for window_id in window_manager.window_ids() {
+                if let Some(window_data) = window_manager.get_window(*window_id) {
+                    window_data.window.request_redraw();
+                }
+            }
+        }
+    }
 }
 
 /// Builder pattern for EngineApp configuration
