@@ -1,6 +1,6 @@
 //! Script loading and management
 
-use std::path::Path;
+use crate::config::AssetConfig;
 
 /// Represents a loaded script
 #[derive(Debug, Clone)]
@@ -17,21 +17,26 @@ impl Script {
         Self { name, path }
     }
 
-    /// Load a script from the assets directory
+    /// Load a script from the assets directory using default configuration
     pub fn from_name(name: &str) -> Result<Self, std::io::Error> {
-        let path = format!("assets/scripts/{name}.rhai");
+        Self::from_name_with_config(name, &AssetConfig::default())
+    }
+
+    /// Load a script from the assets directory using custom configuration
+    pub fn from_name_with_config(name: &str, config: &AssetConfig) -> Result<Self, std::io::Error> {
+        let path = config.script_path(name);
 
         // Check if file exists
-        if !Path::new(&path).exists() {
+        if !path.exists() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!("Script file not found: {path}"),
+                format!("Script file not found: {}", path.display()),
             ));
         }
 
         Ok(Self {
             name: name.to_string(),
-            path,
+            path: path.to_string_lossy().to_string(),
         })
     }
 

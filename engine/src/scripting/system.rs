@@ -63,7 +63,7 @@ pub fn script_execution_system(
         for (entity, script_ref) in entities_with_scripts {
             // Ensure script is loaded
             if !script_engine.is_loaded(&script_ref.name) {
-                match script_engine.load_script(&script_ref.name, &script_ref.path()) {
+                match script_engine.load_script_by_name(&script_ref.name) {
                     Ok(_) => {
                         debug!(script = script_ref.name, "Loaded script successfully");
                     }

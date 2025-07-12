@@ -19,6 +19,9 @@ impl ScriptRef {
     }
 
     /// Get the full path to the script file
+    ///
+    /// **Deprecated**: This method uses hardcoded paths. Use AssetConfig with ScriptEngine instead.
+    #[deprecated(note = "Use AssetConfig with ScriptEngine for configurable paths")]
     pub fn path(&self) -> String {
         format!("assets/scripts/{}.rhai", self.name)
     }
@@ -35,6 +38,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_script_ref_path() {
         let script_ref = ScriptRef::new("fly_camera");
         assert_eq!(script_ref.path(), "assets/scripts/fly_camera.rhai");

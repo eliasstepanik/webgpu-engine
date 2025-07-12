@@ -10,6 +10,10 @@ pub struct RenderTarget {
     pub texture: wgpu::Texture,
     /// The texture view for render passes
     pub view: wgpu::TextureView,
+    /// The depth texture for this render target
+    pub depth_texture: wgpu::Texture,
+    /// The depth texture view
+    pub depth_view: wgpu::TextureView,
     /// The texture format
     pub format: wgpu::TextureFormat,
     /// The size of the render target (width, height)
@@ -41,9 +45,29 @@ impl RenderTarget {
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
+        // Create depth texture with the same dimensions
+        let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Render Target Depth Texture"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+
+        let depth_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
         Self {
             texture,
             view,
+            depth_texture,
+            depth_view,
             format,
             size: (width, height),
         }
@@ -73,6 +97,27 @@ impl RenderTarget {
         self.view = self
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
+
+        // Recreate depth texture with matching dimensions
+        self.depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Render Target Depth Texture"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+
+        self.depth_view = self
+            .depth_texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
         self.size = (width, height);
     }
 

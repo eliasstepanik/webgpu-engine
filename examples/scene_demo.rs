@@ -9,7 +9,7 @@
 use engine::prelude::*;
 use glam::Vec3;
 use std::f32::consts::PI;
-use tracing::{debug, info};
+use tracing::info;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
@@ -83,13 +83,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     info!("Scene statistics:");
-    info!(entity_count = world.query::<()>().iter().count(), "Entities in scene");
-    info!(transform_count = world.query::<&Transform>().iter().count(), "Entities with Transform");
-    info!(parent_count = world.query::<&Parent>().iter().count(), "Entities with Parent");
-    info!(camera_count = world.query::<&Camera>().iter().count(), "Entities with Camera");
+    info!(
+        entity_count = world.query::<()>().iter().count(),
+        "Entities in scene"
+    );
+    info!(
+        transform_count = world.query::<&Transform>().iter().count(),
+        "Entities with Transform"
+    );
+    info!(
+        parent_count = world.query::<&Parent>().iter().count(),
+        "Entities with Parent"
+    );
+    info!(
+        camera_count = world.query::<&Camera>().iter().count(),
+        "Entities with Camera"
+    );
 
-    // Save the scene
-    let scene_path = "assets/scenes/demo_scene_generated.json";
+    // Save the scene to a temporary file
+    let scene_path = "./demo_scene_generated.json";
     info!(path = %scene_path, "Saving scene");
     world.save_scene(scene_path)?;
 
@@ -101,10 +113,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Verify the scene loaded correctly
     info!("Scene loaded successfully");
     info!("New world statistics:");
-    info!(entity_count = new_world.query::<()>().iter().count(), "Entities in new world");
-    info!(transform_count = new_world.query::<&Transform>().iter().count(), "Entities with Transform in new world");
-    info!(parent_count = new_world.query::<&Parent>().iter().count(), "Entities with Parent in new world");
-    info!(camera_count = new_world.query::<&Camera>().iter().count(), "Entities with Camera in new world");
+    info!(
+        entity_count = new_world.query::<()>().iter().count(),
+        "Entities in new world"
+    );
+    info!(
+        transform_count = new_world.query::<&Transform>().iter().count(),
+        "Entities with Transform in new world"
+    );
+    info!(
+        parent_count = new_world.query::<&Parent>().iter().count(),
+        "Entities with Parent in new world"
+    );
+    info!(
+        camera_count = new_world.query::<&Camera>().iter().count(),
+        "Entities with Camera in new world"
+    );
 
     // Show entity mapping
     info!("Entity ID mappings:");
@@ -112,7 +136,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!(old_id = %old_id, new_entity = ?new_entity, "Entity ID mapping");
     }
     if entity_mapper.len() > 5 {
-        info!(additional_mappings = entity_mapper.len() - 5, "Additional entity mappings");
+        info!(
+            additional_mappings = entity_mapper.len() - 5,
+            "Additional entity mappings"
+        );
     }
 
     // Verify parent-child relationships are preserved
@@ -143,7 +170,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("  {line}");
     }
     if scene_content.lines().count() > 10 {
-        info!(total_lines = scene_content.lines().count(), "Total lines in scene file");
+        info!(
+            total_lines = scene_content.lines().count(),
+            "Total lines in scene file"
+        );
     }
 
     info!("Demo completed successfully");

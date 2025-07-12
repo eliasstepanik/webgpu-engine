@@ -363,11 +363,11 @@ mod tests {
 
         let module = create_world_module(command_queue.clone(), component_cache);
         let mut engine = Engine::new();
-        
+
         // Register Transform type first
         use crate::scripting::modules::math::register_math_types;
         register_math_types(&mut engine);
-        
+
         engine.register_static_module("world", module.into());
 
         // Test get_transform

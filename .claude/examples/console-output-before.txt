@@ -1,0 +1,19 @@
+# Example console output before logging cleanup
+
+MAIN DEBUG: Processing scene operation: New
+MAIN DEBUG: Creating new default scene (this will clear existing entities)
+🏗️  Building demo scene...
+WARNING: Failed to access world for entity Entity { index: 1, generation: Generation(0) }
+INSPECTOR DEBUG: Entity Entity { index: 1, generation: Generation(0) } components: Name=false, Transform=false, Camera=false, Material=false, Mesh=false
+📊 Scene statistics:
+   Entities: 17
+   With transforms: 17
+   With children: 1
+💾 Saving scene to: assets/scenes/demo.json
+
+# Issues:
+- Mixed emoji and plain text output
+- Debug statements using eprintln!
+- No consistent log levels
+- No module context
+- Hard to filter output by severity

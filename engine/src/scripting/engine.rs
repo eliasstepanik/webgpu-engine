@@ -1,5 +1,6 @@
 //! Rhai engine wrapper with script caching
 
+use crate::config::AssetConfig;
 use rhai::{Engine, EvalAltResult, Scope, AST};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -20,11 +21,18 @@ pub struct ScriptEngine {
     pub engine: Arc<Engine>,
     /// Cache of compiled scripts
     cache: Arc<RwLock<HashMap<String, CachedScript>>>,
+    /// Asset configuration for loading scripts
+    asset_config: AssetConfig,
 }
 
 impl ScriptEngine {
-    /// Create a new script engine with default configuration
+    /// Create a new script engine with default asset configuration
     pub fn new() -> Self {
+        Self::with_config(AssetConfig::default())
+    }
+
+    /// Create a new script engine with custom asset configuration
+    pub fn with_config(asset_config: AssetConfig) -> Self {
         let mut engine = Engine::new();
 
         // Configure engine for safety
@@ -41,6 +49,7 @@ impl ScriptEngine {
         Self {
             engine: Arc::new(engine),
             cache: Arc::new(RwLock::new(HashMap::new())),
+            asset_config,
         }
     }
 
@@ -48,6 +57,12 @@ impl ScriptEngine {
     /// This should only be called during setup before any clones are made
     pub fn engine_mut(&mut self) -> Option<&mut Engine> {
         Arc::get_mut(&mut self.engine)
+    }
+
+    /// Load and compile a script by name using the configured asset path
+    pub fn load_script_by_name(&self, script_name: &str) -> Result<(), Box<EvalAltResult>> {
+        let script_path = self.asset_config.script_path(script_name);
+        self.load_script(script_name, script_path.to_str().unwrap())
     }
 
     /// Load and compile a script from a file path

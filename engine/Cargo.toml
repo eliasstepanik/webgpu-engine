@@ -15,3 +15,8 @@ tracing = "0.1"
 bytemuck = { version = "1.23", features = ["derive"] }
 notify = "6.0"
 rhai = { version = "1.19", features = ["sync"] }
+pollster = "0.3"
+
+[[example]]
+name = "scene_demo"
+path = "../examples/scene_demo.rs"

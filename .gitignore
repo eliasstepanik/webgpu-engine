@@ -1,9 +1,5 @@
 /target
 Cargo.lock
 .idea
-.claude
-.mcp.json
-CLAUDE.md
-PLANNING.md
 .envrc
-imgui_docking.ini
+/.claude/documentation/pbrt-4ed/

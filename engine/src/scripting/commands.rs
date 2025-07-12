@@ -82,7 +82,7 @@ impl ScriptCommand {
             }
             ScriptCommand::CreateEntity { components } => {
                 let mut entity_builder = hecs::EntityBuilder::new();
-                
+
                 for component in components {
                     match component {
                         ComponentData::Transform(t) => {
@@ -96,7 +96,7 @@ impl ScriptCommand {
                         }
                     }
                 }
-                
+
                 let entity_id = world.spawn(entity_builder.build());
 
                 debug!(

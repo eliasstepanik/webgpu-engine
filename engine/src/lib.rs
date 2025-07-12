@@ -3,6 +3,8 @@
 //! This crate provides core functionality for WebGPU-based 3D rendering,
 //! including primitive generation, camera controls, and shader management.
 
+pub mod app;
+pub mod config;
 pub mod core;
 pub mod dev;
 pub mod graphics;
@@ -31,6 +33,12 @@ pub mod prelude {
 
     // IO types
     pub use crate::io::{Scene, SceneError};
+
+    // Config types
+    pub use crate::config::AssetConfig;
+
+    // App types
+    pub use crate::app::{EngineApp, EngineBuilder, EngineConfig};
 
     pub use wgpu;
     pub use winit;
