@@ -1,22 +1,14 @@
 //! Script execution system
 
 use crate::core::entity::{Entity, World};
-use crate::scripting::commands::{CommandQueue, SharedComponentCache};
+use crate::scripting::commands::{CommandQueue, ScriptCommand, SharedComponentCache};
 use crate::scripting::component_access::populate_cache_for_scripts;
+use crate::scripting::lifecycle_tracker::SCRIPT_LIFECYCLE_TRACKER;
 use crate::scripting::modules::world::{create_world_module, register_material_type};
+use crate::scripting::property_types::{PropertyType, PropertyValue, ScriptProperties};
 use crate::scripting::{ScriptEngine, ScriptInputState, ScriptRef};
 use rhai::{Dynamic, Module, Scope};
-use std::collections::HashSet;
 use tracing::{debug, error, info, trace, warn};
-
-/// Tracks script lifecycle state for entities
-#[derive(Default)]
-pub struct ScriptLifecycleTracker {
-    /// Entities that have had on_start called
-    started_entities: HashSet<Entity>,
-    /// Entities that need on_destroy called
-    active_entities: HashSet<Entity>,
-}
 
 /// System to execute scripts on entities
 pub fn script_execution_system(
@@ -25,139 +17,234 @@ pub fn script_execution_system(
     input_state: &ScriptInputState,
     delta_time: f32,
 ) {
-    // Use thread-local storage for the tracker to avoid unsafe mutable statics
+    // Use thread-local storage for command queue and cache
     thread_local! {
-        static TRACKER: std::cell::RefCell<ScriptLifecycleTracker> = std::cell::RefCell::new(ScriptLifecycleTracker::default());
         static COMMAND_QUEUE: CommandQueue = CommandQueue::default();
         static COMPONENT_CACHE: SharedComponentCache = SharedComponentCache::default();
     }
 
-    TRACKER.with(|tracker_cell| {
-        let mut tracker = tracker_cell.borrow_mut();
+    // Get the global lifecycle tracker
+    let mut tracker = SCRIPT_LIFECYCLE_TRACKER.lock().unwrap();
 
-        // Get command queue and component cache
-        let command_queue = COMMAND_QUEUE.with(|q| q.clone());
-        let component_cache = COMPONENT_CACHE.with(|c| c.clone());
+    // Get command queue and component cache
+    let command_queue = COMMAND_QUEUE.with(|q| q.clone());
+    let component_cache = COMPONENT_CACHE.with(|c| c.clone());
 
-        // Clear command queue from previous frame
-        command_queue.write().unwrap().clear();
+    // Clear command queue from previous frame
+    command_queue.write().unwrap().clear();
 
-        // Populate component cache with current world state
-        {
-            let mut cache = component_cache.write().unwrap();
-            populate_cache_for_scripts(world.inner(), &mut cache);
-        }
+    // Populate component cache with current world state
+    {
+        let mut cache = component_cache.write().unwrap();
+        populate_cache_for_scripts(world.inner(), &mut cache);
+    }
 
-        // Collect entities with scripts first to avoid borrow conflicts
-        let mut entities_with_scripts = Vec::new();
-        for (entity, script_ref) in world.query::<&ScriptRef>().iter() {
-            entities_with_scripts.push((entity, script_ref.clone()));
-        }
+    // Collect entities with scripts first to avoid borrow conflicts
+    let mut entities_with_scripts = Vec::new();
+    for (entity, script_ref) in world.query::<&ScriptRef>().iter() {
+        // Check if entity also has ScriptProperties
+        let properties = if let Ok(props) = world.get::<&ScriptProperties>(entity) {
+            Some((*props).clone())
+        } else {
+            None
+        };
+        entities_with_scripts.push((entity, script_ref.clone(), properties));
+    }
 
-        debug!(
-            count = entities_with_scripts.len(),
-            "Executing scripts on entities"
-        );
+    debug!(
+        count = entities_with_scripts.len(),
+        "Executing scripts on entities"
+    );
 
-        // Process each entity with a script
-        for (entity, script_ref) in entities_with_scripts {
-            // Ensure script is loaded
-            if !script_engine.is_loaded(&script_ref.name) {
-                match script_engine.load_script_by_name(&script_ref.name) {
-                    Ok(_) => {
-                        debug!(script = script_ref.name, "Loaded script successfully");
-                    }
-                    Err(e) => {
-                        error!(script = script_ref.name, error = %e, "Failed to load script");
-                        continue;
-                    }
+    // Process each entity with a script
+    for (entity, script_ref, script_properties) in entities_with_scripts {
+        // Ensure script is loaded
+        if !script_engine.is_loaded(&script_ref.name) {
+            match script_engine.load_script_by_name(&script_ref.name) {
+                Ok(_) => {
+                    debug!(script = script_ref.name, "Loaded script successfully");
                 }
-            }
-
-            // Create a scope for this entity
-            let mut scope = Scope::new();
-
-            // Add entity ID to scope
-            let entity_id = entity.to_bits().get() as i64;
-            scope.push("entity", entity_id);
-
-            // Create world module with command queue and cache
-            let world_module = create_world_module(command_queue.clone(), component_cache.clone());
-
-            // Create input module with current state
-            let input_module = create_input_module(input_state);
-
-            // Register modules in the engine temporarily
-            // We need mutable access to the engine to register modules
-            if let Some(engine) = script_engine.engine_mut() {
-                engine.register_static_module("world", world_module.into());
-                engine.register_static_module("input", input_module.into());
-            } else {
-                // If we can't get mutable access, skip this entity
-                warn!(entity = ?entity, "Cannot get mutable access to script engine");
-                continue;
-            }
-
-            // Check if this is a new entity that needs on_start
-            if !tracker.started_entities.contains(&entity) {
-                trace!(entity = ?entity, script = script_ref.name, "Calling on_start");
-
-                match script_engine.call_on_start(&script_ref.name, entity.to_bits().get(), &mut scope)
-                {
-                    Ok(_) => {
-                        tracker.started_entities.insert(entity);
-                        tracker.active_entities.insert(entity);
-                    }
-                    Err(e) => {
-                        warn!(entity = ?entity, script = script_ref.name, error = %e, "Script on_start failed");
-                    }
-                }
-            }
-
-            // Call on_update
-            trace!(entity = ?entity, script = script_ref.name, delta_time = delta_time, "Calling on_update");
-
-            if let Err(e) = script_engine.call_on_update(
-                &script_ref.name,
-                entity.to_bits().get(),
-                &mut scope,
-                delta_time,
-            ) {
-                warn!(entity = ?entity, script = script_ref.name, error = %e, "Script on_update failed");
-            }
-        }
-
-        // Apply all queued commands after all scripts have run
-        let commands = command_queue.write().unwrap().drain(..).collect::<Vec<_>>();
-        if !commands.is_empty() {
-            info!(count = commands.len(), "Applying script commands");
-            for command in commands {
-                if let Err(e) = command.apply(world.inner_mut()) {
-                    error!(error = %e, "Failed to apply script command");
+                Err(e) => {
+                    error!(script = script_ref.name, error = %e, "Failed to load script");
+                    continue;
                 }
             }
         }
 
-        // Clear component cache to prevent stale data
-        component_cache.write().unwrap().clear();
+        // Create a scope for this entity
+        let mut scope = Scope::new();
 
-        // Check for entities that were destroyed and need on_destroy
-        let mut destroyed_entities = Vec::new();
-        for entity in &tracker.active_entities {
-            if world.get::<&ScriptRef>(*entity).is_err() {
-                destroyed_entities.push(*entity);
+        // Add entity ID to scope
+        let entity_id = entity.to_bits().get() as i64;
+        scope.push("entity", entity_id);
+
+        // Add properties to scope if available
+        if let Some(ref properties) = script_properties {
+            let props_map = properties.to_rhai_map();
+            info!(
+                entity = ?entity,
+                script = script_ref.name,
+                script_name_in_props = ?properties.script_name,
+                properties = ?properties.values,
+                "🎯 Using script properties for execution"
+            );
+            scope.push("properties", props_map);
+        } else {
+            // If no properties component, check if script defines properties
+            // and create default values
+            if let Some(definitions) = script_engine.get_property_definitions(&script_ref.name) {
+                if !definitions.is_empty() {
+                    debug!(
+                        entity = ?entity,
+                        script = script_ref.name,
+                        property_count = definitions.len(),
+                        "Script has property definitions but entity has no ScriptProperties component"
+                    );
+                    // Create empty properties map for scripts that expect properties
+                    let empty_props = ScriptProperties::from_definitions(&definitions);
+                    scope.push("properties", empty_props.to_rhai_map());
+                }
             }
         }
 
-        for entity in destroyed_entities {
-            trace!(entity = ?entity, "Entity destroyed, calling on_destroy");
+        // Create world module with command queue and cache
+        let world_module = create_world_module(command_queue.clone(), component_cache.clone());
 
-            // We can't get the script ref anymore, so we'll skip on_destroy for now
-            // In a real implementation, we'd track this separately
-            tracker.started_entities.remove(&entity);
-            tracker.active_entities.remove(&entity);
+        // Create input module with current state
+        let input_module = create_input_module(input_state);
+
+        // Register modules in the engine temporarily
+        // We need mutable access to the engine to register modules
+        if let Some(engine) = script_engine.engine_mut() {
+            engine.register_static_module("world", world_module.into());
+            engine.register_static_module("input", input_module.into());
+        } else {
+            // If we can't get mutable access, skip this entity
+            warn!(entity = ?entity, "Cannot get mutable access to script engine");
+            continue;
         }
-    }); // End of TRACKER.with closure
+
+        // Check if this is a new entity that needs on_start
+        if !tracker.has_started(entity) {
+            warn!(
+                    "🔄 Entity {:?} not in started_entities (size: {}). Calling on_start for script: {}",
+                    entity,
+                    tracker.started_count(),
+                    script_ref.name
+                );
+
+            match script_engine.call_on_start(&script_ref.name, entity.to_bits().get(), &mut scope)
+            {
+                Ok(_) => {
+                    tracker.mark_started(entity);
+                }
+                Err(e) => {
+                    warn!(entity = ?entity, script = script_ref.name, error = %e, "Script on_start failed");
+                }
+            }
+        }
+
+        // Call on_update
+        trace!(entity = ?entity, script = script_ref.name, delta_time = delta_time, "Calling on_update");
+
+        if let Err(e) = script_engine.call_on_update(
+            &script_ref.name,
+            entity.to_bits().get(),
+            &mut scope,
+            delta_time,
+        ) {
+            warn!(entity = ?entity, script = script_ref.name, error = %e, "Script on_update failed");
+        }
+
+        // Check if properties were modified and persist changes
+        if let Some(ref original_properties) = script_properties {
+            // Try to get modified properties from scope
+            if let Some(modified_props) = scope.get_value::<rhai::Map>("properties") {
+                let mut changed = false;
+                let mut updated_properties: ScriptProperties = original_properties.clone();
+
+                // Check each property for changes
+                for (name, original_value) in &original_properties.values {
+                    if let Some(new_dynamic) = modified_props.get(name.as_str()) {
+                        // Determine the expected type from the original value
+                        let prop_type = match original_value {
+                            PropertyValue::Float(_) => PropertyType::Float,
+                            PropertyValue::Integer(_) => PropertyType::Integer,
+                            PropertyValue::Boolean(_) => PropertyType::Boolean,
+                            PropertyValue::String(_) => PropertyType::String,
+                            PropertyValue::Vector3(_) => PropertyType::Vector3,
+                            PropertyValue::Color(_) => PropertyType::Color,
+                        };
+
+                        // Try to convert back to PropertyValue
+                        if let Some(new_value) = PropertyValue::from_dynamic(new_dynamic, prop_type)
+                        {
+                            if &new_value != original_value {
+                                updated_properties.values.insert(name.clone(), new_value);
+                                changed = true;
+                                trace!(
+                                    entity = ?entity,
+                                    property = name,
+                                    "Property value changed"
+                                );
+                            }
+                        } else {
+                            warn!(
+                                entity = ?entity,
+                                property = name,
+                                expected_type = ?prop_type,
+                                "Failed to convert property value from dynamic"
+                            );
+                        }
+                    }
+                }
+
+                // Queue update command if properties changed
+                if changed {
+                    command_queue
+                        .write()
+                        .unwrap()
+                        .push(ScriptCommand::SetProperties {
+                            entity: entity.to_bits().get(),
+                            properties: updated_properties,
+                        });
+                    debug!(entity = ?entity, "Queued script properties update");
+                }
+            }
+        }
+    }
+
+    // Apply all queued commands after all scripts have run
+    let commands = command_queue.write().unwrap().drain(..).collect::<Vec<_>>();
+    if !commands.is_empty() {
+        info!(count = commands.len(), "Applying script commands");
+        for command in commands {
+            if let Err(e) = command.apply(world.inner_mut()) {
+                error!(error = %e, "Failed to apply script command");
+            }
+        }
+    }
+
+    // Clear component cache to prevent stale data
+    component_cache.write().unwrap().clear();
+
+    // Check for entities that were destroyed and need on_destroy
+    let mut destroyed_entities = Vec::new();
+    let active_entities: Vec<Entity> = tracker.active_entities.iter().copied().collect();
+    for entity in active_entities {
+        if world.get::<&ScriptRef>(entity).is_err() {
+            destroyed_entities.push(entity);
+        }
+    }
+
+    for entity in destroyed_entities {
+        trace!(entity = ?entity, "Entity destroyed, calling on_destroy");
+
+        // We can't get the script ref anymore, so we'll skip on_destroy for now
+        // In a real implementation, we'd track this separately
+        tracker.remove_entity(entity);
+    }
+    // Tracker is automatically unlocked when it goes out of scope
 }
 
 /// Create an input module with current input state

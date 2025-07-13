@@ -1,16 +1,31 @@
 use crate::core::entity::components::Transform;
 use crate::core::entity::{Entity, Name};
 use crate::graphics::material::Material;
+use crate::scripting::property_types::ScriptProperties;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use tracing::{debug, error};
 
 #[derive(Clone, Debug)]
 pub enum ScriptCommand {
-    SetTransform { entity: u64, transform: Transform },
-    SetMaterial { entity: u64, material: Material },
-    CreateEntity { components: Vec<ComponentData> },
-    DestroyEntity { entity: u64 },
+    SetTransform {
+        entity: u64,
+        transform: Transform,
+    },
+    SetMaterial {
+        entity: u64,
+        material: Material,
+    },
+    CreateEntity {
+        components: Vec<ComponentData>,
+    },
+    DestroyEntity {
+        entity: u64,
+    },
+    SetProperties {
+        entity: u64,
+        properties: ScriptProperties,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -122,6 +137,23 @@ impl ScriptCommand {
                     Err(format!("Invalid entity ID: {entity}"))
                 }
             }
+            ScriptCommand::SetProperties { entity, properties } => {
+                if let Some(ent) = Entity::from_bits(*entity) {
+                    if world.contains(ent) {
+                        world
+                            .insert_one(ent, properties.clone())
+                            .map_err(|e| format!("Failed to update properties: {e:?}"))?;
+                        debug!(entity = *entity, "Updated script properties from script");
+                        Ok(())
+                    } else {
+                        error!(entity = *entity, "Entity not found for properties update");
+                        Err(format!("Entity {entity} not found"))
+                    }
+                } else {
+                    error!(entity = *entity, "Invalid entity ID");
+                    Err(format!("Invalid entity ID: {entity}"))
+                }
+            }
         }
     }
 }
@@ -163,5 +195,45 @@ mod tests {
         assert_eq!(cache.transforms.len(), 0);
         assert_eq!(cache.materials.len(), 0);
         assert_eq!(cache.names.len(), 0);
+    }
+
+    #[test]
+    fn test_set_properties_command() {
+        use crate::scripting::property_types::{PropertyValue, ScriptProperties};
+
+        let mut world = hecs::World::new();
+        let entity = world.spawn((Transform::default(),));
+        let entity_id = entity.to_bits().get();
+
+        // Create properties to set
+        let mut properties = ScriptProperties::new();
+        properties
+            .values
+            .insert("test".to_string(), PropertyValue::Float(42.0));
+
+        // Create and apply the command
+        let command = ScriptCommand::SetProperties {
+            entity: entity_id,
+            properties: properties.clone(),
+        };
+
+        assert!(command.apply(&mut world).is_ok());
+
+        // Verify the properties were applied
+        let props = world.get::<&ScriptProperties>(entity).unwrap();
+        assert_eq!(props.values.get("test"), Some(&PropertyValue::Float(42.0)));
+    }
+
+    #[test]
+    fn test_set_properties_command_invalid_entity() {
+        let mut world = hecs::World::new();
+        let properties = ScriptProperties::new();
+
+        let command = ScriptCommand::SetProperties {
+            entity: 9999, // Non-existent entity
+            properties,
+        };
+
+        assert!(command.apply(&mut world).is_err());
     }
 }

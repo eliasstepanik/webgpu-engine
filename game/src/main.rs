@@ -328,6 +328,12 @@ impl ApplicationHandler for GameApp {
                     let script_input_state = self.engine.input_state.to_script_input_state();
 
                     editor_state.shared_state.with_world_write(|world| {
+                        // Initialize script properties for new scripts
+                        engine::scripting::script_initialization_system(
+                            world,
+                            script_engine,
+                        );
+
                         // Execute scripts
                         engine::scripting::script_execution_system(
                             world,
