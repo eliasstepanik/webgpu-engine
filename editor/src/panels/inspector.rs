@@ -7,6 +7,7 @@ use crate::shared_state::EditorSharedState;
 use engine::prelude::{
     Camera, Material, MeshId, Name, Parent, ProjectionMode, Quat, Transform, Vec3,
 };
+use engine::scripting::ScriptRef;
 use imgui::*;
 use std::collections::HashMap;
 use tracing::{debug, warn};
@@ -64,19 +65,20 @@ pub fn render_inspector_panel(
                 ui.separator();
 
                 // Check which components exist first
-                let (has_name, has_transform, has_camera, has_material, has_mesh) = shared_state.with_world_read(|world| {
+                let (has_name, has_transform, has_camera, has_material, has_mesh, has_script) = shared_state.with_world_read(|world| {
                     let components = (
                         world.get::<Name>(entity).is_ok(),
                         world.get::<Transform>(entity).is_ok(),
                         world.get::<Camera>(entity).is_ok(),
                         world.get::<Material>(entity).is_ok(),
                         world.get::<MeshId>(entity).is_ok(),
+                        world.get::<ScriptRef>(entity).is_ok(),
                     );
-                    debug!(entity = ?entity, has_name = components.0, has_transform = components.1, has_camera = components.2, has_material = components.3, has_mesh = components.4, "Entity components");
+                    debug!(entity = ?entity, has_name = components.0, has_transform = components.1, has_camera = components.2, has_material = components.3, has_mesh = components.4, has_script = components.5, "Entity components");
                     components
                 }).unwrap_or_else(|| {
                     warn!(entity = ?entity, "Failed to access world for entity");
-                    (false, false, false, false, false)
+                    (false, false, false, false, false, false)
                 });
 
 
@@ -158,11 +160,104 @@ pub fn render_inspector_panel(
                 // MeshId component
                 if has_mesh
                     && ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
-                        if let Some(mesh_name) = shared_state.with_world_read(|world| {
-                            world.get::<MeshId>(entity).map(|m| m.0.clone()).ok()
-                        }).flatten() {
-                            ui.text(format!("Mesh ID: {mesh_name}"));
-                        }
+                        shared_state.with_world_write(|world| {
+                            if let Ok(mut mesh_id) = world.inner_mut().remove_one::<MeshId>(entity) {
+                                let mut mesh_name = mesh_id.0.clone();
+                                let input_changed = ui.input_text("Mesh ID", &mut mesh_name)
+                                    .hint("e.g. cube, sphere, or path/to/model.obj")
+                                    .build();
+
+                                // Add drop target
+                                let mut drop_accepted = false;
+                                if let Some(target) = ui.drag_drop_target() {
+                                    // Visual feedback when hovering
+                                    if ui.is_item_hovered() {
+                                        ui.get_window_draw_list()
+                                            .add_rect(
+                                                ui.item_rect_min(),
+                                                ui.item_rect_max(),
+                                                [0.0, 1.0, 0.0, 0.5],
+                                            )
+                                            .build();
+                                    }
+
+                                    if target.accept_payload_empty("ASSET_FILE", DragDropFlags::empty()).is_some() {
+                                        // Get dragged file from asset browser state
+                                        if let Some(file_path) = crate::panels::assets::AssetBrowserState::take_dragged_file() {
+                                            if file_path.ends_with(".obj") && crate::panels::assets::validate_asset_path(&file_path) {
+                                                mesh_name = format!("game/assets/{file_path}");
+                                                drop_accepted = true;
+                                                debug!(entity = ?entity, "Accepted .obj drop: {}", mesh_name);
+                                            } else {
+                                                warn!("Invalid or unsafe asset path dropped: {}", file_path);
+                                            }
+                                        }
+                                    }
+                                    target.pop();
+                                }
+
+                                if input_changed || drop_accepted {
+                                    mesh_id.0 = mesh_name;
+                                    shared_state.mark_scene_modified();
+                                    debug!(entity = ?entity, mesh = %mesh_id.0, "Modified mesh");
+                                }
+                                // Re-insert the component
+                                let _ = world.insert_one(entity, mesh_id);
+                            }
+                        });
+                    }
+
+                // Script component
+                if has_script
+                    && ui.collapsing_header("Script", TreeNodeFlags::DEFAULT_OPEN) {
+                        shared_state.with_world_write(|world| {
+                            if let Ok(mut script) = world.inner_mut().remove_one::<ScriptRef>(entity) {
+                                let mut script_name = script.name.clone();
+                                let input_changed = ui.input_text("Script Name", &mut script_name)
+                                    .hint("e.g. fly_camera, rotating_cube")
+                                    .build();
+
+                                // Add drop target
+                                let mut drop_accepted = false;
+                                if let Some(target) = ui.drag_drop_target() {
+                                    // Visual feedback when hovering
+                                    if ui.is_item_hovered() {
+                                        ui.get_window_draw_list()
+                                            .add_rect(
+                                                ui.item_rect_min(),
+                                                ui.item_rect_max(),
+                                                [0.0, 1.0, 0.0, 0.5],
+                                            )
+                                            .build();
+                                    }
+
+                                    if target.accept_payload_empty("ASSET_FILE", DragDropFlags::empty()).is_some() {
+                                        // Get dragged file from asset browser state
+                                        if let Some(file_path) = crate::panels::assets::AssetBrowserState::take_dragged_file() {
+                                            if file_path.ends_with(".rhai") {
+                                                // Extract script name without extension and path
+                                                if let Some(name) = std::path::Path::new(&file_path)
+                                                    .file_stem()
+                                                    .and_then(|n| n.to_str()) {
+                                                    script_name = name.to_string();
+                                                    drop_accepted = true;
+                                                    debug!(entity = ?entity, "Accepted .rhai drop: {}", script_name);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    target.pop();
+                                }
+
+                                if input_changed || drop_accepted {
+                                    script.name = script_name;
+                                    shared_state.mark_scene_modified();
+                                    debug!(entity = ?entity, script = %script.name, "Modified script");
+                                }
+                                // Re-insert the component
+                                let _ = world.insert_one(entity, script);
+                            }
+                        });
                     }
 
                 // Add component button
@@ -207,6 +302,7 @@ pub fn render_inspector_panel(
                     let has_material = shared_state.with_world_read(|world| world.get::<Material>(entity).is_ok()).unwrap_or(false);
                     let has_mesh = shared_state.with_world_read(|world| world.get::<MeshId>(entity).is_ok()).unwrap_or(false);
                     let has_name = shared_state.with_world_read(|world| world.get::<Name>(entity).is_ok()).unwrap_or(false);
+                    let has_script = shared_state.with_world_read(|world| world.get::<ScriptRef>(entity).is_ok()).unwrap_or(false);
 
                     // Transform
                     if !has_transform && "transform".contains(&filter)
@@ -262,6 +358,17 @@ pub fn render_inspector_panel(
                             shared_state.mark_scene_modified();
                             component_added = true;
                             debug!(entity = ?entity, "Added Name component");
+                        }
+
+                    // Script
+                    if !has_script && "script".contains(&filter)
+                        && ui.selectable("Script") {
+                            shared_state.with_world_write(|world| {
+                                let _ = world.insert_one(entity, ScriptRef::new("new_script"));
+                            });
+                            shared_state.mark_scene_modified();
+                            component_added = true;
+                            debug!(entity = ?entity, "Added Script component");
                         }
 
                     ui.separator();

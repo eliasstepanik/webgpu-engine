@@ -17,7 +17,7 @@ use crate::graphics::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 use wgpu::util::DeviceExt;
 
 /// GPU resources for a mesh
@@ -152,8 +152,24 @@ impl Renderer {
     /// Get or create a mesh from the library
     fn get_or_create_mesh(&mut self, mesh_id: &MeshId) -> Result<(), String> {
         if !self.mesh_cache.contains_key(&mesh_id.0) {
-            // Try to get mesh from library
-            if let Some(mesh) = self.mesh_library.get_or_generate(&mesh_id.0) {
+            // First, check if it's a file path
+            if mesh_id.0.contains('/') || mesh_id.0.contains('\\') || mesh_id.0.ends_with(".obj") {
+                // Try to load from file
+                let path = std::path::Path::new(&mesh_id.0);
+                match crate::graphics::mesh_loader::load_mesh_from_file(path) {
+                    Ok(mesh) => {
+                        info!("Loaded mesh from file: {}", mesh_id.0);
+                        self.upload_mesh(&mesh, &mesh_id.0);
+                    }
+                    Err(e) => {
+                        error!("Failed to load mesh from file {}: {}", mesh_id.0, e);
+                        // Use fallback mesh
+                        let fallback = MeshLibrary::error_mesh();
+                        self.upload_mesh(&fallback, &mesh_id.0);
+                    }
+                }
+            } else if let Some(mesh) = self.mesh_library.get_or_generate(&mesh_id.0) {
+                // Try to get mesh from library
                 self.upload_mesh(&mesh, &mesh_id.0);
             } else {
                 // Use fallback cube mesh
@@ -583,6 +599,21 @@ impl Renderer {
         self.context.submit(std::iter::once(encoder.finish()));
 
         Ok(())
+    }
+
+    /// Get a list of all available mesh names
+    pub fn get_available_meshes(&self) -> Vec<String> {
+        let mut meshes = self.mesh_library.available_meshes();
+
+        // Add any uploaded meshes that aren't in the library
+        for mesh_name in self.mesh_cache.keys() {
+            if !meshes.contains(mesh_name) {
+                meshes.push(mesh_name.clone());
+            }
+        }
+
+        meshes.sort();
+        meshes
     }
 }
 
