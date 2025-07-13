@@ -178,7 +178,10 @@ impl EngineApp {
             .set_main_window(window.clone(), surface, surface_config.clone())
             .expect("Failed to set up main window");
 
-        let renderer = Renderer::new(render_context.clone());
+        let mut renderer = Renderer::new(render_context.clone());
+        
+        // Resize renderer to match window size
+        renderer.resize(window.inner_size());
 
         // Initialize script engine if enabled
         let script_engine = if self.config.enable_scripting {

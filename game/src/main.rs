@@ -91,14 +91,12 @@ impl GameApp {
         info!("Editor initialized");
     }
 
+    #[cfg(feature = "editor")]
     fn render_frame(&mut self, window_id: WindowId) {
         // Render with editor if enabled
-        #[cfg(feature = "editor")]
-        {
-            if self.editor_state.is_some() {
-                self.render_with_editor(window_id);
-                return;
-            }
+        if self.editor_state.is_some() {
+            self.render_with_editor(window_id);
+            return;
         }
 
         // Otherwise use standard engine rendering
