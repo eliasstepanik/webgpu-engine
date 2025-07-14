@@ -1,9 +1,12 @@
 //! Scene serialization and loading
 
 use crate::core::{
-    camera::Camera,
+    camera::{Camera, CameraWorldPosition},
     entity::{
-        components::{GlobalTransform, Name, Parent, ParentData, Transform},
+        components::{
+            GlobalTransform, GlobalWorldTransform, Name, Parent, ParentData, Transform,
+            WorldTransform,
+        },
         World,
     },
 };
@@ -120,6 +123,30 @@ impl Scene {
                 }
             }
 
+            // Serialize WorldTransform component
+            if let Ok(world_transform) = world.get::<WorldTransform>(entity) {
+                match serde_json::to_value(*world_transform) {
+                    Ok(value) => {
+                        components.insert("WorldTransform".to_string(), value);
+                    }
+                    Err(e) => {
+                        error!(error = %e, "Failed to serialize WorldTransform");
+                    }
+                }
+            }
+
+            // Serialize GlobalWorldTransform component
+            if let Ok(global_world_transform) = world.get::<GlobalWorldTransform>(entity) {
+                match serde_json::to_value(*global_world_transform) {
+                    Ok(value) => {
+                        components.insert("GlobalWorldTransform".to_string(), value);
+                    }
+                    Err(e) => {
+                        error!(error = %e, "Failed to serialize GlobalWorldTransform");
+                    }
+                }
+            }
+
             // Serialize Camera component
             if let Ok(camera) = world.get::<Camera>(entity) {
                 match serde_json::to_value(*camera) {
@@ -128,6 +155,18 @@ impl Scene {
                     }
                     Err(e) => {
                         error!(error = %e, "Failed to serialize Camera");
+                    }
+                }
+            }
+
+            // Serialize CameraWorldPosition component
+            if let Ok(camera_world_pos) = world.get::<CameraWorldPosition>(entity) {
+                match serde_json::to_value(*camera_world_pos) {
+                    Ok(value) => {
+                        components.insert("CameraWorldPosition".to_string(), value);
+                    }
+                    Err(e) => {
+                        error!(error = %e, "Failed to serialize CameraWorldPosition");
                     }
                 }
             }
@@ -267,6 +306,38 @@ impl Scene {
                             }
                         }
                     }
+                    "WorldTransform" => {
+                        match serde_json::from_value::<WorldTransform>(value.clone()) {
+                            Ok(world_transform) => {
+                                if let Err(e) = world.insert_one(entity, world_transform) {
+                                    error!(
+                                        error = ?e,
+                                        entity = ?entity,
+                                        "Failed to insert WorldTransform"
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize WorldTransform");
+                            }
+                        }
+                    }
+                    "GlobalWorldTransform" => {
+                        match serde_json::from_value::<GlobalWorldTransform>(value.clone()) {
+                            Ok(global_world_transform) => {
+                                if let Err(e) = world.insert_one(entity, global_world_transform) {
+                                    error!(
+                                        error = ?e,
+                                        entity = ?entity,
+                                        "Failed to insert GlobalWorldTransform"
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize GlobalWorldTransform");
+                            }
+                        }
+                    }
                     "Camera" => match serde_json::from_value::<Camera>(value.clone()) {
                         Ok(camera) => {
                             if let Err(e) = world.insert_one(entity, camera) {
@@ -277,6 +348,22 @@ impl Scene {
                             error!(error = %e, "Failed to deserialize Camera");
                         }
                     },
+                    "CameraWorldPosition" => {
+                        match serde_json::from_value::<CameraWorldPosition>(value.clone()) {
+                            Ok(camera_world_pos) => {
+                                if let Err(e) = world.insert_one(entity, camera_world_pos) {
+                                    error!(
+                                        error = ?e,
+                                        entity = ?entity,
+                                        "Failed to insert CameraWorldPosition"
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize CameraWorldPosition");
+                            }
+                        }
+                    }
                     "Parent" => match serde_json::from_value::<ParentData>(value.clone()) {
                         Ok(parent_data) => {
                             if let Some(parent_component) =
@@ -517,6 +604,38 @@ impl Scene {
                             }
                         }
                     }
+                    "WorldTransform" => {
+                        match serde_json::from_value::<WorldTransform>(value.clone()) {
+                            Ok(world_transform) => {
+                                if let Err(e) = world.insert_one(entity, world_transform) {
+                                    error!(
+                                        error = ?e,
+                                        entity = ?entity,
+                                        "Failed to insert WorldTransform"
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize WorldTransform");
+                            }
+                        }
+                    }
+                    "GlobalWorldTransform" => {
+                        match serde_json::from_value::<GlobalWorldTransform>(value.clone()) {
+                            Ok(global_world_transform) => {
+                                if let Err(e) = world.insert_one(entity, global_world_transform) {
+                                    error!(
+                                        error = ?e,
+                                        entity = ?entity,
+                                        "Failed to insert GlobalWorldTransform"
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize GlobalWorldTransform");
+                            }
+                        }
+                    }
                     "Camera" => match serde_json::from_value::<Camera>(value.clone()) {
                         Ok(camera) => {
                             if let Err(e) = world.insert_one(entity, camera) {
@@ -527,6 +646,22 @@ impl Scene {
                             error!(error = %e, "Failed to deserialize Camera");
                         }
                     },
+                    "CameraWorldPosition" => {
+                        match serde_json::from_value::<CameraWorldPosition>(value.clone()) {
+                            Ok(camera_world_pos) => {
+                                if let Err(e) = world.insert_one(entity, camera_world_pos) {
+                                    error!(
+                                        error = ?e,
+                                        entity = ?entity,
+                                        "Failed to insert CameraWorldPosition"
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize CameraWorldPosition");
+                            }
+                        }
+                    }
                     "Parent" => match serde_json::from_value::<ParentData>(value.clone()) {
                         Ok(parent_data) => {
                             if let Some(parent_component) =

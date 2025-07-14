@@ -3,8 +3,11 @@
 //! The Renderer struct orchestrates all rendering operations, managing
 //! render pipelines, GPU resources, and the rendering of entities.
 
-use crate::core::camera::Camera;
-use crate::core::entity::{GlobalTransform, World};
+use crate::core::camera::{Camera, CameraWorldPosition};
+use crate::core::entity::{
+    components::{GlobalWorldTransform, WorldTransform},
+    GlobalTransform, World,
+};
 use crate::graphics::{
     context::RenderContext,
     material::Material,
@@ -14,6 +17,7 @@ use crate::graphics::{
     render_target::RenderTarget,
     uniform::{CameraUniform, ObjectUniform, UniformBuffer},
 };
+use glam::DVec3;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -206,16 +210,42 @@ impl Renderer {
         // Update surface format if needed
         self.update_surface_format(self.context.get_preferred_format(surface));
 
-        // Find the active camera
-        let mut camera_data = None;
-        let mut camera_query = world.query::<(&Camera, &GlobalTransform)>();
-        if let Some((_, (camera, transform))) = camera_query.iter().next() {
-            camera_data = Some((camera, transform));
+        // Find the active camera and determine camera world position
+        let mut camera_view_proj = None;
+        let mut camera_world_position = DVec3::ZERO;
+
+        // First try to find a camera with WorldTransform (large world camera)
+        let mut world_camera_query =
+            world.query::<(&Camera, &GlobalWorldTransform, Option<&CameraWorldPosition>)>();
+        if let Some((_, (camera, world_transform, world_pos))) = world_camera_query.iter().next() {
+            // Use world position if available, otherwise derive from transform
+            camera_world_position = if let Some(pos) = world_pos {
+                pos.position
+            } else {
+                world_transform.position()
+            };
+
+            // Calculate view-projection using camera-relative coordinates
+            let view_proj =
+                camera.view_projection_matrix_world(world_transform, camera_world_position);
+            camera_view_proj = Some(view_proj);
+        } else {
+            // Fall back to regular camera with GlobalTransform
+            let mut regular_camera_query = world.query::<(&Camera, &GlobalTransform)>();
+            if let Some((_, (camera, transform))) = regular_camera_query.iter().next() {
+                let view_proj = camera.view_projection_matrix(transform);
+                camera_view_proj = Some(view_proj);
+                // For regular cameras, world position is just the transform position
+                camera_world_position = DVec3::new(
+                    transform.position().x as f64,
+                    transform.position().y as f64,
+                    transform.position().z as f64,
+                );
+            }
         }
 
-        if let Some((camera, camera_transform)) = camera_data {
+        if let Some(view_proj) = camera_view_proj {
             // Update camera uniform
-            let view_proj = camera.view_projection_matrix(camera_transform);
             let camera_uniform = CameraUniform::new(view_proj);
             camera_uniform.update_buffer(&self.context.queue, &self.camera_uniform_buffer);
         }
@@ -252,18 +282,33 @@ impl Renderer {
             });
 
             // Query and render all entities with mesh, material, and transform
-            let mut render_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
-            let entities_to_render: Vec<_> = render_query
-                .iter()
-                .map(|(entity, (mesh_id, material, transform))| {
-                    (entity, mesh_id.clone(), *material, *transform)
-                })
-                .collect();
+            // Handle both regular and world transforms
+            let mut entities_to_render = Vec::new();
+
+            // Collect entities with regular GlobalTransform
+            let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
+            for (entity, (mesh_id, material, transform)) in regular_query.iter() {
+                entities_to_render.push((entity, mesh_id.clone(), *material, transform.matrix));
+            }
+
+            // Collect entities with WorldTransform and convert to camera-relative
+            let mut world_query = world.query::<(&MeshId, &Material, &GlobalWorldTransform)>();
+            for (entity, (mesh_id, material, world_transform)) in world_query.iter() {
+                // Convert world transform to camera-relative transform for rendering
+                let camera_relative_transform =
+                    world_transform.to_camera_relative(camera_world_position);
+                entities_to_render.push((
+                    entity,
+                    mesh_id.clone(),
+                    *material,
+                    camera_relative_transform.matrix,
+                ));
+            }
 
             // First pass: Render outline for selected entity
             if let Some(selected) = selected_entity {
                 // Find the selected entity in our render list
-                if let Some((_, mesh_id, _, transform)) = entities_to_render
+                if let Some((_, mesh_id, _, transform_matrix)) = entities_to_render
                     .iter()
                     .find(|(e, _, _, _)| *e == selected)
                 {
@@ -277,7 +322,7 @@ impl Renderer {
 
                     // Create outline uniform with bright color
                     let outline_color = [0.0, 1.0, 1.0, 1.0]; // Bright cyan outline for better visibility
-                    let outline_uniform = ObjectUniform::new(transform.matrix, outline_color);
+                    let outline_uniform = ObjectUniform::new(*transform_matrix, outline_color);
                     let outline_buffer = outline_uniform
                         .create_buffer(&self.context.device, Some("Outline Uniform"));
                     let outline_bind_group = self
@@ -299,7 +344,7 @@ impl Renderer {
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
             // Second pass: Render all entities normally
-            for (entity, mesh_id, material, transform) in entities_to_render {
+            for (entity, mesh_id, material, transform_matrix) in entities_to_render {
                 debug!(entity = ?entity, "Rendering entity");
 
                 // Ensure mesh is loaded (may borrow self mutably)
@@ -309,7 +354,7 @@ impl Renderer {
                 let mesh_data = &self.mesh_cache[&mesh_id.0];
 
                 // Create object uniform
-                let object_uniform = ObjectUniform::new(transform.matrix, material.color);
+                let object_uniform = ObjectUniform::new(transform_matrix, material.color);
                 let object_buffer =
                     object_uniform.create_buffer(&self.context.device, Some("Object Uniform"));
                 let object_bind_group = self
@@ -355,21 +400,78 @@ impl Renderer {
         // Update surface format if needed
         self.update_surface_format(self.context.get_preferred_format(surface));
 
-        // Get the specified camera and its transform
-        let camera_data = world.query_one::<(&Camera, &GlobalTransform)>(camera_entity);
-        if let Ok(mut query_one) = camera_data {
-            if let Some((camera, camera_transform)) = query_one.get() {
-                // Update camera uniform
-                let view_proj = camera.view_projection_matrix(camera_transform);
+        // Get the specified camera and its transform, and determine camera world position
+        let mut camera_world_position = DVec3::ZERO;
+
+        // First try to get camera with WorldTransform (large world camera)
+        let world_camera_data = world
+            .query_one::<(&Camera, &GlobalWorldTransform, Option<&CameraWorldPosition>)>(
+                camera_entity,
+            );
+        if let Ok(mut query_one) = world_camera_data {
+            if let Some((camera, world_transform, world_pos)) = query_one.get() {
+                // Use world position if available, otherwise derive from transform
+                camera_world_position = if let Some(pos) = world_pos {
+                    pos.position
+                } else {
+                    world_transform.position()
+                };
+
+                // Calculate view-projection using camera-relative coordinates
+                let view_proj =
+                    camera.view_projection_matrix_world(world_transform, camera_world_position);
                 let camera_uniform = CameraUniform::new(view_proj);
                 camera_uniform.update_buffer(&self.context.queue, &self.camera_uniform_buffer);
             } else {
-                debug!("Camera entity missing required components, skipping render");
-                return Ok(());
+                debug!("Camera entity missing required world transform components, trying regular transform");
+
+                // Fall back to regular camera with GlobalTransform
+                let camera_data = world.query_one::<(&Camera, &GlobalTransform)>(camera_entity);
+                if let Ok(mut query_one) = camera_data {
+                    if let Some((camera, camera_transform)) = query_one.get() {
+                        // Update camera uniform
+                        let view_proj = camera.view_projection_matrix(camera_transform);
+                        let camera_uniform = CameraUniform::new(view_proj);
+                        camera_uniform
+                            .update_buffer(&self.context.queue, &self.camera_uniform_buffer);
+                        // For regular cameras, world position is just the transform position
+                        camera_world_position = DVec3::new(
+                            camera_transform.position().x as f64,
+                            camera_transform.position().y as f64,
+                            camera_transform.position().z as f64,
+                        );
+                    } else {
+                        debug!("Camera entity missing required components, skipping render");
+                        return Ok(());
+                    }
+                } else {
+                    debug!("Camera entity not found, skipping render");
+                    return Ok(());
+                }
             }
         } else {
-            debug!("Camera entity not found, skipping render");
-            return Ok(());
+            // Fall back to regular camera with GlobalTransform
+            let camera_data = world.query_one::<(&Camera, &GlobalTransform)>(camera_entity);
+            if let Ok(mut query_one) = camera_data {
+                if let Some((camera, camera_transform)) = query_one.get() {
+                    // Update camera uniform
+                    let view_proj = camera.view_projection_matrix(camera_transform);
+                    let camera_uniform = CameraUniform::new(view_proj);
+                    camera_uniform.update_buffer(&self.context.queue, &self.camera_uniform_buffer);
+                    // For regular cameras, world position is just the transform position
+                    camera_world_position = DVec3::new(
+                        camera_transform.position().x as f64,
+                        camera_transform.position().y as f64,
+                        camera_transform.position().z as f64,
+                    );
+                } else {
+                    debug!("Camera entity missing required components, skipping render");
+                    return Ok(());
+                }
+            } else {
+                debug!("Camera entity not found, skipping render");
+                return Ok(());
+            }
         }
 
         // Create command encoder
@@ -406,15 +508,30 @@ impl Renderer {
             });
 
             // Query and render all entities with mesh, material, and transform
-            let mut render_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
-            let entities_to_render: Vec<_> = render_query
-                .iter()
-                .map(|(entity, (mesh_id, material, transform))| {
-                    (entity, mesh_id.clone(), *material, *transform)
-                })
-                .collect();
+            // Handle both regular and world transforms
+            let mut entities_to_render = Vec::new();
 
-            for (entity, mesh_id, material, transform) in entities_to_render {
+            // Collect entities with regular GlobalTransform
+            let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
+            for (entity, (mesh_id, material, transform)) in regular_query.iter() {
+                entities_to_render.push((entity, mesh_id.clone(), *material, transform.matrix));
+            }
+
+            // Collect entities with WorldTransform and convert to camera-relative
+            let mut world_query = world.query::<(&MeshId, &Material, &GlobalWorldTransform)>();
+            for (entity, (mesh_id, material, world_transform)) in world_query.iter() {
+                // Convert world transform to camera-relative transform for rendering
+                let camera_relative_transform =
+                    world_transform.to_camera_relative(camera_world_position);
+                entities_to_render.push((
+                    entity,
+                    mesh_id.clone(),
+                    *material,
+                    camera_relative_transform.matrix,
+                ));
+            }
+
+            for (entity, mesh_id, material, transform_matrix) in entities_to_render {
                 debug!(entity = ?entity, mesh_id = %mesh_id.0, "Rendering entity from world");
 
                 // Ensure mesh is loaded (may borrow self mutably)
@@ -424,7 +541,7 @@ impl Renderer {
                 let mesh_data = &self.mesh_cache[&mesh_id.0];
 
                 // Create object uniform
-                let object_uniform = ObjectUniform::new(transform.matrix, material.color);
+                let object_uniform = ObjectUniform::new(transform_matrix, material.color);
                 let object_buffer =
                     object_uniform.create_buffer(&self.context.device, Some("Object Uniform"));
                 let object_bind_group = self
@@ -470,18 +587,39 @@ impl Renderer {
         render_target: &RenderTarget,
         selected_entity: Option<hecs::Entity>,
     ) -> Result<(), wgpu::SurfaceError> {
-        // Find the active camera
-        let mut camera_data = None;
-        let mut camera_query = world.query::<(&Camera, &GlobalTransform)>();
-        if let Some((_, (camera, transform))) = camera_query.iter().next() {
-            camera_data = Some((camera, transform));
-        }
+        // Find the active camera and determine camera world position
+        let mut camera_world_position = DVec3::ZERO;
 
-        if let Some((camera, camera_transform)) = camera_data {
-            // Update camera uniform
-            let view_proj = camera.view_projection_matrix(camera_transform);
+        // First try to find a camera with WorldTransform (large world camera)
+        let mut world_camera_query =
+            world.query::<(&Camera, &GlobalWorldTransform, Option<&CameraWorldPosition>)>();
+        if let Some((_, (camera, world_transform, world_pos))) = world_camera_query.iter().next() {
+            // Use world position if available, otherwise derive from transform
+            camera_world_position = if let Some(pos) = world_pos {
+                pos.position
+            } else {
+                world_transform.position()
+            };
+
+            // Calculate view-projection using camera-relative coordinates
+            let view_proj =
+                camera.view_projection_matrix_world(world_transform, camera_world_position);
             let camera_uniform = CameraUniform::new(view_proj);
             camera_uniform.update_buffer(&self.context.queue, &self.camera_uniform_buffer);
+        } else {
+            // Fall back to regular camera with GlobalTransform
+            let mut regular_camera_query = world.query::<(&Camera, &GlobalTransform)>();
+            if let Some((_, (camera, transform))) = regular_camera_query.iter().next() {
+                let view_proj = camera.view_projection_matrix(transform);
+                let camera_uniform = CameraUniform::new(view_proj);
+                camera_uniform.update_buffer(&self.context.queue, &self.camera_uniform_buffer);
+                // For regular cameras, world position is just the transform position
+                camera_world_position = DVec3::new(
+                    transform.position().x as f64,
+                    transform.position().y as f64,
+                    transform.position().z as f64,
+                );
+            }
         }
 
         // Create command encoder
@@ -518,18 +656,33 @@ impl Renderer {
             });
 
             // Query and render all entities with mesh, material, and transform
-            let mut render_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
-            let entities_to_render: Vec<_> = render_query
-                .iter()
-                .map(|(entity, (mesh_id, material, transform))| {
-                    (entity, mesh_id.clone(), *material, *transform)
-                })
-                .collect();
+            // Handle both regular and world transforms
+            let mut entities_to_render = Vec::new();
+
+            // Collect entities with regular GlobalTransform
+            let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
+            for (entity, (mesh_id, material, transform)) in regular_query.iter() {
+                entities_to_render.push((entity, mesh_id.clone(), *material, transform.matrix));
+            }
+
+            // Collect entities with WorldTransform and convert to camera-relative
+            let mut world_query = world.query::<(&MeshId, &Material, &GlobalWorldTransform)>();
+            for (entity, (mesh_id, material, world_transform)) in world_query.iter() {
+                // Convert world transform to camera-relative transform for rendering
+                let camera_relative_transform =
+                    world_transform.to_camera_relative(camera_world_position);
+                entities_to_render.push((
+                    entity,
+                    mesh_id.clone(),
+                    *material,
+                    camera_relative_transform.matrix,
+                ));
+            }
 
             // First pass: Render outline for selected entity
             if let Some(selected) = selected_entity {
                 // Find the selected entity in our render list
-                if let Some((_, mesh_id, _, transform)) = entities_to_render
+                if let Some((_, mesh_id, _, transform_matrix)) = entities_to_render
                     .iter()
                     .find(|(e, _, _, _)| *e == selected)
                 {
@@ -543,7 +696,7 @@ impl Renderer {
 
                     // Create outline uniform with bright color
                     let outline_color = [0.0, 1.0, 1.0, 1.0]; // Bright cyan outline for better visibility
-                    let outline_uniform = ObjectUniform::new(transform.matrix, outline_color);
+                    let outline_uniform = ObjectUniform::new(*transform_matrix, outline_color);
                     let outline_buffer = outline_uniform
                         .create_buffer(&self.context.device, Some("Outline Uniform"));
                     let outline_bind_group = self
@@ -565,7 +718,7 @@ impl Renderer {
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
             // Second pass: Render all entities normally
-            for (entity, mesh_id, material, transform) in entities_to_render {
+            for (entity, mesh_id, material, transform_matrix) in entities_to_render {
                 debug!(entity = ?entity, "Rendering entity to target");
 
                 // Ensure mesh is loaded (may borrow self mutably)
@@ -575,7 +728,7 @@ impl Renderer {
                 let mesh_data = &self.mesh_cache[&mesh_id.0];
 
                 // Create object uniform
-                let object_uniform = ObjectUniform::new(transform.matrix, material.color);
+                let object_uniform = ObjectUniform::new(transform_matrix, material.color);
                 let object_buffer =
                     object_uniform.create_buffer(&self.context.device, Some("Object Uniform"));
                 let object_bind_group = self

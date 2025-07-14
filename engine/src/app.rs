@@ -1,6 +1,7 @@
 //! Application management for the engine
 
 use crate::config::AssetConfig;
+use crate::core::coordinates::LargeWorldConfig;
 use crate::core::entity::{update_hierarchy_system, World};
 use crate::graphics::{RenderContext, Renderer};
 use crate::input::InputState;
@@ -29,6 +30,8 @@ pub struct EngineConfig {
     pub enable_scripting: bool,
     /// Custom logging filter (None = default)
     pub log_filter: Option<String>,
+    /// Large world coordinate system configuration
+    pub large_world: LargeWorldConfig,
 }
 
 impl Default for EngineConfig {
@@ -39,6 +42,7 @@ impl Default for EngineConfig {
             asset_config: AssetConfig::default(),
             enable_scripting: true,
             log_filter: None,
+            large_world: LargeWorldConfig::default(),
         }
     }
 }

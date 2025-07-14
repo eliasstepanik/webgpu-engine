@@ -1,0 +1,41 @@
+//! Large world coordinate system
+//!
+//! Provides support for worlds beyond the precision limits of single-precision
+//! floating point by implementing a dual coordinate system:
+//! - f64 world coordinates for high-precision positioning
+//! - f32 camera-relative coordinates for GPU rendering
+//!
+//! This enables games with planetary-scale worlds without precision artifacts.
+
+pub mod origin_manager;
+pub mod world_transform;
+
+#[cfg(test)]
+mod tests;
+
+pub use origin_manager::CoordinateSystem;
+pub use world_transform::WorldTransform;
+
+/// Configuration for large world coordinate systems
+#[derive(Debug, Clone)]
+pub struct LargeWorldConfig {
+    /// Enable large world coordinate support
+    pub enable_large_world: bool,
+    /// Distance threshold for origin shifting (in world units)
+    pub origin_shift_threshold: f64,
+    /// Use logarithmic depth buffer for better z-precision
+    pub use_logarithmic_depth: bool,
+    /// Maximum rendering distance from camera
+    pub max_render_distance: f64,
+}
+
+impl Default for LargeWorldConfig {
+    fn default() -> Self {
+        Self {
+            enable_large_world: false,
+            origin_shift_threshold: 50_000.0, // 50km
+            use_logarithmic_depth: false,
+            max_render_distance: 100_000.0, // 100km
+        }
+    }
+}

@@ -1,7 +1,20 @@
 //! Core components for the entity system
+//!
+//! ## Transform Components
+//!
+//! This module provides two transform components for different use cases:
+//!
+//! - [`Transform`]: Standard transform with f32 precision, suitable for most gameplay objects
+//! - [`WorldTransform`]: High-precision transform with f64 position for large-world scenarios
+//!
+//! Use [`Transform`] for normal entities and [`WorldTransform`] only when positioning
+//! objects at distances >1 million units from the world origin.
 
-use glam::{Mat4, Quat, Vec3};
+use glam::{DMat4, DVec3, Mat4, Quat, Vec3};
 use serde::{Deserialize, Serialize};
+
+// Re-export coordinate system types
+pub use crate::core::coordinates::WorldTransform;
 
 /// Transform component representing position, rotation, and scale in local space
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -95,6 +108,47 @@ impl GlobalTransform {
     /// Get the world position from the transformation matrix
     pub fn position(&self) -> Vec3 {
         self.matrix.w_axis.truncate()
+    }
+}
+
+/// Global world transform component for high-precision world-space transformations
+///
+/// This component stores the final world-space transformation matrix in 64-bit precision
+/// for entities using WorldTransform. It's automatically managed by the hierarchy system.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct GlobalWorldTransform {
+    /// World-space transformation matrix in 64-bit precision
+    pub matrix: DMat4,
+}
+
+impl Default for GlobalWorldTransform {
+    fn default() -> Self {
+        Self {
+            matrix: DMat4::IDENTITY,
+        }
+    }
+}
+
+impl GlobalWorldTransform {
+    /// Create a new global world transform from a matrix
+    pub fn from_matrix(matrix: DMat4) -> Self {
+        Self { matrix }
+    }
+
+    /// Get the world position from the transformation matrix
+    pub fn position(&self) -> DVec3 {
+        self.matrix.w_axis.truncate()
+    }
+
+    /// Convert to a camera-relative GlobalTransform for rendering
+    pub fn to_camera_relative(&self, camera_world_position: DVec3) -> GlobalTransform {
+        let relative_translation = self.position() - camera_world_position;
+
+        // Create a new matrix with relative translation but preserve rotation/scale
+        let mut relative_matrix = self.matrix;
+        relative_matrix.w_axis = relative_translation.extend(1.0);
+
+        GlobalTransform::from_matrix(relative_matrix.as_mat4())
     }
 }
 

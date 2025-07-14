@@ -1,0 +1,117 @@
+{
+  "entities": [
+    {
+      "components": {
+        "WorldTransform": {
+          "position": [100000000.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshRenderer": {
+          "mesh": "Cube"
+        },
+        "Material": {
+          "color": [1.0, 0.0, 0.0, 1.0]
+        },
+        "Name": {
+          "name": "Distant Red Cube (100M units)"
+        }
+      }
+    },
+    {
+      "components": {
+        "WorldTransform": {
+          "position": [50000000.0, 10000000.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [2.0, 2.0, 2.0]
+        },
+        "MeshRenderer": {
+          "mesh": "Cube"
+        },
+        "Material": {
+          "color": [0.0, 1.0, 0.0, 1.0]
+        },
+        "Name": {
+          "name": "Large Green Cube (50M units)"
+        }
+      }
+    },
+    {
+      "components": {
+        "WorldTransform": {
+          "position": [6370000.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1000.0, 1000.0, 1000.0]
+        },
+        "MeshRenderer": {
+          "mesh": "Cube"
+        },
+        "Material": {
+          "color": [0.0, 0.0, 1.0, 1.0]
+        },
+        "Name": {
+          "name": "Planetary Scale Blue Cube (Earth radius)"
+        }
+      }
+    },
+    {
+      "components": {
+        "Transform": {
+          "position": [10.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshRenderer": {
+          "mesh": "Cube"
+        },
+        "Material": {
+          "color": [1.0, 1.0, 0.0, 1.0]
+        },
+        "Name": {
+          "name": "Regular Yellow Cube (normal scale)"
+        }
+      }
+    },
+    {
+      "components": {
+        "WorldTransform": {
+          "position": [100000000.0, 1000.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshRenderer": {
+          "mesh": "Cube"
+        },
+        "Material": {
+          "color": [1.0, 0.0, 1.0, 1.0]
+        },
+        "Name": {
+          "name": "Precision Test Cube (100M + 1km)"
+        }
+      }
+    },
+    {
+      "components": {
+        "WorldTransform": {
+          "position": [99999000.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.5, 0.5, 0.5]
+        },
+        "Camera": {
+          "fov_y_radians": 1.0471976,
+          "aspect_ratio": 1.777778,
+          "z_near": 0.1,
+          "z_far": 10000000.0,
+          "projection_mode": "Perspective",
+          "use_logarithmic_depth": true
+        },
+        "CameraWorldPosition": {
+          "position": [99999000.0, 0.0, 0.0]
+        },
+        "Name": {
+          "name": "Large World Camera"
+        }
+      }
+    }
+  ]
+}

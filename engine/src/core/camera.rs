@@ -3,8 +3,8 @@
 //! Provides camera functionality for 3D rendering, including perspective and
 //! orthographic projections, and view matrix calculation from transforms.
 
-use crate::core::entity::GlobalTransform;
-use glam::Mat4;
+use crate::core::entity::{components::GlobalWorldTransform, GlobalTransform};
+use glam::{DVec3, Mat4};
 use serde::{Deserialize, Serialize};
 
 /// Camera component that defines projection parameters for rendering
@@ -20,6 +20,8 @@ pub struct Camera {
     pub z_far: f32,
     /// Projection mode (perspective or orthographic)
     pub projection_mode: ProjectionMode,
+    /// Use logarithmic depth buffer for better precision at large distances
+    pub use_logarithmic_depth: bool,
 }
 
 /// Projection mode for the camera
@@ -55,6 +57,26 @@ impl Camera {
             z_near,
             z_far,
             projection_mode: ProjectionMode::Perspective,
+            use_logarithmic_depth: false,
+        }
+    }
+
+    /// Create a perspective camera with logarithmic depth buffer
+    ///
+    /// This is recommended for large world scenarios to improve depth precision
+    pub fn perspective_logarithmic(
+        fov_y_degrees: f32,
+        aspect_ratio: f32,
+        z_near: f32,
+        z_far: f32,
+    ) -> Self {
+        Self {
+            fov_y_radians: fov_y_degrees.to_radians(),
+            aspect_ratio,
+            z_near,
+            z_far,
+            projection_mode: ProjectionMode::Perspective,
+            use_logarithmic_depth: true,
         }
     }
 
@@ -72,6 +94,7 @@ impl Camera {
             z_near,
             z_far,
             projection_mode: ProjectionMode::Orthographic { height },
+            use_logarithmic_depth: false,
         }
     }
 
@@ -116,6 +139,83 @@ impl Camera {
     /// Update the aspect ratio (useful when window resizes)
     pub fn set_aspect_ratio(&mut self, aspect_ratio: f32) {
         self.aspect_ratio = aspect_ratio;
+    }
+
+    /// Calculate the view matrix from a high-precision world transform
+    pub fn view_matrix_world(camera_transform: &GlobalWorldTransform) -> Mat4 {
+        // For large world scenarios, we use the camera-relative transform
+        // The actual camera position in world coordinates doesn't matter for rendering
+        camera_transform.matrix.inverse().as_mat4()
+    }
+
+    /// Calculate view-projection matrix for large world rendering
+    ///
+    /// This version works with high-precision world transforms and converts
+    /// to camera-relative coordinates for GPU rendering
+    pub fn view_projection_matrix_world(
+        &self,
+        camera_transform: &GlobalWorldTransform,
+        camera_world_pos: DVec3,
+    ) -> Mat4 {
+        // Create a camera-relative transform for rendering
+        let camera_relative = camera_transform.to_camera_relative(camera_world_pos);
+        self.projection_matrix() * Self::view_matrix(&camera_relative)
+    }
+
+    /// Enable or disable logarithmic depth buffer
+    pub fn set_logarithmic_depth(&mut self, enabled: bool) {
+        self.use_logarithmic_depth = enabled;
+    }
+
+    /// Get the logarithmic depth coefficient for shaders
+    ///
+    /// This value is used in logarithmic depth shaders to transform depth values
+    pub fn logarithmic_depth_coefficient(&self) -> f32 {
+        if self.use_logarithmic_depth {
+            2.0 / (self.z_far / self.z_near + 1.0).ln()
+        } else {
+            0.0 // Not used in linear depth
+        }
+    }
+}
+
+/// Camera world position component for large world coordinate tracking
+///
+/// This component tracks the camera's position in high-precision world coordinates.
+/// It's separate from the regular transform to maintain backward compatibility.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct CameraWorldPosition {
+    /// Camera position in world coordinates using 64-bit precision
+    pub position: DVec3,
+}
+
+impl Default for CameraWorldPosition {
+    fn default() -> Self {
+        Self {
+            position: DVec3::ZERO,
+        }
+    }
+}
+
+impl CameraWorldPosition {
+    /// Create a new camera world position
+    pub fn new(position: DVec3) -> Self {
+        Self { position }
+    }
+
+    /// Update the world position
+    pub fn set_position(&mut self, position: DVec3) {
+        self.position = position;
+    }
+
+    /// Translate the camera by the given offset
+    pub fn translate(&mut self, offset: DVec3) {
+        self.position += offset;
+    }
+
+    /// Get the distance to a world position
+    pub fn distance_to(&self, world_pos: DVec3) -> f64 {
+        self.position.distance(world_pos)
     }
 }
 
