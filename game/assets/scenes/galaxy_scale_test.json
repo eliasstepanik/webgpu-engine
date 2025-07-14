@@ -1,0 +1,85 @@
+{
+  "entities": [
+    {
+      "components": {
+        "WorldTransform": {
+          "position": [9.46e20, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1e15, 1e15, 1e15]
+        },
+        "MeshId": { "0": "sphere" },
+        "Material": { "color": [1.0, 0.8, 0.0, 1.0] },
+        "Name": { "0": "Galaxy Edge Star System" }
+      }
+    },
+    {
+      "components": {
+        "WorldTransform": {
+          "position": [4.73e20, 2.84e20, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1e14, 1e14, 1e14]
+        },
+        "MeshId": { "0": "cube" },
+        "Material": { "color": [0.0, 0.5, 1.0, 1.0] },
+        "Name": { "0": "Galaxy Core Region (50k ly)" }
+      }
+    },
+    {
+      "components": {
+        "WorldTransform": {
+          "position": [1e18, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1e12, 1e12, 1e12]
+        },
+        "MeshId": { "0": "cylinder" },
+        "Material": { "color": [0.5, 1.0, 0.5, 1.0] },
+        "Name": { "0": "Nearby Star Cluster (1 sector)" }
+      }
+    },
+    {
+      "components": {
+        "WorldTransform": {
+          "position": [-3e18, 1e18, 2e18],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [5e13, 5e13, 5e13]
+        },
+        "MeshId": { "0": "torus" },
+        "Material": { "color": [1.0, 0.5, 0.5, 1.0] },
+        "Name": { "0": "Distant Nebula (-3,1,2 sectors)" }
+      }
+    },
+    {
+      "components": {
+        "WorldTransform": {
+          "position": [9.46e20, 1000.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [100.0, 100.0, 100.0]
+        },
+        "MeshId": { "0": "cube" },
+        "Material": { "color": [1.0, 1.0, 0.0, 1.0] },
+        "Name": { "0": "Precision Test Object (galaxy edge + 1km)" }
+      }
+    },
+    {
+      "components": {
+        "WorldTransform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Camera": {
+          "fov_y_radians": 1.0471976,
+          "aspect_ratio": 1.777778,
+          "z_near": 0.1,
+          "z_far": 1e21,
+          "projection_mode": "Perspective",
+          "use_logarithmic_depth": true
+        },
+        "CameraWorldPosition": {
+          "position": [0.0, 0.0, 0.0]
+        },
+        "Name": { "0": "Galaxy Scale Camera" }
+      }
+    }
+  ]
+}

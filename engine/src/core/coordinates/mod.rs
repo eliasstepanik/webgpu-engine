@@ -6,13 +6,18 @@
 //! - f32 camera-relative coordinates for GPU rendering
 //!
 //! This enables games with planetary-scale worlds without precision artifacts.
+//!
+//! For galaxy-scale coordinates (>10^15 meters), use the hierarchical
+//! coordinate system provided by the galaxy_coordinates module.
 
+pub mod galaxy_coordinates;
 pub mod origin_manager;
 pub mod world_transform;
 
 #[cfg(test)]
 mod tests;
 
+pub use galaxy_coordinates::{GalaxyCoordinateSystem, GalaxyPosition, GalaxySector};
 pub use origin_manager::CoordinateSystem;
 pub use world_transform::WorldTransform;
 

@@ -3,10 +3,9 @@
 use super::components::{GlobalTransform, GlobalWorldTransform, Parent, Transform, WorldTransform};
 use super::world::World;
 // hecs::Entity is re-exported from world module
-use glam::{DMat4, Mat4};
 use std::collections::HashSet;
 use std::ops::Mul;
-use tracing::{debug, error, trace};
+use tracing::{error, trace};
 
 /// Update the hierarchy system, calculating global transforms from local transforms
 /// and parent relationships using breadth-first traversal.

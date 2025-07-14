@@ -4,10 +4,7 @@
 //! render pipelines, GPU resources, and the rendering of entities.
 
 use crate::core::camera::{Camera, CameraWorldPosition};
-use crate::core::entity::{
-    components::{GlobalWorldTransform, WorldTransform},
-    GlobalTransform, World,
-};
+use crate::core::entity::{components::GlobalWorldTransform, GlobalTransform, World};
 use crate::graphics::{
     context::RenderContext,
     material::Material,
@@ -401,6 +398,7 @@ impl Renderer {
         self.update_surface_format(self.context.get_preferred_format(surface));
 
         // Get the specified camera and its transform, and determine camera world position
+        #[allow(unused_assignments)]
         let mut camera_world_position = DVec3::ZERO;
 
         // First try to get camera with WorldTransform (large world camera)

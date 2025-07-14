@@ -129,12 +129,26 @@ impl WorldTransform {
 
         self.rotation = Quat::from_mat3(&rotation_matrix);
     }
+
+    /// Convert to hierarchical galaxy position
+    pub fn to_galaxy_position(&self, sector_size: f64) -> crate::core::coordinates::GalaxyPosition {
+        crate::core::coordinates::GalaxyPosition::from_world_position(self.position, sector_size)
+    }
+
+    /// Create from hierarchical galaxy position
+    pub fn from_galaxy_position(galaxy_pos: &crate::core::coordinates::GalaxyPosition) -> Self {
+        Self::from_position(galaxy_pos.to_world_position())
+    }
+
+    /// Check if position is at galaxy scale (>10^15 meters from origin)
+    pub fn is_galaxy_scale(&self) -> bool {
+        self.position.length() > 1e15
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::f64::EPSILON;
 
     #[test]
     fn test_world_transform_default() {
@@ -160,8 +174,8 @@ mod tests {
 
         // Should be exactly 1.0 unit away from camera
         assert!((relative.position.x - 1.0).abs() < 0.001);
-        assert!(relative.position.y.abs() < EPSILON as f32);
-        assert!(relative.position.z.abs() < EPSILON as f32);
+        assert!(relative.position.y.abs() < f64::EPSILON as f32);
+        assert!(relative.position.z.abs() < f64::EPSILON as f32);
     }
 
     #[test]
@@ -185,7 +199,7 @@ mod tests {
         let transform1 = WorldTransform::from_position(DVec3::new(0.0, 0.0, 0.0));
         let transform2 = WorldTransform::from_position(DVec3::new(3.0, 4.0, 0.0));
 
-        assert!((transform1.distance_to(&transform2) - 5.0).abs() < EPSILON);
+        assert!((transform1.distance_to(&transform2) - 5.0).abs() < f64::EPSILON);
     }
 
     #[test]

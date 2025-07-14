@@ -177,6 +177,36 @@ impl Camera {
             0.0 // Not used in linear depth
         }
     }
+
+    /// Create a camera optimized for galaxy scale rendering
+    ///
+    /// This camera configuration is designed for rendering at scales up to 10^21 meters
+    /// with logarithmic depth buffer always enabled for extreme near/far ratios.
+    pub fn galaxy_scale(fov_y_degrees: f32, aspect_ratio: f32) -> Self {
+        Self {
+            fov_y_radians: fov_y_degrees.to_radians(),
+            aspect_ratio,
+            z_near: 0.1, // 10cm minimum
+            z_far: 1e21, // Galaxy scale maximum
+            projection_mode: ProjectionMode::Perspective,
+            use_logarithmic_depth: true, // Always use logarithmic for galaxy scale
+        }
+    }
+
+    /// Get enhanced logarithmic depth coefficient for extreme ranges
+    ///
+    /// This enhanced formula provides better precision for extreme near/far ratios
+    /// such as those encountered in galaxy-scale rendering.
+    pub fn galaxy_logarithmic_depth_coefficient(&self) -> f32 {
+        if self.use_logarithmic_depth {
+            // Enhanced formula for extreme near/far ratios
+            let fc = 2.0 / (self.z_far / self.z_near).ln();
+            fc * (1.0 + self.z_near / self.z_far)
+        } else {
+            // Fallback to standard coefficient
+            self.logarithmic_depth_coefficient()
+        }
+    }
 }
 
 /// Camera world position component for large world coordinate tracking

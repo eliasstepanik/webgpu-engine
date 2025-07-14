@@ -3,7 +3,6 @@
 use super::*;
 use crate::core::entity::components::{GlobalTransform, Transform};
 use glam::{DVec3, Quat, Vec3};
-use std::f64::EPSILON;
 
 #[test]
 fn test_precision_at_large_distances() {
@@ -61,7 +60,7 @@ fn test_coordinate_system_origin_shifting() {
     let current_pos = coord_system.world_to_current(world_pos);
     let back_to_world = coord_system.current_to_world(current_pos);
 
-    assert!((back_to_world - world_pos).length() < EPSILON);
+    assert!((back_to_world - world_pos).length() < f64::EPSILON);
 }
 
 #[test]
@@ -102,7 +101,7 @@ fn test_mixed_hierarchy_precision() {
     crate::core::entity::hierarchy::update_hierarchy_system(&mut world);
 
     // Check that child's global transform is correct
-    let child_global = world.get::<GlobalTransform>(child).unwrap();
+    let _child_global = world.get::<GlobalTransform>(child).unwrap();
     let expected_world_pos = parent_world_pos + child_local_pos.as_dvec3();
 
     // When converted to camera-relative, should maintain precision
@@ -178,7 +177,7 @@ fn test_coordinate_system_stats() {
 
     // Camera world position should be total offset + current relative position
     let expected_world_pos = stats.total_origin_offset + stats.camera_relative_position;
-    assert!((stats.camera_world_position - expected_world_pos).length() < EPSILON);
+    assert!((stats.camera_world_position - expected_world_pos).length() < f64::EPSILON);
 }
 
 #[test]
@@ -266,8 +265,7 @@ mod benchmark_tests {
         // Should be able to convert 1000 transforms in well under 1ms
         assert!(
             duration.as_millis() < 10,
-            "Coordinate conversion too slow: {:?}",
-            duration
+            "Coordinate conversion too slow: {duration:?}"
         );
     }
 
@@ -285,8 +283,92 @@ mod benchmark_tests {
         // Should be able to perform 100 origin shifts in well under 1ms
         assert!(
             duration.as_millis() < 5,
-            "Origin shifting too slow: {:?}",
-            duration
+            "Origin shifting too slow: {duration:?}"
         );
+    }
+
+    #[test]
+    fn test_galaxy_scale_precision() {
+        // Test at Milky Way scale (10^20 meters)
+        let galaxy_radius = 9.46e20; // ~100,000 light years
+        let world_pos = DVec3::new(galaxy_radius, 0.0, 0.0);
+        let camera_pos = DVec3::new(galaxy_radius - 1000.0, 0.0, 0.0); // 1km away
+
+        let world_transform = WorldTransform::from_position(world_pos);
+        let relative = world_transform.to_camera_relative(camera_pos);
+
+        // At galaxy scale (10^20), f64 precision is ~10^5 meters
+        // So we can't expect meter precision, but should be within 100km
+        assert!((relative.position.x - 1000.0).abs() < 1e5);
+    }
+
+    #[test]
+    fn test_hierarchical_galaxy_coordinates() {
+        use crate::core::coordinates::GalaxyPosition;
+        use glam::IVec3;
+
+        let sector_size = 1e18; // 1 million light years per sector
+        let world_pos = DVec3::new(2.5e18, 1.3e18, -0.7e18);
+
+        let galaxy_pos = GalaxyPosition::from_world_position(world_pos, sector_size);
+        assert_eq!(galaxy_pos.sector.sector_coords, IVec3::new(2, 1, -1));
+
+        let reconstructed = galaxy_pos.to_world_position();
+        assert!((reconstructed - world_pos).length() < 1.0); // Sub-meter precision
+    }
+
+    #[test]
+    fn test_galaxy_coordinate_conversions() {
+        let sector_size = 1e18;
+        let world_transform = WorldTransform::from_position(DVec3::new(3.7e18, -2.1e18, 0.8e18));
+
+        // Convert to galaxy position and back
+        let galaxy_pos = world_transform.to_galaxy_position(sector_size);
+        let reconstructed = WorldTransform::from_galaxy_position(&galaxy_pos);
+
+        // Should maintain precision through conversion
+        assert!((world_transform.position - reconstructed.position).length() < 1.0);
+        assert_eq!(world_transform.rotation, reconstructed.rotation);
+        assert_eq!(world_transform.scale, reconstructed.scale);
+    }
+
+    #[test]
+    fn test_is_galaxy_scale() {
+        // Test detection of galaxy-scale positions
+        let local_transform = WorldTransform::from_position(DVec3::new(1000.0, 0.0, 0.0));
+        assert!(!local_transform.is_galaxy_scale());
+
+        let planetary_transform = WorldTransform::from_position(DVec3::new(1e8, 0.0, 0.0));
+        assert!(!planetary_transform.is_galaxy_scale());
+
+        let galaxy_transform = WorldTransform::from_position(DVec3::new(1e16, 0.0, 0.0));
+        assert!(galaxy_transform.is_galaxy_scale());
+    }
+
+    #[test]
+    fn test_galaxy_scale_camera_relative() {
+        use crate::core::coordinates::{GalaxyPosition, GalaxySector};
+        use glam::IVec3;
+
+        let sector_size = 1e18;
+
+        // Camera at edge of one sector
+        let camera_pos = GalaxyPosition::new(
+            GalaxySector::new(IVec3::new(5, 5, 5), sector_size),
+            DVec3::new(4.9e17, 0.0, 0.0),
+        );
+
+        // Object in adjacent sector
+        let object_pos = GalaxyPosition::new(
+            GalaxySector::new(IVec3::new(6, 5, 5), sector_size),
+            DVec3::new(-4.9e17, 0.0, 0.0),
+        );
+
+        let relative = object_pos.to_camera_relative(&camera_pos);
+
+        // Should be approximately 0.2e17 meters away
+        // Camera at 4.9e17 in sector 5, object at -4.9e17 in sector 6
+        // Distance = 1e18 - 4.9e17 - 4.9e17 = 0.2e17
+        assert!((relative.x - 0.2e17).abs() < 1e10); // Allow some precision loss at this scale
     }
 }

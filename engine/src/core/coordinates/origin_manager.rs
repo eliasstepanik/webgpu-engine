@@ -27,15 +27,15 @@ pub struct CoordinateSystem {
 
 /// Record of an origin shift operation
 #[derive(Debug, Clone)]
-struct OriginShift {
+pub struct OriginShift {
     /// World time when the shift occurred
-    timestamp: std::time::Instant,
+    pub timestamp: std::time::Instant,
     /// Previous origin position
-    old_origin: DVec3,
+    pub old_origin: DVec3,
     /// New origin position
-    new_origin: DVec3,
+    pub new_origin: DVec3,
     /// Camera position that triggered the shift
-    trigger_camera_pos: DVec3,
+    pub trigger_camera_pos: DVec3,
 }
 
 impl Default for CoordinateSystem {
@@ -72,7 +72,6 @@ impl CoordinateSystem {
     /// Returns true if an origin shift occurred, which requires updating
     /// all world transforms in the game.
     pub fn update_camera_origin(&mut self, new_camera_world_pos: DVec3) -> bool {
-        let old_camera_origin = self.camera_origin;
         self.camera_origin = new_camera_world_pos;
 
         if self.enable_origin_shift && self.should_shift_origin() {
@@ -214,7 +213,6 @@ pub struct CoordinateSystemStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::f64::EPSILON;
 
     #[test]
     fn test_coordinate_system_default() {
@@ -273,7 +271,7 @@ mod tests {
         let current_pos = coord_system.world_to_current(world_pos);
         let back_to_world = coord_system.current_to_world(current_pos);
 
-        assert!((back_to_world - world_pos).length() < EPSILON);
+        assert!((back_to_world - world_pos).length() < f64::EPSILON);
     }
 
     #[test]
