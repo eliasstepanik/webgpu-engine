@@ -1,0 +1,95 @@
+{
+  "entities": [
+    {
+      "components": {
+        "Transform": {
+          "position": [-3.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Material": {
+          "color": [1.0, 1.0, 1.0, 1.0]
+        },
+        "MeshRenderer": {
+          "mesh": "Cube"
+        },
+        "Name": {
+          "name": "Color Pulse Cube"
+        },
+        "ScriptRef": {
+          "name": "color_pulse"
+        },
+        "ScriptProperties": {
+          "base_color": {
+            "Color": [1.0, 1.0, 1.0, 1.0]
+          },
+          "pulse_color": {
+            "Color": [1.0, 0.0, 0.0, 1.0]
+          },
+          "pulse_speed": {
+            "Float": 2.0
+          },
+          "pulse_intensity": {
+            "Float": 1.0
+          }
+        }
+      }
+    },
+    {
+      "components": {
+        "Transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Material": {
+          "color": [1.0, 1.0, 1.0, 1.0]
+        },
+        "MeshRenderer": {
+          "mesh": "Cube"
+        },
+        "Name": {
+          "name": "Rotating Tinted Cube"
+        },
+        "ScriptRef": {
+          "name": "rotating_cube"
+        },
+        "ScriptProperties": {
+          "rotation_speed": {
+            "Float": 1.0
+          },
+          "tilt_angle": {
+            "Float": 0.5
+          },
+          "rotation_axis": {
+            "String": "y"
+          },
+          "tint_color": {
+            "Color": [0.0, 1.0, 0.0, 1.0]
+          }
+        }
+      }
+    },
+    {
+      "components": {
+        "Transform": {
+          "position": [3.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Material": {
+          "color": [1.0, 1.0, 1.0, 1.0]
+        },
+        "MeshRenderer": {
+          "mesh": "Cube"
+        },
+        "Name": {
+          "name": "Material Test Cube"
+        },
+        "ScriptRef": {
+          "name": "material_test"
+        }
+      }
+    }
+  ]
+}

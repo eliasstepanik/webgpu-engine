@@ -1,4 +1,4 @@
-// Color pulsing script with customizable colors
+// Color pulsing script with customizable colors - Fixed version
 // Demonstrates color properties and material manipulation
 //
 //! @property base_color: color = [1.0, 1.0, 1.0, 1.0] @tooltip("Base color of the object")
@@ -8,7 +8,7 @@
 //! @property time_accumulator: float = 0.0 @hidden @tooltip("Internal time accumulator")
 
 fn on_start(entity) {
-    print("Color pulse script started for entity " + entity);
+    print("Color pulse (fixed) script started for entity " + entity);
 }
 
 fn on_update(entity, delta_time) {
@@ -37,11 +37,14 @@ fn on_update(entity, delta_time) {
             print("Entity " + entity + " pulse_factor: " + pulse_factor + " intensity: " + clamped_intensity + " time: " + time_accumulator);
         }
         
-        // Lerp between base color and pulse color
-        material.color[0] = base_color["r"] + (pulse_color["r"] - base_color["r"]) * pulse_factor;
-        material.color[1] = base_color["g"] + (pulse_color["g"] - base_color["g"]) * pulse_factor;
-        material.color[2] = base_color["b"] + (pulse_color["b"] - base_color["b"]) * pulse_factor;
-        material.color[3] = base_color["a"]; // Keep alpha from base color
+        // Calculate interpolated color values
+        let r = base_color["r"] + (pulse_color["r"] - base_color["r"]) * pulse_factor;
+        let g = base_color["g"] + (pulse_color["g"] - base_color["g"]) * pulse_factor;
+        let b = base_color["b"] + (pulse_color["b"] - base_color["b"]) * pulse_factor;
+        let a = base_color["a"]; // Keep alpha from base color
+        
+        // Use the new set_color method
+        material.set_color(r, g, b, a);
         
         // Update the material
         world::set_component(entity, "Material", material);
@@ -51,5 +54,5 @@ fn on_update(entity, delta_time) {
 }
 
 fn on_destroy(entity) {
-    print("Color pulse script stopped for entity " + entity);
+    print("Color pulse (fixed) script stopped for entity " + entity);
 }

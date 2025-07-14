@@ -101,10 +101,7 @@ fn test_tracker_clear() {
 
     // Create and track multiple entities
     for i in 0..5 {
-        let entity = world.spawn((
-            ScriptRef::new(format!("script{i}")),
-            Transform::default(),
-        ));
+        let entity = world.spawn((ScriptRef::new(format!("script{i}")), Transform::default()));
         tracker.mark_started(entity);
     }
 

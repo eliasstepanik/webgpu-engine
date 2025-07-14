@@ -296,6 +296,47 @@ pub fn register_material_type(engine: &mut Engine) {
                 Dynamic::from(m.color[3] as f64),
             ]
         })
+        .register_set("color", |m: &mut Material, color: Dynamic| {
+            // Try to handle as a direct array first
+            if color.is_array() {
+                let array = color.cast::<rhai::Array>();
+                if array.len() >= 3 {
+                    // Extract values from Dynamic array elements
+                    if let (Ok(r), Ok(g), Ok(b)) = (
+                        array[0].as_float(),
+                        array[1].as_float(),
+                        array[2].as_float(),
+                    ) {
+                        m.color[0] = (r as f32).clamp(0.0, 1.0);
+                        m.color[1] = (g as f32).clamp(0.0, 1.0);
+                        m.color[2] = (b as f32).clamp(0.0, 1.0);
+
+                        // Set alpha if provided
+                        if array.len() >= 4 {
+                            if let Ok(a) = array[3].as_float() {
+                                m.color[3] = (a as f32).clamp(0.0, 1.0);
+                            }
+                        }
+                    }
+                }
+            }
+            // Note: Vec<Dynamic> from the getter will also be handled by the is_array() check
+        })
+        .register_fn(
+            "set_color",
+            |m: &mut Material, r: f64, g: f64, b: f64, a: f64| {
+                m.color[0] = (r as f32).clamp(0.0, 1.0);
+                m.color[1] = (g as f32).clamp(0.0, 1.0);
+                m.color[2] = (b as f32).clamp(0.0, 1.0);
+                m.color[3] = (a as f32).clamp(0.0, 1.0);
+            },
+        )
+        .register_fn("set_rgb", |m: &mut Material, r: f64, g: f64, b: f64| {
+            m.color[0] = (r as f32).clamp(0.0, 1.0);
+            m.color[1] = (g as f32).clamp(0.0, 1.0);
+            m.color[2] = (b as f32).clamp(0.0, 1.0);
+            // Keep existing alpha
+        })
         .register_fn("clone", |m: &mut Material| *m);
 
     // Create a material module with constructor functions

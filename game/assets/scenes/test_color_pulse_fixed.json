@@ -1,0 +1,25 @@
+{
+  "entities": [
+    {
+      "components": {
+        "Transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Material": {
+          "color": [1.0, 1.0, 1.0, 1.0]
+        },
+        "MeshRenderer": {
+          "mesh": "Cube"
+        },
+        "Name": {
+          "name": "Pulsing Cube (Fixed)"
+        },
+        "ScriptRef": {
+          "name": "color_pulse_fixed"
+        }
+      }
+    }
+  ]
+}
