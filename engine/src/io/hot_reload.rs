@@ -256,6 +256,12 @@ pub fn reload_scene_with_validation<P: AsRef<Path>>(
     if clear_world {
         world.inner_mut().clear();
         debug!("Cleared world before reload");
+
+        // Also clear the script lifecycle tracker since all entities are gone
+        use crate::scripting::lifecycle_tracker::get_tracker;
+        if let Ok(mut tracker) = get_tracker().lock() {
+            tracker.clear();
+        }
     }
 
     // Load scene with validation
@@ -297,7 +303,7 @@ mod tests {
     #[test]
     fn test_scene_watcher_creation() {
         use std::env;
-        
+
         // Create a temporary file in the system temp directory
         let temp_dir = env::temp_dir();
         let temp_filename = format!("test_watcher_scene_{}.json", std::process::id());
@@ -314,7 +320,7 @@ mod tests {
 
         // Create watcher
         let watcher = SceneWatcher::new(&temp_path, WatcherConfig::default(), callback);
-        
+
         // The test might fail on some systems (like CI) where file watching is not available
         // so we'll make this test more lenient
         if watcher.is_err() {
@@ -332,7 +338,7 @@ mod tests {
 
         // Stop watcher
         watcher.stop().unwrap();
-        
+
         // Clean up
         let _ = fs::remove_file(&temp_path);
     }

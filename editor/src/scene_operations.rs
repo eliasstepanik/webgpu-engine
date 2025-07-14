@@ -6,6 +6,7 @@
 use engine::core::entity::World;
 use engine::graphics::renderer::Renderer;
 use engine::prelude::*;
+use engine::scripting::lifecycle_tracker::get_tracker;
 use std::path::Path;
 use tracing::info;
 
@@ -15,6 +16,11 @@ pub fn create_default_scene(world: &mut World, renderer: &mut Renderer) {
 
     // Clear the world first
     world.inner_mut().clear();
+
+    // Also clear the script lifecycle tracker since all entities are gone
+    if let Ok(mut tracker) = get_tracker().lock() {
+        tracker.clear();
+    }
 
     // Create camera
     let _camera_entity = world.spawn((

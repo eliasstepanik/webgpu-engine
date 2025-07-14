@@ -88,7 +88,22 @@
       "Bash(sed:*)",
       "WebFetch(domain:taintedcoders.com)",
       "WebFetch(domain:rhai.rs)",
-      "Bash(RUST_BACKTRACE=1 cargo test --test script_integration test_script_loading_and_execution)"
+      "Bash(RUST_BACKTRACE=1 cargo test --test script_integration test_script_loading_and_execution)",
+      "WebFetch(domain:fyrox.rs)",
+      "WebFetch(domain:docs.unity3d.com)",
+      "Bash(./test_parser)",
+      "Bash(RUST_LOG=debug cargo test -p engine scripting::property_parser::tests::test_parse_with_metadata -- --nocapture)",
+      "Bash(./test_parse_line:*)",
+      "Bash(./test_full_parse)",
+      "Bash(./test_rfind:*)",
+      "Bash(RUST_LOG=debug cargo run -p game --features editor)",
+      "Bash(./test_scene_load.sh:*)",
+      "Bash(RUST_LOG=engine::scripting=trace cargo run --bin game)",
+      "Bash(RUST_LOG=engine::scripting=trace,engine::io::hot_reload=debug cargo run --bin game)",
+      "Bash(RUST_LOG=engine::scripting=debug cargo run --bin game)",
+      "Bash(RUST_LOG=engine::scripting=info cargo run --bin game)",
+      "Bash(RUST_LOG=engine::io::hot_reload=debug,engine::scripting=warn cargo run --bin game)",
+      "Bash(RUST_LOG=engine::scripting=warn cargo run --bin game)"
     ],
     "deny": []
   },

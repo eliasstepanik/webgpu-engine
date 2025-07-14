@@ -190,6 +190,30 @@ impl Scene {
                 }
             }
 
+            // Serialize ScriptRef component
+            if let Ok(script_ref) = world.get::<crate::scripting::ScriptRef>(entity) {
+                match serde_json::to_value(&*script_ref) {
+                    Ok(value) => {
+                        components.insert("ScriptRef".to_string(), value);
+                    }
+                    Err(e) => {
+                        error!(error = %e, "Failed to serialize ScriptRef");
+                    }
+                }
+            }
+
+            // Serialize ScriptProperties component
+            if let Ok(script_props) = world.get::<crate::scripting::ScriptProperties>(entity) {
+                match serde_json::to_value(&*script_props) {
+                    Ok(value) => {
+                        components.insert("ScriptProperties".to_string(), value);
+                    }
+                    Err(e) => {
+                        error!(error = %e, "Failed to serialize ScriptProperties");
+                    }
+                }
+            }
+
             entities.push(SerializedEntity { components });
         }
 
@@ -315,6 +339,29 @@ impl Scene {
                             }
                             Err(e) => {
                                 error!(error = %e, "Failed to deserialize ScriptRef");
+                            }
+                        }
+                    }
+                    "ScriptProperties" => {
+                        match serde_json::from_value::<crate::scripting::ScriptProperties>(
+                            value.clone(),
+                        ) {
+                            Ok(script_props) => {
+                                warn!(
+                                    "📦 SCENE LOAD: Entity {:?} loaded ScriptProperties with {} values. script_name={:?}",
+                                    entity,
+                                    script_props.values.len(),
+                                    script_props.script_name
+                                );
+                                for (k, v) in &script_props.values {
+                                    warn!("  📦 {} = {:?}", k, v);
+                                }
+                                if let Err(e) = world.insert_one(entity, script_props) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert ScriptProperties");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize ScriptProperties");
                             }
                         }
                     }
@@ -565,6 +612,29 @@ impl Scene {
                             }
                             Err(e) => {
                                 error!(error = %e, "Failed to deserialize ScriptRef");
+                            }
+                        }
+                    }
+                    "ScriptProperties" => {
+                        match serde_json::from_value::<crate::scripting::ScriptProperties>(
+                            value.clone(),
+                        ) {
+                            Ok(script_props) => {
+                                warn!(
+                                    "📦 SCENE LOAD: Entity {:?} loaded ScriptProperties with {} values. script_name={:?}",
+                                    entity,
+                                    script_props.values.len(),
+                                    script_props.script_name
+                                );
+                                for (k, v) in &script_props.values {
+                                    warn!("  📦 {} = {:?}", k, v);
+                                }
+                                if let Err(e) = world.insert_one(entity, script_props) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert ScriptProperties");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize ScriptProperties");
                             }
                         }
                     }

@@ -1,9 +1,9 @@
 //! Script execution system
 
-use crate::core::entity::{Entity, World};
+use crate::core::entity::World;
 use crate::scripting::commands::{CommandQueue, ScriptCommand, SharedComponentCache};
 use crate::scripting::component_access::populate_cache_for_scripts;
-use crate::scripting::lifecycle_tracker::SCRIPT_LIFECYCLE_TRACKER;
+use crate::scripting::lifecycle_tracker::get_tracker;
 use crate::scripting::modules::world::{create_world_module, register_material_type};
 use crate::scripting::property_types::{PropertyType, PropertyValue, ScriptProperties};
 use crate::scripting::{ScriptEngine, ScriptInputState, ScriptRef};
@@ -23,8 +23,16 @@ pub fn script_execution_system(
         static COMPONENT_CACHE: SharedComponentCache = SharedComponentCache::default();
     }
 
-    // Get the global lifecycle tracker
-    let mut tracker = SCRIPT_LIFECYCLE_TRACKER.lock().unwrap();
+    // Log initial tracker state
+    {
+        let tracker = get_tracker().lock().unwrap();
+        debug!(
+            "Script execution system starting. Tracker state: {} started entities, {} active entities, counter: {}",
+            tracker.started_count(),
+            tracker.active_entities.len(),
+            tracker.debug_counter
+        );
+    }
 
     // Get command queue and component cache
     let command_queue = COMMAND_QUEUE.with(|q| q.clone());
@@ -39,16 +47,20 @@ pub fn script_execution_system(
         populate_cache_for_scripts(world.inner(), &mut cache);
     }
 
-    // Collect entities with scripts first to avoid borrow conflicts
+    // Collect entities with scripts first using compound query to avoid borrow conflicts
     let mut entities_with_scripts = Vec::new();
-    for (entity, script_ref) in world.query::<&ScriptRef>().iter() {
-        // Check if entity also has ScriptProperties
-        let properties = if let Ok(props) = world.get::<&ScriptProperties>(entity) {
-            Some((*props).clone())
-        } else {
-            None
-        };
-        entities_with_scripts.push((entity, script_ref.clone(), properties));
+    for (entity, (script_ref, properties)) in world
+        .query::<(&ScriptRef, Option<&ScriptProperties>)>()
+        .iter()
+    {
+        trace!(
+            entity = ?entity,
+            entity_id = entity.to_bits().get(),
+            script = script_ref.name,
+            has_properties = properties.is_some(),
+            "Found entity with script"
+        );
+        entities_with_scripts.push((entity, script_ref.clone(), properties.cloned()));
     }
 
     debug!(
@@ -58,6 +70,12 @@ pub fn script_execution_system(
 
     // Process each entity with a script
     for (entity, script_ref, script_properties) in entities_with_scripts {
+        trace!(
+            "Processing entity {:?} (ID: {}) with script {}",
+            entity,
+            entity.to_bits().get(),
+            script_ref.name
+        );
         // Ensure script is loaded
         if !script_engine.is_loaded(&script_ref.name) {
             match script_engine.load_script_by_name(&script_ref.name) {
@@ -125,19 +143,37 @@ pub fn script_execution_system(
         }
 
         // Check if this is a new entity that needs on_start
-        if !tracker.has_started(entity) {
-            warn!(
+        let needs_start = {
+            let tracker = get_tracker().lock().unwrap();
+            !tracker.has_started(entity)
+        };
+
+        if needs_start {
+            {
+                let tracker = get_tracker().lock().unwrap();
+                warn!(
                     "🔄 Entity {:?} not in started_entities (size: {}). Calling on_start for script: {}",
                     entity,
                     tracker.started_count(),
                     script_ref.name
                 );
+            }
 
             match script_engine.call_on_start(&script_ref.name, entity.to_bits().get(), &mut scope)
             {
-                Ok(_) => {
-                    tracker.mark_started(entity);
-                }
+                Ok(_) => match get_tracker().lock() {
+                    Ok(mut tracker) => {
+                        tracker.mark_started(entity);
+                        debug!(
+                            "✅ Marked entity {:?} as started. Total started: {}",
+                            entity,
+                            tracker.started_count()
+                        );
+                    }
+                    Err(e) => {
+                        error!("Failed to lock tracker mutex: {}", e);
+                    }
+                },
                 Err(e) => {
                     warn!(entity = ?entity, script = script_ref.name, error = %e, "Script on_start failed");
                 }
@@ -217,7 +253,7 @@ pub fn script_execution_system(
     // Apply all queued commands after all scripts have run
     let commands = command_queue.write().unwrap().drain(..).collect::<Vec<_>>();
     if !commands.is_empty() {
-        info!(count = commands.len(), "Applying script commands");
+        debug!(count = commands.len(), "Applying script commands");
         for command in commands {
             if let Err(e) = command.apply(world.inner_mut()) {
                 error!(error = %e, "Failed to apply script command");
@@ -228,23 +264,16 @@ pub fn script_execution_system(
     // Clear component cache to prevent stale data
     component_cache.write().unwrap().clear();
 
-    // Check for entities that were destroyed and need on_destroy
-    let mut destroyed_entities = Vec::new();
-    let active_entities: Vec<Entity> = tracker.active_entities.iter().copied().collect();
-    for entity in active_entities {
-        if world.get::<&ScriptRef>(entity).is_err() {
-            destroyed_entities.push(entity);
-        }
-    }
+    // TODO: Implement destruction checking without borrow conflicts
+    // The previous implementation caused false positive removals due to borrow conflicts
+    // when trying to check if entities still have ScriptRef components.
+    // Options:
+    // 1. Track destruction during entity processing above
+    // 2. Implement in a separate system that runs after script execution
+    // 3. Use entity destruction events/callbacks
+    // For now, entities will remain in the tracker until explicitly removed.
 
-    for entity in destroyed_entities {
-        trace!(entity = ?entity, "Entity destroyed, calling on_destroy");
-
-        // We can't get the script ref anymore, so we'll skip on_destroy for now
-        // In a real implementation, we'd track this separately
-        tracker.remove_entity(entity);
-    }
-    // Tracker is automatically unlocked when it goes out of scope
+    debug!("Script execution system completed");
 }
 
 /// Create an input module with current input state

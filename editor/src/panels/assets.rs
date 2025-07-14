@@ -131,7 +131,10 @@ fn scan_directory(path: &Path) -> Result<FileNode, std::io::Error> {
         })
     } else {
         // Only include files with supported extensions
-        let include = matches!(path.extension().and_then(|e| e.to_str()), Some("obj") | Some("rhai") | Some("json"));
+        let include = matches!(
+            path.extension().and_then(|e| e.to_str()),
+            Some("obj") | Some("rhai") | Some("json")
+        );
 
         if include {
             Ok(FileNode {
@@ -187,7 +190,8 @@ fn render_file_tree(ui: &imgui::Ui, node: &FileNode, state: &mut AssetBrowserSta
         if let Some(_token) = ui
             .tree_node_config(&format!("📁 {}", node.name))
             .flags(flags)
-            .push() {
+            .push()
+        {
             state.expanded_dirs.insert(node.path.clone(), true);
             for child in &node.children {
                 render_file_tree(ui, child, state);
@@ -218,14 +222,14 @@ fn render_file_tree(ui: &imgui::Ui, node: &FileNode, state: &mut AssetBrowserSta
                 .begin()
                 .is_some()
         {
-                // Calculate relative path from asset root
-                let relative_path = node
-                    .path
-                    .strip_prefix(&state.asset_root)
-                    .unwrap_or(&node.path)
-                    .to_string_lossy()
-                    .to_string()
-                    .replace('\\', "/"); // Normalize path separators
+            // Calculate relative path from asset root
+            let relative_path = node
+                .path
+                .strip_prefix(&state.asset_root)
+                .unwrap_or(&node.path)
+                .to_string_lossy()
+                .to_string()
+                .replace('\\', "/"); // Normalize path separators
 
             state.dragged_file = Some(relative_path.clone());
             ui.text(format!("📄 {}", node.name));

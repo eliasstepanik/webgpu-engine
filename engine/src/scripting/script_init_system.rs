@@ -9,9 +9,12 @@ pub fn script_initialization_system(world: &mut World, script_engine: &mut Scrip
     // Collect entities that need property initialization
     let mut entities_needing_properties = Vec::new();
 
-    // First pass: collect entities that might need initialization
-    for (entity, script_ref) in world.query::<&ScriptRef>().iter() {
-        let needs_init = if let Ok(props) = world.get::<&ScriptProperties>(entity) {
+    // First pass: collect entities that might need initialization using compound query
+    for (entity, (script_ref, properties)) in world
+        .query::<(&ScriptRef, Option<&ScriptProperties>)>()
+        .iter()
+    {
+        let needs_init = if let Some(props) = properties {
             // Check if the script has changed
             let script_changed = props.script_name.as_ref() != Some(&script_ref.name);
             if script_changed {
@@ -108,16 +111,20 @@ pub fn script_initialization_system(world: &mut World, script_engine: &mut Scrip
                 // Check if we need to preserve existing values
                 let properties = if has_props {
                     // Entity already has properties - preserve existing values where possible
-                    if let Ok(existing_props) = world.inner_mut().remove_one::<ScriptProperties>(entity) {
+                    if let Ok(existing_props) =
+                        world.inner_mut().remove_one::<ScriptProperties>(entity)
+                    {
                         let mut new_properties = ScriptProperties::new();
                         new_properties.script_name = Some(script_name.clone());
-                        
+
                         // For each property in the new script's definitions
                         for def in &definitions {
                             // Check if we have an existing value for this property
                             if let Some(existing_value) = existing_props.values.get(&def.name) {
                                 // Preserve the existing value
-                                new_properties.values.insert(def.name.clone(), existing_value.clone());
+                                new_properties
+                                    .values
+                                    .insert(def.name.clone(), existing_value.clone());
                                 debug!(
                                     entity = ?entity,
                                     property = %def.name,
@@ -125,7 +132,9 @@ pub fn script_initialization_system(world: &mut World, script_engine: &mut Scrip
                                 );
                             } else {
                                 // Use default value for new properties
-                                new_properties.values.insert(def.name.clone(), def.default_value.clone());
+                                new_properties
+                                    .values
+                                    .insert(def.name.clone(), def.default_value.clone());
                                 debug!(
                                     entity = ?entity,
                                     property = %def.name,

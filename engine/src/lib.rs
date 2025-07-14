@@ -40,6 +40,9 @@ pub mod prelude {
     // App types
     pub use crate::app::{EngineApp, EngineBuilder, EngineConfig};
 
+    // Scripting types
+    pub use crate::scripting::{ScriptEngine, ScriptProperties, ScriptRef};
+
     pub use wgpu;
     pub use winit;
 }

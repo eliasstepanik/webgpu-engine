@@ -1,6 +1,8 @@
 //! Rhai engine wrapper with script caching
 
 use crate::config::AssetConfig;
+use crate::scripting::property_parser::parse_script_properties;
+use crate::scripting::property_types::PropertyDefinition;
 use rhai::{Engine, EvalAltResult, Scope, AST};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -13,6 +15,7 @@ struct CachedScript {
     has_on_start: bool,
     has_on_update: bool,
     has_on_destroy: bool,
+    property_definitions: Vec<PropertyDefinition>,
 }
 
 /// Script engine with caching
@@ -90,6 +93,24 @@ impl ScriptEngine {
         let script_content = std::fs::read_to_string(script_path)
             .map_err(|e| format!("Failed to read script file '{script_path}': {e}"))?;
 
+        // Parse property definitions from script comments
+        let property_definitions = parse_script_properties(&script_content).unwrap_or_else(|e| {
+            debug!(
+                script_name = script_name,
+                error = %e,
+                "Failed to parse property definitions, using empty list"
+            );
+            Vec::new()
+        });
+
+        if !property_definitions.is_empty() {
+            debug!(
+                script_name = script_name,
+                property_count = property_definitions.len(),
+                "Found property definitions"
+            );
+        }
+
         let ast = self.engine.compile(&script_content).map_err(|e| {
             let position = e.position();
             format!(
@@ -122,6 +143,7 @@ impl ScriptEngine {
             has_on_start,
             has_on_update,
             has_on_destroy,
+            property_definitions,
         };
 
         self.cache
@@ -248,6 +270,15 @@ impl ScriptEngine {
     /// Get the number of cached scripts
     pub fn cache_size(&self) -> usize {
         self.cache.read().unwrap().len()
+    }
+
+    /// Get property definitions for a script
+    pub fn get_property_definitions(&self, script_name: &str) -> Option<Vec<PropertyDefinition>> {
+        self.cache
+            .read()
+            .unwrap()
+            .get(script_name)
+            .map(|cached| cached.property_definitions.clone())
     }
 }
 

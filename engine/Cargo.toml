@@ -16,6 +16,7 @@ bytemuck = { version = "1.23", features = ["derive"] }
 notify = "6.0"
 rhai = { version = "1.19", features = ["sync"] }
 pollster = "0.3"
+lazy_static = "1.4"
 tobj = { version = "4.0", features = ["async"] }
 thiserror = "1.0"
 

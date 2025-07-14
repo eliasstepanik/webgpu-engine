@@ -1,0 +1,138 @@
+{
+  "entities": [
+    {
+      "components": {
+        "Name": {
+          "0": "Main Camera"
+        },
+        "Transform": {
+          "position": [0.0, 2.0, 5.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Camera": {
+          "fov_y_radians": 0.785398,
+          "aspect_ratio": 1.7777778,
+          "z_near": 0.1,
+          "z_far": 1000.0,
+          "projection_mode": "Perspective"
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": {
+          "0": "Rotating Cube 1"
+        },
+        "Transform": {
+          "position": [-2.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": {
+          "0": "cube"
+        },
+        "Material": {
+          "color": [1.0, 0.0, 0.0, 1.0]
+        },
+        "ScriptRef": {
+          "name": "rotating_cube"
+        },
+        "ScriptProperties": {
+          "values": {
+            "rotation_speed": {
+              "type": "Float",
+              "value": 2.0
+            },
+            "rotation_axis": {
+              "type": "Vector3",
+              "value": [0.0, 1.0, 0.0]
+            },
+            "scale_factor": {
+              "type": "Float",
+              "value": 1.5
+            },
+            "tint_color": {
+              "type": "Color",
+              "value": [1.0, 0.5, 0.0, 1.0]
+            }
+          }
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": {
+          "0": "Rotating Cube 2"
+        },
+        "Transform": {
+          "position": [2.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": {
+          "0": "cube"
+        },
+        "Material": {
+          "color": [0.0, 1.0, 0.0, 1.0]
+        },
+        "ScriptRef": {
+          "name": "rotating_cube_simple"
+        },
+        "ScriptProperties": {
+          "values": {
+            "rotation_speed": {
+              "type": "Float",
+              "value": -1.5
+            }
+          }
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": {
+          "0": "Moving Sphere"
+        },
+        "Transform": {
+          "position": [0.0, 1.0, -2.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.5, 0.5, 0.5]
+        },
+        "MeshId": {
+          "0": "sphere"
+        },
+        "Material": {
+          "color": [0.0, 0.0, 1.0, 1.0]
+        },
+        "ScriptRef": {
+          "name": "simple_mover"
+        },
+        "ScriptProperties": {
+          "values": {
+            "move_speed": {
+              "type": "Float",
+              "value": 1.0
+            },
+            "move_direction": {
+              "type": "Vector3",
+              "value": [1.0, 0.0, 0.0]
+            },
+            "oscillate": {
+              "type": "Boolean",
+              "value": false
+            },
+            "oscillate_amplitude": {
+              "type": "Float",
+              "value": 2.0
+            },
+            "oscillate_frequency": {
+              "type": "Float",
+              "value": 1.0
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -5,8 +5,9 @@
 use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
 use engine::prelude::{
-    Camera, Material, MeshId, Name, Parent, ProjectionMode, Quat, Transform, Vec3,
+    Camera, Material, MeshId, Name, Parent, ProjectionMode, Quat, ScriptProperties, Transform, Vec3,
 };
+use engine::scripting::property_types::PropertyValue;
 use engine::scripting::ScriptRef;
 use imgui::*;
 use std::collections::HashMap;
@@ -65,7 +66,7 @@ pub fn render_inspector_panel(
                 ui.separator();
 
                 // Check which components exist first
-                let (has_name, has_transform, has_camera, has_material, has_mesh, has_script) = shared_state.with_world_read(|world| {
+                let (has_name, has_transform, has_camera, has_material, has_mesh, has_script, _has_script_properties) = shared_state.with_world_read(|world| {
                     let components = (
                         world.get::<Name>(entity).is_ok(),
                         world.get::<Transform>(entity).is_ok(),
@@ -73,12 +74,13 @@ pub fn render_inspector_panel(
                         world.get::<Material>(entity).is_ok(),
                         world.get::<MeshId>(entity).is_ok(),
                         world.get::<ScriptRef>(entity).is_ok(),
+                        world.get::<ScriptProperties>(entity).is_ok(),
                     );
-                    debug!(entity = ?entity, has_name = components.0, has_transform = components.1, has_camera = components.2, has_material = components.3, has_mesh = components.4, has_script = components.5, "Entity components");
+                    debug!(entity = ?entity, has_name = components.0, has_transform = components.1, has_camera = components.2, has_material = components.3, has_mesh = components.4, has_script = components.5, has_script_properties = components.6, "Entity components");
                     components
                 }).unwrap_or_else(|| {
                     warn!(entity = ?entity, "Failed to access world for entity");
-                    (false, false, false, false, false, false)
+                    (false, false, false, false, false, false, false)
                 });
 
 
@@ -258,6 +260,146 @@ pub fn render_inspector_panel(
                                 let _ = world.insert_one(entity, script);
                             }
                         });
+
+                        // Script Properties
+                        // Always check for properties when a script is present
+                        if has_script {
+                            ui.separator();
+                            // Re-check if properties exist (they might have been added by the init system)
+                            let has_props = shared_state.with_world_read(|world| {
+                                world.get::<ScriptProperties>(entity).is_ok()
+                            }).unwrap_or(false);
+                            if has_props {
+                                ui.text("Script Properties:");
+
+                                shared_state.with_world_write(|world| {
+                                    // Get the script name first before removing properties
+                                    let script_name = world.get::<&ScriptRef>(entity)
+                                        .map(|s| s.name.clone())
+                                        .ok();
+                                    if let Ok(mut properties) = world.inner_mut().remove_one::<ScriptProperties>(entity) {
+                                        let mut properties_modified = false;
+                                        // Update script name if not set
+                                        if properties.script_name.is_none() && script_name.is_some() {
+                                            properties.script_name = script_name;
+                                            properties_modified = true;
+                                        }
+
+                                        // Render each property
+                                        for (name, value) in properties.values.iter_mut() {
+                                        let _id = ui.push_id(name);
+
+                                        match value {
+                                            PropertyValue::Float(f) => {
+                                                ui.text(format!("{name}:"));
+                                                ui.same_line();
+                                                let old_val = *f;
+                                                if Drag::new(format!("##{name}"))
+                                                    .display_format("%.3f")
+                                                    .speed(0.01)
+                                                    .build(ui, f)
+                                                {
+                                                    warn!(
+                                                        "\n💡💡💡 INSPECTOR CHANGED PROPERTY! 💡💡💡\n\
+                                                        Entity: {:?}\n\
+                                                        Property: {}\n\
+                                                        Old Value: {}\n\
+                                                        New Value: {}\n\
+                                                        ================================",
+                                                        entity, name, old_val, f
+                                                    );
+                                                    properties_modified = true;
+                                                }
+                                            }
+                                            PropertyValue::Integer(i) => {
+                                                ui.text(format!("{name}:"));
+                                                ui.same_line();
+                                                if Drag::new(format!("##{name}"))
+                                                    .display_format("%d")
+                                                    .speed(1.0)
+                                                    .build(ui, i)
+                                                {
+                                                    properties_modified = true;
+                                                }
+                                            }
+                                            PropertyValue::Boolean(b) => {
+                                                if ui.checkbox(name, b) {
+                                                    properties_modified = true;
+                                                }
+                                            }
+                                            PropertyValue::String(s) => {
+                                                ui.text(format!("{name}:"));
+                                                ui.same_line();
+                                                if ui.input_text(format!("##{name}"), s).build() {
+                                                    properties_modified = true;
+                                                }
+                                            }
+                                            PropertyValue::Vector3(v) => {
+                                                ui.text(format!("{name}:"));
+
+                                                let mut x = v[0];
+                                                let mut y = v[1];
+                                                let mut z = v[2];
+
+                                                ui.text("X:");
+                                                ui.same_line();
+                                                ui.set_next_item_width(60.0);
+                                                if Drag::new(format!("##{name}x"))
+                                                    .display_format("%.3f")
+                                                    .speed(0.01)
+                                                    .build(ui, &mut x)
+                                                {
+                                                    v[0] = x;
+                                                    properties_modified = true;
+                                                }
+                                                ui.same_line();
+                                                ui.text("Y:");
+                                                ui.same_line();
+                                                ui.set_next_item_width(60.0);
+                                                if Drag::new(format!("##{name}y"))
+                                                    .display_format("%.3f")
+                                                    .speed(0.01)
+                                                    .build(ui, &mut y)
+                                                {
+                                                    v[1] = y;
+                                                    properties_modified = true;
+                                                }
+                                                ui.same_line();
+                                                ui.text("Z:");
+                                                ui.same_line();
+                                                ui.set_next_item_width(60.0);
+                                                if Drag::new(format!("##{name}z"))
+                                                    .display_format("%.3f")
+                                                    .speed(0.01)
+                                                    .build(ui, &mut z)
+                                                {
+                                                    v[2] = z;
+                                                    properties_modified = true;
+                                                }
+                                            }
+                                            PropertyValue::Color(c) => {
+                                                ui.text(format!("{name}:"));
+                                                ui.same_line();
+                                                if ui.color_edit4(format!("##{name}"), c) {
+                                                    properties_modified = true;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if properties_modified {
+                                        shared_state.mark_scene_modified();
+                                        debug!(entity = ?entity, "Modified script properties");
+                                    }
+
+                                    // Re-insert the properties
+                                    let _ = world.insert_one(entity, properties);
+                                }
+                            });
+                            } else {
+                                ui.text_disabled("Loading script properties...");
+                            }
+                        }
                     }
 
                 // Add component button

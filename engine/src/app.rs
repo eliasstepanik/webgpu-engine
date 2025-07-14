@@ -179,7 +179,7 @@ impl EngineApp {
             .expect("Failed to set up main window");
 
         let mut renderer = Renderer::new(render_context.clone());
-        
+
         // Resize renderer to match window size
         renderer.resize(window.inner_size());
 
@@ -209,6 +209,11 @@ impl EngineApp {
         // Execute scripts
         if let Some(script_engine) = &mut self.script_engine {
             let script_input_state = self.input_state.to_script_input_state();
+
+            // Initialize script properties for new scripts
+            crate::scripting::script_initialization_system(&mut self.world, script_engine);
+
+            // Execute scripts
             crate::scripting::script_execution_system(
                 &mut self.world,
                 script_engine,

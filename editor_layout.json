@@ -13,19 +13,6 @@
     "is_visible": true
   },
   {
-    "id": "hierarchy",
-    "title": "Scene Hierarchy",
-    "position": [
-      60.0,
-      60.0
-    ],
-    "size": [
-      280.0,
-      400.0
-    ],
-    "is_visible": true
-  },
-  {
     "id": "assets",
     "title": "Asset Browser",
     "position": [
@@ -48,6 +35,19 @@
     "size": [
       280.0,
       300.0
+    ],
+    "is_visible": true
+  },
+  {
+    "id": "hierarchy",
+    "title": "Scene Hierarchy",
+    "position": [
+      60.0,
+      60.0
+    ],
+    "size": [
+      280.0,
+      400.0
     ],
     "is_visible": true
   }
