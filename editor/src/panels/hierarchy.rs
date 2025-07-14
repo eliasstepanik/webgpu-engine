@@ -7,8 +7,64 @@ use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
 use engine::prelude::{Camera, Material, MeshId, Name, Parent, Transform, World};
 use imgui::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tracing::debug;
+
+/// State for drag-drop operations
+#[derive(Debug)]
+struct HierarchyDragState {
+    dragged_entity: Option<hecs::Entity>,
+    drag_source_name: String,
+}
+
+impl HierarchyDragState {
+    fn new() -> Self {
+        Self {
+            dragged_entity: None,
+            drag_source_name: String::new(),
+        }
+    }
+}
+
+// Global state for drag-drop (following assets.rs pattern)
+static mut HIERARCHY_DRAG_STATE: Option<HierarchyDragState> = None;
+
+/// Get the hierarchy drag state, creating it if necessary
+#[allow(static_mut_refs)]
+fn get_hierarchy_drag_state() -> &'static mut HierarchyDragState {
+    unsafe {
+        if HIERARCHY_DRAG_STATE.is_none() {
+            HIERARCHY_DRAG_STATE = Some(HierarchyDragState::new());
+        }
+        HIERARCHY_DRAG_STATE.as_mut().unwrap()
+    }
+}
+
+/// Check if potential_ancestor is an ancestor of potential_descendant
+fn is_ancestor_of(
+    world: &World,
+    potential_ancestor: hecs::Entity,
+    potential_descendant: hecs::Entity,
+) -> bool {
+    let mut current = Some(potential_descendant);
+    let mut visited = HashSet::new();
+
+    while let Some(entity) = current {
+        if entity == potential_ancestor {
+            return true;
+        }
+
+        if !visited.insert(entity) {
+            // Cycle detected
+            return false;
+        }
+
+        // Get parent of current entity
+        current = world.get::<Parent>(entity).ok().map(|parent| parent.0);
+    }
+
+    false
+}
 
 /// Render the scene hierarchy panel
 pub fn render_hierarchy_panel(
@@ -113,6 +169,49 @@ pub fn render_hierarchy_panel(
                     );
                 }
 
+                // Add drop target for root level (to remove parent)
+                ui.spacing();
+                ui.spacing();
+
+                // Create an invisible drop target for removing parent
+                let drop_area_size = [ui.content_region_avail()[0], 50.0];
+                let cursor_pos = ui.cursor_screen_pos();
+                ui.invisible_button("root_drop_area", drop_area_size);
+
+                if let Some(target) = ui.drag_drop_target() {
+                    let state = get_hierarchy_drag_state();
+
+                    if let Some(dragged) = state.dragged_entity {
+                        // Visual feedback when hovering
+                        if ui.is_item_hovered() {
+                            ui.get_window_draw_list()
+                                .add_rect(
+                                    cursor_pos,
+                                    [cursor_pos[0] + drop_area_size[0], cursor_pos[1] + drop_area_size[1]],
+                                    [0.5, 0.5, 1.0, 0.5], // Blue for root drop
+                                )
+                                .build();
+
+                            ui.tooltip_text("Drop here to remove parent");
+                        }
+
+                        // Accept drop to remove parent
+                        if target.accept_payload_empty("ENTITY_PARENT", DragDropFlags::empty()).is_some() {
+                            shared_state.with_world_write(|world| {
+                                // Remove parent component
+                                let _ = world.inner_mut().remove_one::<Parent>(dragged);
+                            });
+
+                            // Clear drag state
+                            state.dragged_entity = None;
+                            state.drag_source_name.clear();
+
+                            debug!("Removed parent from entity {:?}", dragged);
+                        }
+                    }
+                }
+
+                ui.text_colored([0.5, 0.5, 0.8, 1.0], "↑ Drop here to remove parent");
                 // Also show entities without Transform components
                 ui.separator();
                 ui.text("Other Entities:");
@@ -173,6 +272,77 @@ fn render_entity_tree(
             debug!("Selected entity: {:?}", entity);
         }
 
+        // Add drag source
+        if ui
+            .drag_drop_source_config("ENTITY_PARENT")
+            .condition(Condition::Once)
+            .begin()
+            .is_some()
+        {
+            let state = get_hierarchy_drag_state();
+            state.dragged_entity = Some(entity);
+            state.drag_source_name = entity_name.clone();
+
+            // Visual feedback during drag
+            ui.text(format!("🔗 {}", entity_name));
+        }
+
+        // Add drop target
+        if let Some(target) = ui.drag_drop_target() {
+            let state = get_hierarchy_drag_state();
+
+            if let Some(dragged) = state.dragged_entity {
+                // Visual feedback when hovering
+                let can_drop = dragged != entity
+                    && !shared_state
+                        .with_world_read(|world| is_ancestor_of(world, dragged, entity))
+                        .unwrap_or(false);
+
+                if ui.is_item_hovered() {
+                    let color = if can_drop {
+                        [0.0, 1.0, 0.0, 0.5] // Green for valid
+                    } else {
+                        [1.0, 0.0, 0.0, 0.5] // Red for invalid
+                    };
+
+                    ui.get_window_draw_list()
+                        .add_rect(ui.item_rect_min(), ui.item_rect_max(), color)
+                        .build();
+
+                    // Tooltip explaining why drop is invalid
+                    if !can_drop {
+                        if dragged == entity {
+                            ui.tooltip_text("Cannot parent entity to itself");
+                        } else {
+                            ui.tooltip_text("Cannot create circular dependency");
+                        }
+                    }
+                }
+
+                // Accept drop
+                if target
+                    .accept_payload_empty("ENTITY_PARENT", DragDropFlags::empty())
+                    .is_some()
+                {
+                    if can_drop {
+                        // Perform the parenting
+                        shared_state.with_world_write(|world| {
+                            // Remove existing parent if any
+                            let _ = world.inner_mut().remove_one::<Parent>(dragged);
+                            // Add new parent
+                            let _ = world.insert_one(dragged, Parent(entity));
+                        });
+
+                        // Clear drag state
+                        state.dragged_entity = None;
+                        state.drag_source_name.clear();
+
+                        debug!("Parented entity {:?} to {:?}", dragged, entity);
+                    }
+                }
+            }
+        }
+
         if let Some(_token) = is_open {
             if let Some(children) = parent_map.get(&entity) {
                 for &child in children {
@@ -197,6 +367,77 @@ fn render_entity_tree(
         {
             shared_state.set_selected_entity(Some(entity));
             debug!("Selected entity: {:?}", entity);
+        }
+
+        // Add drag source for leaf nodes too
+        if ui
+            .drag_drop_source_config("ENTITY_PARENT")
+            .condition(Condition::Once)
+            .begin()
+            .is_some()
+        {
+            let state = get_hierarchy_drag_state();
+            state.dragged_entity = Some(entity);
+            state.drag_source_name = entity_name.clone();
+
+            // Visual feedback during drag
+            ui.text(format!("🔗 {}", entity_name));
+        }
+
+        // Add drop target for leaf nodes
+        if let Some(target) = ui.drag_drop_target() {
+            let state = get_hierarchy_drag_state();
+
+            if let Some(dragged) = state.dragged_entity {
+                // Visual feedback when hovering
+                let can_drop = dragged != entity
+                    && !shared_state
+                        .with_world_read(|world| is_ancestor_of(world, dragged, entity))
+                        .unwrap_or(false);
+
+                if ui.is_item_hovered() {
+                    let color = if can_drop {
+                        [0.0, 1.0, 0.0, 0.5] // Green for valid
+                    } else {
+                        [1.0, 0.0, 0.0, 0.5] // Red for invalid
+                    };
+
+                    ui.get_window_draw_list()
+                        .add_rect(ui.item_rect_min(), ui.item_rect_max(), color)
+                        .build();
+
+                    // Tooltip explaining why drop is invalid
+                    if !can_drop {
+                        if dragged == entity {
+                            ui.tooltip_text("Cannot parent entity to itself");
+                        } else {
+                            ui.tooltip_text("Cannot create circular dependency");
+                        }
+                    }
+                }
+
+                // Accept drop
+                if target
+                    .accept_payload_empty("ENTITY_PARENT", DragDropFlags::empty())
+                    .is_some()
+                {
+                    if can_drop {
+                        // Perform the parenting
+                        shared_state.with_world_write(|world| {
+                            // Remove existing parent if any
+                            let _ = world.inner_mut().remove_one::<Parent>(dragged);
+                            // Add new parent
+                            let _ = world.insert_one(dragged, Parent(entity));
+                        });
+
+                        // Clear drag state
+                        state.dragged_entity = None;
+                        state.drag_source_name.clear();
+
+                        debug!("Parented entity {:?} to {:?}", dragged, entity);
+                    }
+                }
+            }
         }
     }
 
