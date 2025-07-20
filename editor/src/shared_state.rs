@@ -4,6 +4,7 @@
 //! from both the main editor window and detached panel windows.
 
 use engine::core::entity::World;
+use engine::io::component_registry::ComponentRegistry;
 use std::sync::{Arc, Mutex};
 use tracing::{debug, warn};
 
@@ -170,14 +171,17 @@ pub struct EditorSharedState {
     pub editor_state: SharedEditorStateHandle,
     /// Shared world state
     pub world: SharedWorldHandle,
+    /// Component registry for reflection and serialization
+    pub component_registry: Arc<ComponentRegistry>,
 }
 
 impl EditorSharedState {
     /// Create a new combined shared state
-    pub fn new(world: World) -> Self {
+    pub fn new(world: World, component_registry: ComponentRegistry) -> Self {
         Self {
             editor_state: create_shared_state(),
             world: create_shared_world(world),
+            component_registry: Arc::new(component_registry),
         }
     }
 
@@ -226,7 +230,8 @@ mod tests {
     #[test]
     fn test_shared_state_world_access() {
         let world = World::new();
-        let shared_state = EditorSharedState::new(world);
+        let registry = engine::io::component_registry::ComponentRegistry::new();
+        let shared_state = EditorSharedState::new(world, registry);
 
         // Test read access works
         let result = shared_state.with_world_read(|world| world.query::<()>().iter().count());
@@ -237,7 +242,8 @@ mod tests {
     #[test]
     fn test_shared_state_world_write() {
         let world = World::new();
-        let shared_state = EditorSharedState::new(world);
+        let registry = engine::io::component_registry::ComponentRegistry::new();
+        let shared_state = EditorSharedState::new(world, registry);
 
         // Test write access works
         let entity =
@@ -263,7 +269,8 @@ mod tests {
     #[test]
     fn test_selected_entity_management() {
         let world = World::new();
-        let shared_state = EditorSharedState::new(world);
+        let registry = engine::io::component_registry::ComponentRegistry::new();
+        let shared_state = EditorSharedState::new(world, registry);
 
         // Initially no entity selected
         assert_eq!(shared_state.selected_entity(), None);
@@ -284,7 +291,8 @@ mod tests {
     #[test]
     fn test_scene_modification_tracking() {
         let world = World::new();
-        let shared_state = EditorSharedState::new(world);
+        let registry = engine::io::component_registry::ComponentRegistry::new();
+        let shared_state = EditorSharedState::new(world, registry);
 
         // Initially not modified
         assert!(!shared_state.is_scene_modified());

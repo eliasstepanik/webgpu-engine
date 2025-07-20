@@ -897,9 +897,21 @@ impl Renderer {
 }
 
 /// Component to associate an entity with a mesh ID
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, engine_derive::Component, engine_derive::EditorUI)]
+#[derive(
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Hash,
+    engine_derive::Component,
+    engine_derive::EditorUI,
+)]
 #[component(name = "MeshId")]
-pub struct MeshId(pub String);
+pub struct MeshId(
+    #[ui(tooltip = "Mesh identifier (e.g. cube, sphere, or path/to/model.obj)")] pub String,
+);
 
 impl Default for MeshId {
     fn default() -> Self {

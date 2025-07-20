@@ -45,7 +45,6 @@ Implement a feature using using the PRP file.
    - Run final validation suite
    - Report completion status
    - Read the PRP again to ensure you have implemented everything
-   - Create a branch with a fitting name.
    - Create a git commit. (Don´t mention Claude Code or anthropic in any of it, (Author: Elias Stepanik, email: eliasstepanik@proton.me))
    - Move PRP File to the `.claude/prp/done` folder
 

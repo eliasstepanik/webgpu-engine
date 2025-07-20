@@ -168,11 +168,13 @@ impl ScriptEngine {
         let cache = self.cache.read().unwrap();
         if let Some(cached) = cache.get(script_name) {
             if cached.has_on_start {
-                scope.push("entity", entity_id as i64);
-
                 self.engine
-                    .call_fn::<()>(scope, &cached.ast, "on_start", ())
+                    .call_fn::<()>(scope, &cached.ast, "on_start", (entity_id as i64,))
                     .map_err(|e| -> Box<EvalAltResult> {
+                        debug!(
+                            "Script error calling on_start for {}: {:?}",
+                            script_name, e
+                        );
                         let position = e.position();
                         Box::new(
                             format!(
@@ -201,11 +203,8 @@ impl ScriptEngine {
         let cache = self.cache.read().unwrap();
         if let Some(cached) = cache.get(script_name) {
             if cached.has_on_update {
-                scope.push("entity", entity_id as i64);
-                scope.push("delta_time", delta_time as f64);
-
                 self.engine
-                    .call_fn::<()>(scope, &cached.ast, "on_update", ())
+                    .call_fn::<()>(scope, &cached.ast, "on_update", (entity_id as i64, delta_time as f64))
                     .map_err(|e| -> Box<EvalAltResult> {
                         let position = e.position();
                         Box::new(
@@ -234,10 +233,8 @@ impl ScriptEngine {
         let cache = self.cache.read().unwrap();
         if let Some(cached) = cache.get(script_name) {
             if cached.has_on_destroy {
-                scope.push("entity", entity_id as i64);
-
                 self.engine
-                    .call_fn::<()>(scope, &cached.ast, "on_destroy", ())
+                    .call_fn::<()>(scope, &cached.ast, "on_destroy", (entity_id as i64,))
                     .map_err(|e| -> Box<EvalAltResult> {
                         let position = e.position();
                         Box::new(

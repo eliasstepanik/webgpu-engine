@@ -73,6 +73,8 @@ pub struct EditorState {
     _frame_count: u32,
     /// Pending resize to apply when safe
     pending_resize: Option<winit::dpi::PhysicalSize<u32>>,
+    /// Pending viewport resize to apply after frame
+    pending_viewport_resize: Option<(u32, u32)>,
     /// Whether we're currently in a frame
     in_frame: bool,
 
@@ -226,8 +228,11 @@ impl EditorState {
             .prepare_frame(imgui_context.io_mut(), window)
             .expect("Initial frame preparation failed");
 
+        // Create component registry with all default components
+        let component_registry = engine::io::component_registry::ComponentRegistry::with_default_components();
+        
         // Create shared state for multi-window synchronization
-        let shared_state = EditorSharedState::new(world);
+        let shared_state = EditorSharedState::new(world, component_registry);
 
         let mut editor = Self {
             imgui_context,
@@ -239,6 +244,7 @@ impl EditorState {
             ui_mode: true,
             _frame_count: 0,
             pending_resize: None,
+            pending_viewport_resize: None,
             in_frame: false,
 
             // Scene management state
@@ -732,7 +738,7 @@ impl EditorState {
             );
 
             // Central viewport that displays the 3D scene
-            crate::panels::render_viewport_panel(
+            let viewport_resize = crate::panels::render_viewport_panel(
                 ui,
                 self.texture_id,
                 &self.render_target,
@@ -740,6 +746,11 @@ impl EditorState {
                 &mut self.panel_manager,
                 self.window_size,
             );
+            
+            // Store viewport resize request to handle after frame
+            if let Some(new_size) = viewport_resize {
+                self.pending_viewport_resize = Some(new_size);
+            }
 
             // Dialog handling
             let mut dialog_save_and_proceed = false;
@@ -917,6 +928,11 @@ impl EditorState {
         // Mark that we're no longer in a frame
         self.in_frame = false;
 
+        // Handle pending viewport resize
+        if let Some((width, height)) = self.pending_viewport_resize.take() {
+            self.resize_viewport(render_context, width, height);
+        }
+
         // Handle deferred actions after UI rendering
         self.handle_deferred_actions();
     }
@@ -1035,6 +1051,54 @@ impl EditorState {
             wgpu::Extent3d {
                 width: actual_width,
                 height: actual_height,
+                depth_or_array_layers: 1,
+            },
+        );
+        self.texture_id = self.imgui_renderer.textures().insert(imgui_texture);
+    }
+    
+    /// Resize only the viewport render target
+    fn resize_viewport(&mut self, render_context: &RenderContext, width: u32, height: u32) {
+        debug!("Resizing viewport to {}x{}", width, height);
+        
+        // Create new render target with the new size
+        self.render_target = RenderTarget::new(
+            &render_context.device,
+            width,
+            height,
+            self.surface_format,
+        );
+        
+        // Re-register the new texture with ImGui
+        self.imgui_renderer.textures().remove(self.texture_id);
+        
+        // Create texture configuration for the render target
+        let texture_config = imgui_wgpu::RawTextureConfig {
+            label: Some("Editor Viewport Texture"),
+            sampler_desc: wgpu::SamplerDescriptor {
+                label: Some("Viewport Sampler"),
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Nearest,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        
+        let imgui_texture = imgui_wgpu::Texture::from_raw_parts(
+            &render_context.device,
+            &render_context.queue,
+            &mut self.imgui_renderer.renderer,
+            std::sync::Arc::new(self.render_target.texture.clone()),
+            std::sync::Arc::new(self.render_target.view.clone()),
+            None,
+            Some(&texture_config),
+            wgpu::Extent3d {
+                width,
+                height,
                 depth_or_array_layers: 1,
             },
         );

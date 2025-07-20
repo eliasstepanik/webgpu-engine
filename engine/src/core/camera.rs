@@ -10,20 +10,28 @@ use glam::{DVec3, Mat4};
 use serde::{Deserialize, Serialize};
 
 /// Camera component that defines projection parameters for rendering
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI,
+)]
 #[component(name = "Camera")]
 pub struct Camera {
     /// Field of view in radians (for perspective projection)
+    #[ui(range = 0.1..3.2, step = 0.01, tooltip = "Field of view in radians", label = "FOV (radians)")]
     pub fov_y_radians: f32,
     /// Aspect ratio (width / height)
+    #[ui(range = 0.1..10.0, step = 0.01, tooltip = "Aspect ratio (width / height)")]
     pub aspect_ratio: f32,
     /// Near clipping plane distance
+    #[ui(range = 0.01..100.0, step = 0.01, tooltip = "Near clipping plane distance")]
     pub z_near: f32,
     /// Far clipping plane distance
+    #[ui(range = 1.0..100000.0, step = 1.0, tooltip = "Far clipping plane distance")]
     pub z_far: f32,
     /// Projection mode (perspective or orthographic)
+    #[ui(tooltip = "Projection mode")]
     pub projection_mode: ProjectionMode,
     /// Use logarithmic depth buffer for better precision at large distances
+    #[ui(tooltip = "Enable logarithmic depth buffer for better precision")]
     pub use_logarithmic_depth: bool,
 }
 
@@ -216,7 +224,9 @@ impl Camera {
 ///
 /// This component tracks the camera's position in high-precision world coordinates.
 /// It's separate from the regular transform to maintain backward compatibility.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI,
+)]
 #[component(name = "CameraWorldPosition")]
 pub struct CameraWorldPosition {
     /// Camera position in world coordinates using 64-bit precision

@@ -20,7 +20,7 @@ fn on_update(entity, delta_time) {
     // Calculate movement vector based on input
     let move_x = if input::is_key_pressed("KeyA") { -1.0 } else if input::is_key_pressed("KeyD") { 1.0 } else { 0.0 };
     let move_y = if input::is_key_pressed("Space") { 1.0 } else if input::is_key_pressed("ShiftLeft") { -1.0 } else { 0.0 };
-    let move_z = if input::is_key_pressed("KeyW") { -1.0 } else if input::is_key_pressed("KeyS") { 1.0 } else { 0.0 };
+    let move_z = if input::is_key_pressed("KeyW") { -1.0 } else if input::is_key_pressed("KeyS") { 0.0 } else { 1.0 };
     let move_delta = Vec3::create(move_x, move_y, move_z);
     
     // Apply sprint if shift is held

@@ -15,7 +15,16 @@ use serde::{Deserialize, Serialize};
 /// from the world origin (>1 million units) without precision loss.
 ///
 /// For normal gameplay objects, the regular Transform component is sufficient.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, engine_derive::Component, engine_derive::EditorUI)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    engine_derive::Component,
+    engine_derive::EditorUI,
+)]
 #[component(name = "WorldTransform")]
 pub struct WorldTransform {
     /// Position in world space using 64-bit precision

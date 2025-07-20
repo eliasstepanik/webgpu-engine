@@ -8,7 +8,18 @@ use serde::{Deserialize, Serialize};
 ///
 /// This component can be attached to entities to give them scripted behavior.
 /// The script is loaded from the `assets/scripts/` directory with a `.rhai` extension.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default, engine_derive::Component, engine_derive::EditorUI)]
+#[derive(
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Hash,
+    Default,
+    engine_derive::Component,
+    engine_derive::EditorUI,
+)]
 #[component(name = "ScriptRef")]
 pub struct ScriptRef {
     /// Script name without extension (e.g., "fly_camera")

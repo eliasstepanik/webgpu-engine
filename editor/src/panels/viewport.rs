@@ -7,6 +7,7 @@ use crate::shared_state::EditorSharedState;
 use imgui::*;
 
 /// Render the viewport panel with texture
+/// Returns the desired viewport size if it has changed
 pub fn render_viewport_panel(
     ui: &imgui::Ui,
     texture_id: imgui::TextureId,
@@ -14,22 +15,23 @@ pub fn render_viewport_panel(
     _shared_state: &EditorSharedState,
     panel_manager: &mut PanelManager,
     _window_size: (f32, f32),
-) {
+) -> Option<(u32, u32)> {
     let panel_id = PanelId("viewport".to_string());
 
     // Get panel info
     let (panel_title, is_visible) = {
         match panel_manager.get_panel(&panel_id) {
             Some(panel) => (panel.title.clone(), panel.is_visible),
-            None => return,
+            None => return None,
         }
     };
 
     if !is_visible {
-        return;
+        return None;
     }
 
     let window_name = format!("{}##{}", panel_title, panel_id.0);
+    let mut resize_needed = None;
 
     ui.window(&window_name)
         .size([800.0, 600.0], Condition::FirstUseEver)
@@ -50,7 +52,7 @@ pub fn render_viewport_panel(
                 render_target.size,
                 new_size
             );
-            // Note: Actual resize is handled by the editor state on window resize
+            resize_needed = Some(new_size);
         }
 
         // Display the game render target with proper aspect ratio
@@ -58,4 +60,6 @@ pub fn render_viewport_panel(
 
         // Panel position and size are now managed by ImGui's docking system
     });
+    
+    resize_needed
 }

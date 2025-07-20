@@ -16,6 +16,9 @@ pub mod shaders;
 pub mod utils;
 pub mod windowing;
 
+#[cfg(test)]
+mod test_ui_component;
+
 // Re-export commonly used types
 pub mod prelude {
     // Entity system types

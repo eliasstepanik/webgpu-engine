@@ -170,4 +170,68 @@ This guide defines how AI agents must work within this repository. Follow every 
 
 ---
 
+## 16. UI Annotation System
+
+The engine provides an automatic UI generation system for the editor inspector using derive macros and annotations.
+
+### 16.1. Basic Usage
+
+To enable automatic UI generation for a component:
+
+```rust
+#[derive(Component, EditorUI)]
+pub struct MyComponent {
+    #[ui(range = 0.0..100.0, speed = 0.1, tooltip = "Speed in units/second")]
+    pub speed: f32,
+    
+    #[ui(tooltip = "Object name")]
+    pub name: String,
+    
+    #[ui(hidden)]
+    pub internal_state: u32,
+}
+```
+
+### 16.2. Supported UI Attributes
+
+* `range = min..max` - Sets min/max values for numeric fields
+* `speed = value` - Sets drag speed for numeric inputs  
+* `step = value` - Sets step size for numeric inputs
+* `tooltip = "text"` - Adds hover tooltip
+* `label = "text"` - Custom label (defaults to field name)
+* `format = "%.2f"` - Printf-style format string
+* `hidden` - Hides field from inspector
+* `readonly` - Makes field non-editable
+* `multiline` - For string fields, enables multiline input
+* `color_mode = "rgb"/"rgba"` - For color fields
+* `custom = "function_name"` - Use custom UI function
+
+### 16.3. Automatic Widget Selection
+
+The system automatically selects appropriate widgets based on field types:
+* `f32/f64` → DragFloat
+* `i32/u32/etc` → DragInt  
+* `bool` → Checkbox
+* `String` → InputText
+* `Vec3` → Vec3Input (3 drag floats)
+* `Quat` → QuatInput (euler angles)
+* `[f32; 3]` → ColorEdit (RGB)
+* `[f32; 4]` → ColorEdit (RGBA)
+
+### 16.4. Implementation Notes
+
+* Both `#[derive(Component)]` and `#[derive(EditorUI)]` must be present
+* The Component derive macro has a hardcoded list of components with UI support
+* UI metadata is generated at compile time and stored in the component registry
+* The inspector uses metadata to render UI dynamically
+
+### 16.5. Adding UI Support to New Components
+
+1. Add both derives: `#[derive(Component, EditorUI)]`
+2. Add the component name to the hardcoded list in `engine_derive/src/lib.rs`
+3. Add UI annotations to fields as needed
+4. Register the component using `Component::register()`
+
+---
+
 Adhere strictly to this guide. Challenge poor ideas, keep code safe, and maintain project integrity.

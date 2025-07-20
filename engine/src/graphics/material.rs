@@ -10,10 +10,13 @@ use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};
 
 /// Material component defining surface properties
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI,
+)]
 #[component(name = "Material")]
 pub struct Material {
     /// Base color of the material (RGBA)
+    #[ui(color_mode = "rgba", tooltip = "Base color of the material")]
     pub color: [f32; 4],
 }
 

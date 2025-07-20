@@ -160,7 +160,9 @@ pub struct PropertyMetadata {
 }
 
 /// Component that stores script property values per entity
-#[derive(Debug, Clone, Serialize, Deserialize, Default, engine_derive::Component, engine_derive::EditorUI)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, Default, engine_derive::Component, engine_derive::EditorUI,
+)]
 #[component(name = "ScriptProperties")]
 pub struct ScriptProperties {
     /// Map of property name to value

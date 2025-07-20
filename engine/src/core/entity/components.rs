@@ -20,14 +20,26 @@ use serde::{Deserialize, Serialize};
 pub use crate::core::coordinates::WorldTransform;
 
 /// Transform component representing position, rotation, and scale in local space
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, engine_derive::Component, engine_derive::EditorUI)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    engine_derive::Component,
+    engine_derive::EditorUI,
+)]
 #[component(name = "Transform")]
 pub struct Transform {
     /// Position in local space
+    #[ui(speed = 0.1, tooltip = "Position in local space")]
     pub position: Vec3,
     /// Rotation in local space as a quaternion
+    #[ui(tooltip = "Rotation in local space as a quaternion")]
     pub rotation: Quat,
     /// Scale in local space
+    #[ui(speed = 0.01, tooltip = "Scale in local space")]
     pub scale: Vec3,
 }
 
@@ -89,7 +101,9 @@ impl Transform {
 }
 
 /// Global transform component representing the world-space transformation matrix
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI,
+)]
 #[component(name = "GlobalTransform")]
 pub struct GlobalTransform {
     /// World-space transformation matrix
@@ -126,7 +140,9 @@ impl GlobalTransform {
 ///
 /// This component stores the final world-space transformation matrix in 64-bit precision
 /// for entities using WorldTransform. It's automatically managed by the hierarchy system.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI,
+)]
 #[component(name = "GlobalWorldTransform")]
 pub struct GlobalWorldTransform {
     /// World-space transformation matrix in 64-bit precision
@@ -179,7 +195,16 @@ pub struct Parent(pub hecs::Entity);
 ///
 /// This is used for scene serialization since hecs::Entity cannot be serialized directly.
 /// The entity_id is remapped during scene loading to match the new entity IDs.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, engine_derive::Component, engine_derive::EditorUI)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    Default,
+    engine_derive::Component,
+    engine_derive::EditorUI,
+)]
 #[component(name = "Parent")]
 pub struct ParentData {
     /// Entity ID that will be remapped during scene loading
@@ -208,9 +233,11 @@ impl ParentData {
 }
 
 /// Name component for user-friendly entity identification
-#[derive(Debug, Clone, Default, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI,
+)]
 #[component(name = "Name")]
-pub struct Name(pub String);
+pub struct Name(#[ui(tooltip = "Entity name")] pub String);
 
 impl Name {
     /// Create a new name component

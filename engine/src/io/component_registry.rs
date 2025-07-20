@@ -150,6 +150,8 @@ impl ComponentRegistryExt for ComponentRegistry {
     fn register_with_metadata(&mut self, metadata: ComponentMetadata) {
         let type_id = metadata.type_id;
         let name = metadata.name.to_string();
+        let has_ui_metadata = metadata.ui_metadata.is_some();
+        let ui_field_count = metadata.ui_metadata.as_ref().map(|m| m.fields.len()).unwrap_or(0);
 
         // Store the deserializer function
         self.deserializers
@@ -159,7 +161,12 @@ impl ComponentRegistryExt for ComponentRegistry {
         self.name_to_type.insert(name.clone(), type_id);
         self.metadata.insert(type_id, metadata);
 
-        debug!(component_name = %name, "Registered component with metadata");
+        debug!(
+            component_name = %name, 
+            has_ui_metadata = has_ui_metadata,
+            ui_field_count = ui_field_count,
+            "Registered component with metadata"
+        );
     }
 
     fn get_metadata(&self, type_id: TypeId) -> Option<&ComponentMetadata> {

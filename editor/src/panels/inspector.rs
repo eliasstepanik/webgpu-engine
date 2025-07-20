@@ -4,13 +4,13 @@
 
 use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
+use engine::component_system::ComponentRegistryExt;
 use engine::prelude::{
-    Camera, Material, MeshId, Name, Parent, ProjectionMode, Quat, ScriptProperties, Transform, Vec3,
+    Camera, Material, MeshId, Name, Parent, ScriptProperties, Transform,
 };
 use engine::scripting::property_types::PropertyValue;
 use engine::scripting::ScriptRef;
 use imgui::*;
-use std::collections::HashMap;
 use tracing::{debug, warn};
 
 /// State for tracking euler angles per entity to avoid recalculation
@@ -18,7 +18,6 @@ static mut INSPECTOR_STATE: Option<InspectorState> = None;
 
 #[derive(Default)]
 struct InspectorState {
-    euler_angles: HashMap<hecs::Entity, [f32; 3]>,
     component_filter: String,
     show_add_component_popup: bool,
 }
@@ -85,67 +84,31 @@ pub fn render_inspector_panel(
 
 
 
-                // Name componen
+                // Render components using metadata where available
+                let registry = shared_state.component_registry.clone();
+                
+                // Name component
                 if has_name {
-                    if ui.collapsing_header("Name", TreeNodeFlags::DEFAULT_OPEN) {
-                        let mut remove_component = false;
-
-                        shared_state.with_world_write(|world| {
-                            if let Ok(mut name) = world.inner_mut().remove_one::<Name>(entity) {
-                                let mut name_buffer = name.0.clone();
-                                if ui.input_text("##name", &mut name_buffer).build() {
-                                    name.0 = name_buffer;
-                                    shared_state.mark_scene_modified();
-                                    debug!(entity = ?entity, name = %name.0, "Modified entity name");
-                                }
-
-                                // Remove component button
-                                ui.same_line();
-                                if ui.small_button("Remove##name") {
-                                    remove_component = true;
-                                    debug!(entity = ?entity, "Removed Name component");
-                                } else {
-                                    // Re-insert the component only if not removing
-                                    let _ = world.insert_one(entity, name);
-                                }
-                            }
-                        });
-
-                        if remove_component {
-                            shared_state.mark_scene_modified();
-                        }
-                    }
-                } else {
-                    warn!(entity = ?entity, "Entity missing Name component");
+                    debug!("Rendering Name component");
+                    render_component_with_metadata::<Name>(
+                        ui, 
+                        entity, 
+                        "Name", 
+                        shared_state,
+                        &registry,
+                    );
                 }
 
-                // Transform componen
-                if has_transform
-                    && ui.collapsing_header("Transform", TreeNodeFlags::DEFAULT_OPEN) {
-                        let mut remove_component = false;
-
-                        shared_state.with_world_write(|world| {
-                            if let Ok(mut transform) = world.inner_mut().remove_one::<Transform>(entity) {
-                                if render_editable_transform(ui, &mut transform, entity) {
-                                    shared_state.mark_scene_modified();
-                                    debug!(entity = ?entity, "Modified transform");
-                                }
-
-                                // Remove component button
-                                if ui.small_button("Remove Transform") {
-                                    remove_component = true;
-                                    debug!(entity = ?entity, "Removed Transform component");
-                                } else {
-                                    // Re-insert the component only if not removing
-                                    let _ = world.insert_one(entity, transform);
-                                }
-                            }
-                        });
-
-                        if remove_component {
-                            shared_state.mark_scene_modified();
-                        }
-                    }
+                // Transform component
+                if has_transform {
+                    render_component_with_metadata::<Transform>(
+                        ui, 
+                        entity, 
+                        "Transform", 
+                        shared_state,
+                        &registry,
+                    );
+                }
 
                 // Parent component (read-only)
                 if let Some(parent_entity) = shared_state.with_world_read(|world| {
@@ -156,61 +119,27 @@ pub fn render_inspector_panel(
                     ui.text(format!("{parent_entity:?}"));
                 }
 
-                // Camera componen
-                if has_camera
-                    && ui.collapsing_header("Camera", TreeNodeFlags::DEFAULT_OPEN) {
-                        let mut remove_component = false;
+                // Camera component
+                if has_camera {
+                    render_component_with_metadata::<Camera>(
+                        ui, 
+                        entity, 
+                        "Camera", 
+                        shared_state,
+                        &registry,
+                    );
+                }
 
-                        shared_state.with_world_write(|world| {
-                            if let Ok(mut camera) = world.inner_mut().remove_one::<Camera>(entity) {
-                                if render_editable_camera(ui, &mut camera) {
-                                    shared_state.mark_scene_modified();
-                                    debug!(entity = ?entity, "Modified camera");
-                                }
-
-                                // Remove component button
-                                if ui.small_button("Remove Camera") {
-                                    remove_component = true;
-                                    debug!(entity = ?entity, "Removed Camera component");
-                                } else {
-                                    // Re-insert the component only if not removing
-                                    let _ = world.insert_one(entity, camera);
-                                }
-                            }
-                        });
-
-                        if remove_component {
-                            shared_state.mark_scene_modified();
-                        }
-                    }
-
-                // Material componen
-                if has_material
-                    && ui.collapsing_header("Material", TreeNodeFlags::DEFAULT_OPEN) {
-                        let mut remove_component = false;
-
-                        shared_state.with_world_write(|world| {
-                            if let Ok(mut material) = world.inner_mut().remove_one::<Material>(entity) {
-                                if render_editable_material(ui, &mut material) {
-                                    shared_state.mark_scene_modified();
-                                    debug!(entity = ?entity, "Modified material");
-                                }
-
-                                // Remove component button
-                                if ui.small_button("Remove Material") {
-                                    remove_component = true;
-                                    debug!(entity = ?entity, "Removed Material component");
-                                } else {
-                                    // Re-insert the component only if not removing
-                                    let _ = world.insert_one(entity, material);
-                                }
-                            }
-                        });
-
-                        if remove_component {
-                            shared_state.mark_scene_modified();
-                        }
-                    }
+                // Material component
+                if has_material {
+                    render_component_with_metadata::<Material>(
+                        ui, 
+                        entity, 
+                        "Material", 
+                        shared_state,
+                        &registry,
+                    );
+                }
 
                 // MeshId componen
                 if has_mesh
@@ -645,301 +574,85 @@ pub fn render_inspector_panel(
         });
 }
 
-/// Render editable transform componen
-fn render_editable_transform(
+
+/// Render a component using its metadata if available
+fn render_component_with_metadata<T: 'static + Send + Sync + engine::component_system::field_access::FieldAccess>(
     ui: &imgui::Ui,
-    transform: &mut Transform,
     entity: hecs::Entity,
+    component_name: &str,
+    shared_state: &EditorSharedState,
+    registry: &engine::io::component_registry::ComponentRegistry,
 ) -> bool {
-    let mut modified = false;
-    let state = get_inspector_state();
-
-    // Calculate available width and column layou
-    let available_width = ui.content_region_avail()[0];
-    let label_width = 20.0; // Width for "X:", "Y:", "Z:" labels
-    let spacing = unsafe { ui.style().item_spacing[0] };
-    let input_width = (available_width - label_width * 3.0 - spacing * 4.0) / 3.0;
-
-    // Position
-    ui.text("Position:");
-    let mut pos_x = transform.position.x;
-    let mut pos_y = transform.position.y;
-    let mut pos_z = transform.position.z;
-
-    // Position row with proper columns
-    ui.text("X:");
-    ui.same_line();
-    ui.set_next_item_width(input_width);
-    if Drag::new("##pos_x")
-        .speed(0.01)
-        .display_format("%.3f")
-        .build(ui, &mut pos_x)
-    {
-        transform.position.x = pos_x;
-        modified = true;
-    }
-    ui.same_line();
-    ui.text("Y:");
-    ui.same_line();
-    ui.set_next_item_width(input_width);
-    if Drag::new("##pos_y")
-        .speed(0.01)
-        .display_format("%.3f")
-        .build(ui, &mut pos_y)
-    {
-        transform.position.y = pos_y;
-        modified = true;
-    }
-    ui.same_line();
-    ui.text("Z:");
-    ui.same_line();
-    ui.set_next_item_width(input_width);
-    if Drag::new("##pos_z")
-        .speed(0.01)
-        .display_format("%.3f")
-        .build(ui, &mut pos_z)
-    {
-        transform.position.z = pos_z;
-        modified = true;
-    }
-
-    // Rotation (using euler angles for editing)
-    ui.text("Rotation (degrees):");
-
-    // Get or calculate euler angles
-    let mut euler_degrees = if let Some(cached) = state.euler_angles.get(&entity) {
-        *cached
-    } else {
-        let (x, y, z) = transform.rotation.to_euler(glam::EulerRot::XYZ);
-        [x.to_degrees(), y.to_degrees(), z.to_degrees()]
-    };
-
-    // Rotation row with proper columns
-    ui.text("X:");
-    ui.same_line();
-    ui.set_next_item_width(input_width);
-    if Drag::new("##rot_x")
-        .speed(0.5)
-        .display_format("%.1f")
-        .build(ui, &mut euler_degrees[0])
-    {
-        modified = true;
-    }
-    ui.same_line();
-    ui.text("Y:");
-    ui.same_line();
-    ui.set_next_item_width(input_width);
-    if Drag::new("##rot_y")
-        .speed(0.5)
-        .display_format("%.1f")
-        .build(ui, &mut euler_degrees[1])
-    {
-        modified = true;
-    }
-    ui.same_line();
-    ui.text("Z:");
-    ui.same_line();
-    ui.set_next_item_width(input_width);
-    if Drag::new("##rot_z")
-        .speed(0.5)
-        .display_format("%.1f")
-        .build(ui, &mut euler_degrees[2])
-    {
-        modified = true;
-    }
-
-    if modified {
-        // Convert back to quaternion
-        transform.rotation = Quat::from_euler(
-            glam::EulerRot::XYZ,
-            euler_degrees[0].to_radians(),
-            euler_degrees[1].to_radians(),
-            euler_degrees[2].to_radians(),
-        );
-        // Cache the euler angles
-        state.euler_angles.insert(entity, euler_degrees);
-    }
-
-    // Scale
-    ui.text("Scale:");
-    let mut scale_x = transform.scale.x;
-    let mut scale_y = transform.scale.y;
-    let mut scale_z = transform.scale.z;
-
-    // Scale row with proper columns
-    ui.text("X:");
-    ui.same_line();
-    ui.set_next_item_width(input_width);
-    if Drag::new("##scale_x")
-        .speed(0.01)
-        .display_format("%.3f")
-        .build(ui, &mut scale_x)
-    {
-        transform.scale.x = scale_x;
-        modified = true;
-    }
-    ui.same_line();
-    ui.text("Y:");
-    ui.same_line();
-    ui.set_next_item_width(input_width);
-    if Drag::new("##scale_y")
-        .speed(0.01)
-        .display_format("%.3f")
-        .build(ui, &mut scale_y)
-    {
-        transform.scale.y = scale_y;
-        modified = true;
-    }
-    ui.same_line();
-    ui.text("Z:");
-    ui.same_line();
-    ui.set_next_item_width(input_width);
-    if Drag::new("##scale_z")
-        .speed(0.01)
-        .display_format("%.3f")
-        .build(ui, &mut scale_z)
-    {
-        transform.scale.z = scale_z;
-        modified = true;
-    }
-
-    // Reset buttons - calculate button widths
-    let button_count = 3.0;
-    let button_width = (available_width - spacing * (button_count - 1.0)) / button_count;
-
-    ui.set_next_item_width(button_width);
-    if ui.button("Reset Position") {
-        transform.position = Vec3::ZERO;
-        modified = true;
-    }
-    ui.same_line();
-    ui.set_next_item_width(button_width);
-    if ui.button("Reset Rotation") {
-        transform.rotation = Quat::IDENTITY;
-        state.euler_angles.insert(entity, [0.0, 0.0, 0.0]);
-        modified = true;
-    }
-    ui.same_line();
-    ui.set_next_item_width(button_width);
-    if ui.button("Reset Scale") {
-        transform.scale = Vec3::ONE;
-        modified = true;
-    }
-
-    modified
-}
-
-/// Render editable camera componen
-fn render_editable_camera(ui: &imgui::Ui, camera: &mut Camera) -> bool {
-    let mut modified = false;
-
-    // Projection mode selector
-    let mut is_perspective = matches!(camera.projection_mode, ProjectionMode::Perspective);
-    if ui.checkbox("Perspective", &mut is_perspective) {
-        if is_perspective && !matches!(camera.projection_mode, ProjectionMode::Perspective) {
-            camera.projection_mode = ProjectionMode::Perspective;
-            modified = true;
-        } else if !is_perspective && matches!(camera.projection_mode, ProjectionMode::Perspective) {
-            camera.projection_mode = ProjectionMode::Orthographic { height: 10.0 };
-            modified = true;
-        }
-    }
-
-    match &mut camera.projection_mode {
-        ProjectionMode::Perspective => {
-            let mut fov_degrees = camera.fov_y_radians.to_degrees();
-            ui.text("Field of View:");
-            if ui.slider("##fov", 30.0, 120.0, &mut fov_degrees) {
-                camera.fov_y_radians = fov_degrees.to_radians();
-                modified = true;
+    use std::any::TypeId;
+    
+    let mut component_modified = false;
+    
+    // Get component metadata
+    let metadata = registry.get_metadata(TypeId::of::<T>());
+    debug!(
+        component = component_name, 
+        has_metadata = metadata.is_some(),
+        has_ui_metadata = metadata.as_ref().and_then(|m| m.ui_metadata.as_ref()).is_some(),
+        "Checking component metadata"
+    );
+    
+    if ui.collapsing_header(component_name, TreeNodeFlags::DEFAULT_OPEN) {
+        let mut remove_component = false;
+        
+        // Check if we have UI metadata for this component
+        if let Some(metadata) = metadata {
+            if let Some(ui_metadata) = &metadata.ui_metadata {
+                debug!(
+                    component = component_name,
+                    field_count = ui_metadata.fields.len(),
+                    "Using metadata-based rendering"
+                );
+                // Use metadata-based rendering
+                shared_state.with_world_write(|world| {
+                    // We need to temporarily remove the component to get mutable access
+                    if let Ok(mut component) = world.inner_mut().remove_one::<T>(entity) {
+                        // Use the metadata renderer directly
+                        let modified = crate::ui_metadata_renderer::render_component_ui(
+                            ui,
+                            &mut component,
+                            ui_metadata,
+                            entity
+                        );
+                        
+                        if modified {
+                            component_modified = true;
+                            shared_state.mark_scene_modified();
+                            debug!(component = component_name, "Component modified via metadata UI");
+                        }
+                        
+                        // Always re-insert the component
+                        let _ = world.insert_one(entity, component);
+                    }
+                });
+            } else {
+                // No UI metadata, show placeholder
+                ui.text(format!("No UI metadata for {}", component_name));
             }
+        } else {
+            // Component not registered
+            ui.text(format!("{} not registered", component_name));
         }
-        ProjectionMode::Orthographic { height } => {
-            ui.text("Orthographic Height:");
-            if Drag::new("##ortho_height")
-                .speed(0.1)
-                .range(0.1, 100.0)
-                .display_format("%.1f")
-                .build(ui, height)
-            {
-                modified = true;
-            }
+        
+        // Remove component button
+        ui.separator();
+        if ui.small_button(format!("Remove##{}", component_name)) {
+            shared_state.with_world_write(|world| {
+                world.inner_mut().remove_one::<T>(entity).ok();
+                remove_component = true;
+                debug!(entity = ?entity, component = component_name, "Removed component");
+            });
+        }
+        
+        if remove_component {
+            shared_state.mark_scene_modified();
         }
     }
-
-    // Near/Far planes
-    ui.text("Near Plane:");
-    if Drag::new("##near")
-        .speed(0.01)
-        .range(0.001, camera.z_far - 0.001)
-        .display_format("%.3f")
-        .build(ui, &mut camera.z_near)
-    {
-        modified = true;
-    }
-
-    ui.text("Far Plane:");
-    if Drag::new("##far")
-        .speed(1.0)
-        .range(camera.z_near + 0.001, 10000.0)
-        .display_format("%.1f")
-        .build(ui, &mut camera.z_far)
-    {
-        modified = true;
-    }
-
-    // Aspect ratio (read-only, set by viewport)
-    ui.text(format!("Aspect Ratio: {:.3}", camera.aspect_ratio));
-    ui.text_disabled("(Set by viewport size)");
-
-    modified
+    
+    component_modified
 }
 
-/// Render editable material componen
-fn render_editable_material(ui: &imgui::Ui, material: &mut Material) -> bool {
-    let mut modified = false;
-
-    ui.text("Color:");
-    if ui.color_edit4("##color", &mut material.color) {
-        modified = true;
-    }
-
-    // Quick color presets - calculate button widths
-    ui.text("Presets:");
-    let available_width = ui.content_region_avail()[0];
-    let spacing = unsafe { ui.style().item_spacing[0] };
-    let button_count = 4.0;
-    let button_width = (available_width - spacing * (button_count - 1.0)) / button_count;
-
-    ui.set_next_item_width(button_width);
-    if ui.button("White") {
-        material.color = [1.0, 1.0, 1.0, 1.0];
-        modified = true;
-    }
-    ui.same_line();
-    ui.set_next_item_width(button_width);
-    if ui.button("Red") {
-        material.color = [1.0, 0.0, 0.0, 1.0];
-        modified = true;
-    }
-    ui.same_line();
-    ui.set_next_item_width(button_width);
-    if ui.button("Green") {
-        material.color = [0.0, 1.0, 0.0, 1.0];
-        modified = true;
-    }
-    ui.same_line();
-    ui.set_next_item_width(button_width);
-    if ui.button("Blue") {
-        material.color = [0.0, 0.0, 1.0, 1.0];
-        modified = true;
-    }
-
-    modified
-}
-
-/// Render mesh component viewer
-#[allow(dead_code)]
-fn render_mesh_inspector(ui: &imgui::Ui, mesh_id: &MeshId) {
-    ui.text(format!("Mesh ID: {}", mesh_id.0));
-}

@@ -9,7 +9,7 @@ use crate::scripting::modules::world::{create_world_module, register_material_ty
 use crate::scripting::property_types::{PropertyType, PropertyValue, ScriptProperties};
 use crate::scripting::{ScriptEngine, ScriptInputState, ScriptRef};
 use rhai::{Dynamic, Module, Scope};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, trace, warn};
 
 /// System to execute scripts on entities
 pub fn script_execution_system(
@@ -100,7 +100,7 @@ pub fn script_execution_system(
         // Add properties to scope if available
         if let Some(ref properties) = script_properties {
             let props_map = properties.to_rhai_map();
-            info!(
+            debug!(
                 entity = ?entity,
                 script = script_ref.name,
                 script_name_in_props = ?properties.script_name,

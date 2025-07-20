@@ -110,7 +110,12 @@
       "Bash(./test_camera_drift)",
       "Bash(RUST_LOG=trace cargo test --package engine terrain::octree::tests::test_octree_insert_query -- --nocapture)",
       "*",
-      "Bash(RUST_BACKTRACE=1 cargo test -p engine --lib -- --test-threads=1)"
+      "Bash(RUST_BACKTRACE=1 cargo test -p engine --lib -- --test-threads=1)",
+      "Bash(./test_registry)",
+      "mcp__pdf-extraction__extract-pdf-contents",
+      "WebFetch(domain:graphics.cs.utah.edu)",
+      "Bash(wget:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "deny": []
   },
@@ -118,6 +123,7 @@
   "enabledMcpjsonServers": [
     "browser",
     "sequential-thinking",
-    "windows-ssh-mcp"
+    "windows-ssh-mcp",
+    "pdf-extraction"
   ]
 }

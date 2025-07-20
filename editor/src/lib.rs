@@ -11,5 +11,6 @@ pub mod panels;
 pub mod safe_imgui_renderer;
 pub mod scene_operations;
 pub mod shared_state;
+pub mod ui_metadata_renderer;
 
 pub use editor_state::{EditorState, SceneOperation};

@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
 use std::sync::Arc;
 
+pub mod field_access;
+pub mod ui_metadata;
+use ui_metadata::ComponentUIMetadata;
+
 /// Type alias for UI builder function
 pub type UIBuilderFn =
     Arc<dyn Fn(&mut crate::core::entity::World, hecs::Entity, &mut dyn Any) -> bool + Send + Sync>;
@@ -54,6 +58,16 @@ pub trait EditorUI: Component {
     fn build_ui(component: &mut Self, ui: &mut dyn Any, entity: hecs::Entity) -> bool
     where
         Self: Sized;
+    
+    /// Get the UI metadata for this component type
+    ///
+    /// This is used by the editor to generate UI based on field attributes
+    fn ui_metadata() -> Option<ComponentUIMetadata>
+    where
+        Self: Sized,
+    {
+        None
+    }
 }
 
 /// Metadata for a component type including UI builder and serialization functions
@@ -68,6 +82,9 @@ pub struct ComponentMetadata {
     /// Returns true if the component was modified
     /// The ui parameter is a type-erased pointer to the actual UI type (imgui::Ui in editor)
     pub ui_builder: Option<UIBuilderFn>,
+
+    /// UI metadata for automatic UI generation
+    pub ui_metadata: Option<ComponentUIMetadata>,
 
     /// Function to serialize the component to JSON
     pub serializer: SerializerFn,
@@ -89,6 +106,7 @@ impl ComponentMetadata {
             name,
             type_id: TypeId::of::<T>(),
             ui_builder: None,
+            ui_metadata: None,
             serializer: Arc::new(|component| {
                 let typed_component = component
                     .downcast_ref::<T>()
@@ -130,6 +148,16 @@ impl ComponentMetadata {
                 false
             }
         }));
+        
+        // Get UI metadata from the component type
+        metadata.ui_metadata = T::ui_metadata();
+        
+        tracing::debug!(
+            component_name = name,
+            has_ui_metadata = metadata.ui_metadata.is_some(),
+            ui_field_count = metadata.ui_metadata.as_ref().map(|m| m.fields.len()).unwrap_or(0),
+            "Created component metadata with UI"
+        );
 
         metadata
     }
