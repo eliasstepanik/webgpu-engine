@@ -4,6 +4,7 @@
 //! including primitive generation, camera controls, and shader management.
 
 pub mod app;
+pub mod component_system;
 pub mod config;
 pub mod core;
 pub mod dev;

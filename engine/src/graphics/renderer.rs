@@ -3,6 +3,7 @@
 //! The Renderer struct orchestrates all rendering operations, managing
 //! render pipelines, GPU resources, and the rendering of entities.
 
+use crate::component_system::{Component, ComponentMetadata, ComponentRegistryExt, EditorUI};
 use crate::core::camera::{Camera, CameraWorldPosition};
 use crate::core::entity::{components::GlobalWorldTransform, GlobalTransform, World};
 use crate::graphics::{
@@ -14,7 +15,8 @@ use crate::graphics::{
     render_target::RenderTarget,
     uniform::{CameraUniform, ObjectUniform, UniformBuffer},
 };
-use glam::DVec3;
+use crate::io::component_registry::ComponentRegistry;
+use glam::{DVec3, Mat4, Vec3};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -228,16 +230,25 @@ impl Renderer {
             camera_view_proj = Some(view_proj);
         } else {
             // Fall back to regular camera with GlobalTransform
-            let mut regular_camera_query = world.query::<(&Camera, &GlobalTransform)>();
-            if let Some((_, (camera, transform))) = regular_camera_query.iter().next() {
+            let mut regular_camera_query =
+                world.query::<(&Camera, &GlobalTransform, Option<&CameraWorldPosition>)>();
+            if let Some((_, (camera, transform, cam_world_pos))) =
+                regular_camera_query.iter().next()
+            {
                 let view_proj = camera.view_projection_matrix(transform);
                 camera_view_proj = Some(view_proj);
-                // For regular cameras, world position is just the transform position
-                camera_world_position = DVec3::new(
-                    transform.position().x as f64,
-                    transform.position().y as f64,
-                    transform.position().z as f64,
-                );
+
+                // Use CameraWorldPosition if available for exact position, otherwise extract from transform
+                camera_world_position = if let Some(world_pos) = cam_world_pos {
+                    world_pos.position
+                } else {
+                    // Fallback to extracting from transform (less precise for parented cameras)
+                    DVec3::new(
+                        transform.position().x as f64,
+                        transform.position().y as f64,
+                        transform.position().z as f64,
+                    )
+                };
             }
         }
 
@@ -285,7 +296,37 @@ impl Renderer {
             // Collect entities with regular GlobalTransform
             let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
             for (entity, (mesh_id, material, transform)) in regular_query.iter() {
-                entities_to_render.push((entity, mesh_id.clone(), *material, transform.matrix));
+                // Get object position in f64 for precision
+                let object_pos = transform.position();
+                let object_pos_f64 = DVec3::new(
+                    object_pos.x as f64,
+                    object_pos.y as f64,
+                    object_pos.z as f64,
+                );
+
+                // Calculate camera-relative position with f64 precision
+                let relative_pos_f64 = object_pos_f64 - camera_world_position;
+
+                // Convert back to f32 for rendering
+                let camera_relative_pos = Vec3::new(
+                    relative_pos_f64.x as f32,
+                    relative_pos_f64.y as f32,
+                    relative_pos_f64.z as f32,
+                );
+
+                // Decompose to get rotation and scale (these don't need adjustment)
+                let (scale, rotation, _) = transform.matrix.to_scale_rotation_translation();
+
+                // Reconstruct matrix with camera-relative position
+                let camera_relative_matrix =
+                    Mat4::from_scale_rotation_translation(scale, rotation, camera_relative_pos);
+
+                entities_to_render.push((
+                    entity,
+                    mesh_id.clone(),
+                    *material,
+                    camera_relative_matrix,
+                ));
             }
 
             // Collect entities with WorldTransform and convert to camera-relative
@@ -424,20 +465,29 @@ impl Renderer {
                 debug!("Camera entity missing required world transform components, trying regular transform");
 
                 // Fall back to regular camera with GlobalTransform
-                let camera_data = world.query_one::<(&Camera, &GlobalTransform)>(camera_entity);
+                let camera_data = world
+                    .query_one::<(&Camera, &GlobalTransform, Option<&CameraWorldPosition>)>(
+                        camera_entity,
+                    );
                 if let Ok(mut query_one) = camera_data {
-                    if let Some((camera, camera_transform)) = query_one.get() {
+                    if let Some((camera, camera_transform, cam_world_pos)) = query_one.get() {
                         // Update camera uniform
                         let view_proj = camera.view_projection_matrix(camera_transform);
                         let camera_uniform = CameraUniform::new(view_proj);
                         camera_uniform
                             .update_buffer(&self.context.queue, &self.camera_uniform_buffer);
-                        // For regular cameras, world position is just the transform position
-                        camera_world_position = DVec3::new(
-                            camera_transform.position().x as f64,
-                            camera_transform.position().y as f64,
-                            camera_transform.position().z as f64,
-                        );
+
+                        // Use CameraWorldPosition if available for exact position, otherwise extract from transform
+                        camera_world_position = if let Some(world_pos) = cam_world_pos {
+                            world_pos.position
+                        } else {
+                            // Fallback to extracting from transform (less precise for parented cameras)
+                            DVec3::new(
+                                camera_transform.position().x as f64,
+                                camera_transform.position().y as f64,
+                                camera_transform.position().z as f64,
+                            )
+                        };
                     } else {
                         debug!("Camera entity missing required components, skipping render");
                         return Ok(());
@@ -449,19 +499,28 @@ impl Renderer {
             }
         } else {
             // Fall back to regular camera with GlobalTransform
-            let camera_data = world.query_one::<(&Camera, &GlobalTransform)>(camera_entity);
+            let camera_data = world
+                .query_one::<(&Camera, &GlobalTransform, Option<&CameraWorldPosition>)>(
+                    camera_entity,
+                );
             if let Ok(mut query_one) = camera_data {
-                if let Some((camera, camera_transform)) = query_one.get() {
+                if let Some((camera, camera_transform, cam_world_pos)) = query_one.get() {
                     // Update camera uniform
                     let view_proj = camera.view_projection_matrix(camera_transform);
                     let camera_uniform = CameraUniform::new(view_proj);
                     camera_uniform.update_buffer(&self.context.queue, &self.camera_uniform_buffer);
-                    // For regular cameras, world position is just the transform position
-                    camera_world_position = DVec3::new(
-                        camera_transform.position().x as f64,
-                        camera_transform.position().y as f64,
-                        camera_transform.position().z as f64,
-                    );
+
+                    // Use CameraWorldPosition if available for exact position, otherwise extract from transform
+                    camera_world_position = if let Some(world_pos) = cam_world_pos {
+                        world_pos.position
+                    } else {
+                        // Fallback to extracting from transform (less precise for parented cameras)
+                        DVec3::new(
+                            camera_transform.position().x as f64,
+                            camera_transform.position().y as f64,
+                            camera_transform.position().z as f64,
+                        )
+                    };
                 } else {
                     debug!("Camera entity missing required components, skipping render");
                     return Ok(());
@@ -512,7 +571,37 @@ impl Renderer {
             // Collect entities with regular GlobalTransform
             let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
             for (entity, (mesh_id, material, transform)) in regular_query.iter() {
-                entities_to_render.push((entity, mesh_id.clone(), *material, transform.matrix));
+                // Get object position in f64 for precision
+                let object_pos = transform.position();
+                let object_pos_f64 = DVec3::new(
+                    object_pos.x as f64,
+                    object_pos.y as f64,
+                    object_pos.z as f64,
+                );
+
+                // Calculate camera-relative position with f64 precision
+                let relative_pos_f64 = object_pos_f64 - camera_world_position;
+
+                // Convert back to f32 for rendering
+                let camera_relative_pos = Vec3::new(
+                    relative_pos_f64.x as f32,
+                    relative_pos_f64.y as f32,
+                    relative_pos_f64.z as f32,
+                );
+
+                // Decompose to get rotation and scale (these don't need adjustment)
+                let (scale, rotation, _) = transform.matrix.to_scale_rotation_translation();
+
+                // Reconstruct matrix with camera-relative position
+                let camera_relative_matrix =
+                    Mat4::from_scale_rotation_translation(scale, rotation, camera_relative_pos);
+
+                entities_to_render.push((
+                    entity,
+                    mesh_id.clone(),
+                    *material,
+                    camera_relative_matrix,
+                ));
             }
 
             // Collect entities with WorldTransform and convert to camera-relative
@@ -606,17 +695,26 @@ impl Renderer {
             camera_uniform.update_buffer(&self.context.queue, &self.camera_uniform_buffer);
         } else {
             // Fall back to regular camera with GlobalTransform
-            let mut regular_camera_query = world.query::<(&Camera, &GlobalTransform)>();
-            if let Some((_, (camera, transform))) = regular_camera_query.iter().next() {
+            let mut regular_camera_query =
+                world.query::<(&Camera, &GlobalTransform, Option<&CameraWorldPosition>)>();
+            if let Some((_, (camera, transform, cam_world_pos))) =
+                regular_camera_query.iter().next()
+            {
                 let view_proj = camera.view_projection_matrix(transform);
                 let camera_uniform = CameraUniform::new(view_proj);
                 camera_uniform.update_buffer(&self.context.queue, &self.camera_uniform_buffer);
-                // For regular cameras, world position is just the transform position
-                camera_world_position = DVec3::new(
-                    transform.position().x as f64,
-                    transform.position().y as f64,
-                    transform.position().z as f64,
-                );
+
+                // Use CameraWorldPosition if available for exact position, otherwise extract from transform
+                camera_world_position = if let Some(world_pos) = cam_world_pos {
+                    world_pos.position
+                } else {
+                    // Fallback to extracting from transform (less precise for parented cameras)
+                    DVec3::new(
+                        transform.position().x as f64,
+                        transform.position().y as f64,
+                        transform.position().z as f64,
+                    )
+                };
             }
         }
 
@@ -660,7 +758,37 @@ impl Renderer {
             // Collect entities with regular GlobalTransform
             let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
             for (entity, (mesh_id, material, transform)) in regular_query.iter() {
-                entities_to_render.push((entity, mesh_id.clone(), *material, transform.matrix));
+                // Get object position in f64 for precision
+                let object_pos = transform.position();
+                let object_pos_f64 = DVec3::new(
+                    object_pos.x as f64,
+                    object_pos.y as f64,
+                    object_pos.z as f64,
+                );
+
+                // Calculate camera-relative position with f64 precision
+                let relative_pos_f64 = object_pos_f64 - camera_world_position;
+
+                // Convert back to f32 for rendering
+                let camera_relative_pos = Vec3::new(
+                    relative_pos_f64.x as f32,
+                    relative_pos_f64.y as f32,
+                    relative_pos_f64.z as f32,
+                );
+
+                // Decompose to get rotation and scale (these don't need adjustment)
+                let (scale, rotation, _) = transform.matrix.to_scale_rotation_translation();
+
+                // Reconstruct matrix with camera-relative position
+                let camera_relative_matrix =
+                    Mat4::from_scale_rotation_translation(scale, rotation, camera_relative_pos);
+
+                entities_to_render.push((
+                    entity,
+                    mesh_id.clone(),
+                    *material,
+                    camera_relative_matrix,
+                ));
             }
 
             // Collect entities with WorldTransform and convert to camera-relative
@@ -769,8 +897,15 @@ impl Renderer {
 }
 
 /// Component to associate an entity with a mesh ID
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, engine_derive::Component, engine_derive::EditorUI)]
+#[component(name = "MeshId")]
 pub struct MeshId(pub String);
+
+impl Default for MeshId {
+    fn default() -> Self {
+        Self("cube".to_string())
+    }
+}
 
 #[cfg(test)]
 mod tests {

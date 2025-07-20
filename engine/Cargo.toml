@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+engine_derive = { path = "../engine_derive" }
 wgpu = "25.0.2"
 winit = "0.30"
 glam = { version = "0.30.4", features = ["bytemuck", "serde"] }
@@ -19,6 +20,9 @@ pollster = "0.3"
 lazy_static = "1.4"
 tobj = { version = "4.0", features = ["async"] }
 thiserror = "1.0"
+
+[dev-dependencies]
+tempfile = "3.0"
 
 [[example]]
 name = "scene_demo"

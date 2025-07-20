@@ -4,6 +4,7 @@ use crate::core::entity::World;
 use crate::scripting::commands::{CommandQueue, ScriptCommand, SharedComponentCache};
 use crate::scripting::component_access::populate_cache_for_scripts;
 use crate::scripting::lifecycle_tracker::get_tracker;
+use crate::scripting::modules::mesh::create_mesh_module;
 use crate::scripting::modules::world::{create_world_module, register_material_type};
 use crate::scripting::property_types::{PropertyType, PropertyValue, ScriptProperties};
 use crate::scripting::{ScriptEngine, ScriptInputState, ScriptRef};
@@ -131,11 +132,16 @@ pub fn script_execution_system(
         // Create input module with current state
         let input_module = create_input_module(input_state);
 
+        // Create mesh module with mesh registry and command queue
+        let mesh_module =
+            create_mesh_module(script_engine.mesh_registry.clone(), command_queue.clone());
+
         // Register modules in the engine temporarily
         // We need mutable access to the engine to register modules
         if let Some(engine) = script_engine.engine_mut() {
             engine.register_static_module("world", world_module.into());
             engine.register_static_module("input", input_module.into());
+            engine.register_static_module("Mesh", mesh_module.into());
         } else {
             // If we can't get mutable access, skip this entity
             warn!(entity = ?entity, "Cannot get mutable access to script engine");

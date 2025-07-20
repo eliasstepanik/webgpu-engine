@@ -13,6 +13,19 @@
     "is_visible": true
   },
   {
+    "id": "viewport",
+    "title": "3D Viewport",
+    "position": [
+      60.0,
+      60.0
+    ],
+    "size": [
+      800.0,
+      600.0
+    ],
+    "is_visible": true
+  },
+  {
     "id": "assets",
     "title": "Asset Browser",
     "position": [
@@ -35,19 +48,6 @@
     "size": [
       280.0,
       400.0
-    ],
-    "is_visible": true
-  },
-  {
-    "id": "viewport",
-    "title": "3D Viewport",
-    "position": [
-      60.0,
-      60.0
-    ],
-    "size": [
-      800.0,
-      600.0
     ],
     "is_visible": true
   }

@@ -4,11 +4,14 @@
 //! basic color. Future versions will support textures and more
 //! advanced material properties.
 
+use crate::component_system::{Component, ComponentMetadata, ComponentRegistryExt, EditorUI};
+use crate::io::component_registry::ComponentRegistry;
 use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};
 
 /// Material component defining surface properties
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI)]
+#[component(name = "Material")]
 pub struct Material {
     /// Base color of the material (RGBA)
     pub color: [f32; 4],

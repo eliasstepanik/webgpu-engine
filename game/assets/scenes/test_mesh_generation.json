@@ -1,0 +1,75 @@
+{
+  "name": "Test Mesh Generation Scene",
+  "entities": [
+    {
+      "name": "Main Camera",
+      "transform": {
+        "position": [0.0, 5.0, 10.0],
+        "rotation": [-0.3, 0.0, 0.0, 0.95],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "components": {
+        "Camera": {
+          "projection_mode": "Perspective",
+          "fov": 60.0,
+          "near": 0.1,
+          "far": 1000.0,
+          "aspect_ratio": 1.777
+        }
+      }
+    },
+    {
+      "name": "Mesh Generator",
+      "transform": {
+        "position": [0.0, 1.0, 0.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "components": {
+        "ScriptRef": {
+          "script_name": "simple_mesh_gen"
+        },
+        "ScriptProperties": {
+          "spawn_radius": 5.0,
+          "shape_count": 6
+        }
+      }
+    },
+    {
+      "name": "Dynamic Wave Mesh",
+      "transform": {
+        "position": [-8.0, 0.0, 0.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "components": {
+        "ScriptRef": {
+          "script_name": "dynamic_mesh"
+        },
+        "ScriptProperties": {
+          "wave_amplitude": 0.5,
+          "wave_frequency": 2.0,
+          "grid_size": 20
+        }
+      }
+    },
+    {
+      "name": "Pyramid Generator",
+      "transform": {
+        "position": [8.0, 1.0, 0.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "components": {
+        "ScriptRef": {
+          "script_name": "mesh_generator"
+        },
+        "ScriptProperties": {
+          "size": 3.0,
+          "mesh_color": [1.0, 0.5, 0.0, 1.0],
+          "segments": 16
+        }
+      }
+    }
+  ]
+}

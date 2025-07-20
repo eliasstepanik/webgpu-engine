@@ -10,6 +10,8 @@ pub mod component_access;
 pub mod components;
 pub mod engine;
 pub mod lifecycle_tracker;
+pub mod mesh_registry;
+pub mod mesh_upload_system;
 pub mod modules;
 pub mod property_parser;
 pub mod property_types;
@@ -19,6 +21,8 @@ pub mod system;
 
 pub use components::ScriptRef;
 pub use engine::ScriptEngine;
+pub use mesh_registry::ScriptMeshRegistry;
+pub use mesh_upload_system::process_script_mesh_uploads;
 pub use modules::input::ScriptInputState;
 pub use property_types::ScriptProperties;
 pub use script::Script;

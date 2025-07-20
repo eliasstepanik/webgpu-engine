@@ -1,6 +1,8 @@
 use crate::core::entity::components::Transform;
 use crate::core::entity::{Entity, Name};
 use crate::graphics::material::Material;
+use crate::graphics::mesh::Mesh;
+use crate::graphics::renderer::MeshId;
 use crate::scripting::property_types::ScriptProperties;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -26,6 +28,15 @@ pub enum ScriptCommand {
         entity: u64,
         properties: ScriptProperties,
     },
+    UploadMesh {
+        name: String,
+        mesh: Mesh,
+        callback_id: u64,
+    },
+    SetMeshId {
+        entity: u64,
+        mesh_id: MeshId,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -33,6 +44,7 @@ pub enum ComponentData {
     Transform(Transform),
     Material(Material),
     Name(String),
+    MeshId(MeshId),
 }
 
 pub type CommandQueue = Arc<RwLock<Vec<ScriptCommand>>>;
@@ -42,6 +54,7 @@ pub struct ComponentCache {
     pub transforms: HashMap<u64, Transform>,
     pub materials: HashMap<u64, Material>,
     pub names: HashMap<u64, String>,
+    pub mesh_ids: HashMap<u64, MeshId>,
 }
 
 pub type SharedComponentCache = Arc<RwLock<ComponentCache>>;
@@ -55,6 +68,7 @@ impl ComponentCache {
         self.transforms.clear();
         self.materials.clear();
         self.names.clear();
+        self.mesh_ids.clear();
     }
 }
 
@@ -109,6 +123,9 @@ impl ScriptCommand {
                         ComponentData::Name(n) => {
                             entity_builder.add(Name::new(n.clone()));
                         }
+                        ComponentData::MeshId(id) => {
+                            entity_builder.add(id.clone());
+                        }
                     }
                 }
 
@@ -147,6 +164,36 @@ impl ScriptCommand {
                         Ok(())
                     } else {
                         error!(entity = *entity, "Entity not found for properties update");
+                        Err(format!("Entity {entity} not found"))
+                    }
+                } else {
+                    error!(entity = *entity, "Invalid entity ID");
+                    Err(format!("Invalid entity ID: {entity}"))
+                }
+            }
+            ScriptCommand::UploadMesh {
+                name,
+                mesh: _,
+                callback_id,
+            } => {
+                // Mesh upload is handled separately by the mesh upload system
+                debug!(
+                    name = name,
+                    callback_id = callback_id,
+                    "Mesh upload command queued"
+                );
+                Ok(())
+            }
+            ScriptCommand::SetMeshId { entity, mesh_id } => {
+                if let Some(ent) = Entity::from_bits(*entity) {
+                    if world.contains(ent) {
+                        world
+                            .insert_one(ent, mesh_id.clone())
+                            .map_err(|e| format!("Failed to insert mesh ID: {e:?}"))?;
+                        debug!(entity = *entity, mesh_id = ?mesh_id, "Applied mesh ID update from script");
+                        Ok(())
+                    } else {
+                        error!(entity = *entity, "Entity not found for mesh ID update");
                         Err(format!("Entity {entity} not found"))
                     }
                 } else {
@@ -195,6 +242,7 @@ mod tests {
         assert_eq!(cache.transforms.len(), 0);
         assert_eq!(cache.materials.len(), 0);
         assert_eq!(cache.names.len(), 0);
+        assert_eq!(cache.mesh_ids.len(), 0);
     }
 
     #[test]

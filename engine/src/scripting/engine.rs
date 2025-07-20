@@ -1,6 +1,7 @@
 //! Rhai engine wrapper with script caching
 
 use crate::config::AssetConfig;
+use crate::scripting::mesh_registry::ScriptMeshRegistry;
 use crate::scripting::property_parser::parse_script_properties;
 use crate::scripting::property_types::PropertyDefinition;
 use rhai::{Engine, EvalAltResult, Scope, AST};
@@ -26,6 +27,8 @@ pub struct ScriptEngine {
     cache: Arc<RwLock<HashMap<String, CachedScript>>>,
     /// Asset configuration for loading scripts
     asset_config: AssetConfig,
+    /// Registry for meshes created by scripts
+    pub mesh_registry: ScriptMeshRegistry,
 }
 
 impl ScriptEngine {
@@ -53,6 +56,7 @@ impl ScriptEngine {
             engine: Arc::new(engine),
             cache: Arc::new(RwLock::new(HashMap::new())),
             asset_config,
+            mesh_registry: ScriptMeshRegistry::new(),
         }
     }
 
@@ -167,7 +171,7 @@ impl ScriptEngine {
                 scope.push("entity", entity_id as i64);
 
                 self.engine
-                    .call_fn::<()>(scope, &cached.ast, "on_start", (entity_id as i64,))
+                    .call_fn::<()>(scope, &cached.ast, "on_start", ())
                     .map_err(|e| -> Box<EvalAltResult> {
                         let position = e.position();
                         Box::new(
@@ -201,12 +205,7 @@ impl ScriptEngine {
                 scope.push("delta_time", delta_time as f64);
 
                 self.engine
-                    .call_fn::<()>(
-                        scope,
-                        &cached.ast,
-                        "on_update",
-                        (entity_id as i64, delta_time as f64),
-                    )
+                    .call_fn::<()>(scope, &cached.ast, "on_update", ())
                     .map_err(|e| -> Box<EvalAltResult> {
                         let position = e.position();
                         Box::new(
@@ -238,7 +237,7 @@ impl ScriptEngine {
                 scope.push("entity", entity_id as i64);
 
                 self.engine
-                    .call_fn::<()>(scope, &cached.ast, "on_destroy", (entity_id as i64,))
+                    .call_fn::<()>(scope, &cached.ast, "on_destroy", ())
                     .map_err(|e| -> Box<EvalAltResult> {
                         let position = e.position();
                         Box::new(

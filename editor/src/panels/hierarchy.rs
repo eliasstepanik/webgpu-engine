@@ -5,10 +5,10 @@
 
 use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
-use engine::prelude::{Camera, Material, MeshId, Name, Parent, Transform, World};
+use engine::prelude::{Camera, GlobalTransform, Material, MeshId, Name, Parent, Transform, World};
 use imgui::*;
 use std::collections::{HashMap, HashSet};
-use tracing::debug;
+use tracing::{debug, trace, warn};
 
 /// State for drag-drop operations
 #[derive(Debug)]
@@ -40,7 +40,7 @@ fn get_hierarchy_drag_state() -> &'static mut HierarchyDragState {
     }
 }
 
-/// Check if potential_ancestor is an ancestor of potential_descendant
+/// Check if potential_ancestor is an ancestor of potential_descendan
 fn is_ancestor_of(
     world: &World,
     potential_ancestor: hecs::Entity,
@@ -95,7 +95,7 @@ pub fn render_hierarchy_panel(
         .resizable(true)
         .build(|| {
             // Access the world through shared state
-            if let Some((parent_map, root_entities, other_entities, selected_entity)) = shared_state
+            if let Some((parent_map, root_entities, _other_entities, selected_entity)) = shared_state
                 .with_world_read(|world| {
                     // Debug info for troubleshooting
                     let total_entities = world.query::<()>().iter().count();
@@ -169,11 +169,11 @@ pub fn render_hierarchy_panel(
                     );
                 }
 
-                // Add drop target for root level (to remove parent)
+                // Add drop targett for root level (to remove parent)
                 ui.spacing();
                 ui.spacing();
 
-                // Create an invisible drop target for removing parent
+                // Create an invisible drop target for removing paren
                 let drop_area_size = [ui.content_region_avail()[0], 50.0];
                 let cursor_pos = ui.cursor_screen_pos();
                 ui.invisible_button("root_drop_area", drop_area_size);
@@ -195,11 +195,37 @@ pub fn render_hierarchy_panel(
                             ui.tooltip_text("Drop here to remove parent");
                         }
 
-                        // Accept drop to remove parent
+                        // Accept drop to remove paren
                         if target.accept_payload_empty("ENTITY_PARENT", DragDropFlags::empty()).is_some() {
                             shared_state.with_world_write(|world| {
-                                // Remove parent component
+                                // First ensure hierarchy is up to date
+                                engine::core::entity::update_hierarchy_system(world);
+
+                                // Get the current world transform before removing paren
+                                let world_matrix = if let Ok(global_transform) = world.get::<GlobalTransform>(dragged) {
+                                    Some(global_transform.matrix)
+                                } else if let Ok(transform) = world.get::<Transform>(dragged) {
+                                    // If no GlobalTransform exists yet, compute it from Transform
+                                    Some(transform.to_matrix())
+                                } else {
+                                    None
+                                };
+
+                                // Remove parent componen
                                 let _ = world.inner_mut().remove_one::<Parent>(dragged);
+
+                                // Update the local transform to maintain world position
+                                if let Some(world_mat) = world_matrix {
+                                    if let Ok(transform) = world.query_one_mut::<&mut Transform>(dragged) {
+                                        let (scale, rotation, translation) = world_mat.to_scale_rotation_translation();
+                                        transform.position = translation;
+                                        transform.rotation = rotation;
+                                        transform.scale = scale;
+                                    }
+                                }
+
+                                // Update hierarchy immediately
+                                engine::core::entity::update_hierarchy_system(world);
                             });
 
                             // Clear drag state
@@ -212,19 +238,21 @@ pub fn render_hierarchy_panel(
                 }
 
                 ui.text_colored([0.5, 0.5, 0.8, 1.0], "↑ Drop here to remove parent");
-                // Also show entities without Transform components
+
+                // Add Create Entity button
                 ui.separator();
-                ui.text("Other Entities:");
-                for entity in other_entities {
-                    let is_selected = Some(entity) == selected_entity;
-                    if ui
-                        .selectable_config(format!("Entity {entity:?}"))
-                        .selected(is_selected)
-                        .build()
-                    {
-                        shared_state.set_selected_entity(Some(entity));
-                        debug!("Selected entity: {:?}", entity);
-                    }
+                if ui.button("Create New Entity") {
+                    shared_state.with_world_write(|world| {
+                        let new_entity = world.spawn((
+                            Name::new("New Entity"),
+                            Transform::default(),
+                            GlobalTransform::default(),
+                        ));
+
+                        debug!(entity = ?new_entity, "Created new entity from hierarchy panel");
+                        shared_state.set_selected_entity(Some(new_entity));
+                        shared_state.mark_scene_modified();
+                    });
                 }
             } else {
                 ui.text("Failed to access world data");
@@ -264,7 +292,9 @@ fn render_entity_tree(
             TreeNodeFlags::DEFAULT_OPEN
         };
 
-        let is_open = ui.tree_node_config(&entity_name).flags(node_flags).push();
+        // Use entity ID in the tree node ID to ensure uniqueness
+        let tree_id = format!("{entity_name}##{entity:?}");
+        let is_open = ui.tree_node_config(&tree_id).flags(node_flags).push();
 
         // Check if the node was clicked
         if ui.is_item_clicked() {
@@ -284,7 +314,7 @@ fn render_entity_tree(
             state.drag_source_name = entity_name.clone();
 
             // Visual feedback during drag
-            ui.text(format!("🔗 {}", entity_name));
+            ui.text(format!("🔗 {entity_name}"));
         }
 
         // Add drop target
@@ -323,22 +353,158 @@ fn render_entity_tree(
                 if target
                     .accept_payload_empty("ENTITY_PARENT", DragDropFlags::empty())
                     .is_some()
+                    && can_drop
                 {
-                    if can_drop {
-                        // Perform the parenting
-                        shared_state.with_world_write(|world| {
-                            // Remove existing parent if any
-                            let _ = world.inner_mut().remove_one::<Parent>(dragged);
-                            // Add new parent
-                            let _ = world.insert_one(dragged, Parent(entity));
+                    // Perform the parenting
+                    shared_state.with_world_write(|world| {
+                        // First ensure hierarchy is up to date so GlobalTransforms exis
+                        engine::core::entity::update_hierarchy_system(world);
+
+                        // Get the current world transforms before parenting
+                        let child_world_matrix =
+                            if let Ok(global_transform) = world.get::<GlobalTransform>(dragged) {
+                                Some(global_transform.matrix)
+                            } else if let Ok(transform) = world.get::<Transform>(dragged) {
+                                // If no GlobalTransform exists yet, compute it from Transform
+                                Some(transform.to_matrix())
+                            } else {
+                                None
+                            };
+
+                        let parent_world_matrix =
+                            if let Ok(global_transform) = world.get::<GlobalTransform>(entity) {
+                                Some(global_transform.matrix)
+                            } else if let Ok(transform) = world.get::<Transform>(entity) {
+                                // If no GlobalTransform exists yet, compute it from Transform
+                                Some(transform.to_matrix())
+                            } else {
+                                None
+                            };
+
+                        // Store exact world position with f64 precision for cameras
+                        let original_world_pos = child_world_matrix.map(|m| {
+                            let (_, _, translation) = m.to_scale_rotation_translation();
+                            glam::DVec3::new(
+                                translation.x as f64,
+                                translation.y as f64,
+                                translation.z as f64,
+                            )
                         });
 
-                        // Clear drag state
-                        state.dragged_entity = None;
-                        state.drag_source_name.clear();
+                        // Remove existing parent if any
+                        let _ = world.inner_mut().remove_one::<Parent>(dragged);
+                        // Add new paren
+                        let _ = world.insert_one(dragged, Parent(entity));
 
-                        debug!("Parented entity {:?} to {:?}", dragged, entity);
-                    }
+                        // Check if this is a camera entity before transform adjustmen
+                        let is_camera = world.get::<Camera>(dragged).is_ok();
+
+                        // Adjust the child's local transform to maintain its world position
+                        if let (Some(child_world), Some(parent_world)) =
+                            (child_world_matrix, parent_world_matrix)
+                        {
+                            if let Ok(child_transform) =
+                                world.query_one_mut::<&mut Transform>(dragged)
+                            {
+                                // Calculate the local transform relative to the new paren
+                                // child_world = parent_world * child_local
+                                // child_local = parent_world^-1 * child_world
+                                let parent_inverse = parent_world.inverse();
+                                let new_local_matrix = parent_inverse * child_world;
+                                let (scale, rotation, translation) =
+                                    new_local_matrix.to_scale_rotation_translation();
+
+                                if is_camera {
+                                    let old_pos = child_transform.position;
+                                    trace!(
+                                        old_local_pos = ?old_pos,
+                                        new_local_pos = ?translation,
+                                        child_world_matrix = ?child_world,
+                                        parent_world_matrix = ?parent_world,
+                                        "Camera parenting transform calculation"
+                                    );
+                                }
+
+                                child_transform.position = translation;
+                                child_transform.rotation = rotation.normalize(); // Ensure rotation is normalized
+                                child_transform.scale = scale;
+                            }
+                        }
+
+                        // Update hierarchy immediately to ensure GlobalTransforms are correc
+                        engine::core::entity::update_hierarchy_system(world);
+
+                        // Verify the camera's world position after hierarchy update
+                        if is_camera {
+                            if let Some(original_pos) = original_world_pos {
+                                // Get the new world position and calculate drif
+                                let (new_world_pos, drift) =
+                                    if let Ok(new_global) = world.get::<GlobalTransform>(dragged) {
+                                        let pos = new_global.position();
+                                        let d = ((pos.x as f64 - original_pos.x).abs()
+                                            + (pos.y as f64 - original_pos.y).abs()
+                                            + (pos.z as f64 - original_pos.z).abs())
+                                            / 3.0;
+                                        (pos, d)
+                                    } else {
+                                        return; // Skip if we can't get the transform
+                                    };
+
+                                if drift > 0.0001 {
+                                    warn!(
+                                        entity = ?dragged,
+                                        drift = drift,
+                                        original_pos = ?original_pos,
+                                        new_pos = ?new_world_pos,
+                                        "Camera position drifted after parenting"
+                                    );
+
+                                    // If drift is significant, attempt to correct i
+                                    if drift > 0.001 {
+                                        if let Ok(child_transform) =
+                                            world.query_one_mut::<&mut Transform>(dragged)
+                                        {
+                                            // Recalculate with higher precision
+                                            let parent_world_f64 = parent_world_matrix.map(|m| {
+                                                glam::DMat4::from_cols(
+                                                    m.x_axis.as_dvec4(),
+                                                    m.y_axis.as_dvec4(),
+                                                    m.z_axis.as_dvec4(),
+                                                    m.w_axis.as_dvec4(),
+                                                )
+                                            });
+
+                                            if let Some(parent_f64) = parent_world_f64 {
+                                                let parent_inverse_f64 = parent_f64.inverse();
+                                                let child_local_pos_f64 = parent_inverse_f64
+                                                    .transform_point3(original_pos);
+                                                child_transform.position =
+                                                    child_local_pos_f64.as_vec3();
+
+                                                debug!(
+                                                    entity = ?dragged,
+                                                    corrected_pos = ?child_local_pos_f64,
+                                                    "Applied drift correction to camera"
+                                                );
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    trace!(
+                                        entity = ?dragged,
+                                        drift = drift,
+                                        "Camera parenting completed with minimal drift"
+                                    );
+                                }
+                            }
+                        }
+                    });
+
+                    // Clear drag state
+                    state.dragged_entity = None;
+                    state.drag_source_name.clear();
+
+                    debug!("Parented entity {:?} to {:?}", dragged, entity);
                 }
             }
         }
@@ -360,8 +526,10 @@ fn render_entity_tree(
     } else {
         // Leaf node - just show selectable
         let is_selected = Some(entity) == selected_entity;
+        // Use entity ID in the selectable ID to ensure uniqueness
+        let selectable_id = format!("{entity_name}##{entity:?}");
         if ui
-            .selectable_config(&entity_name)
+            .selectable_config(&selectable_id)
             .selected(is_selected)
             .build()
         {
@@ -381,10 +549,10 @@ fn render_entity_tree(
             state.drag_source_name = entity_name.clone();
 
             // Visual feedback during drag
-            ui.text(format!("🔗 {}", entity_name));
+            ui.text(format!("🔗 {entity_name}"));
         }
 
-        // Add drop target for leaf nodes
+        // Add drop targett for leaf nodes
         if let Some(target) = ui.drag_drop_target() {
             let state = get_hierarchy_drag_state();
 
@@ -420,22 +588,158 @@ fn render_entity_tree(
                 if target
                     .accept_payload_empty("ENTITY_PARENT", DragDropFlags::empty())
                     .is_some()
+                    && can_drop
                 {
-                    if can_drop {
-                        // Perform the parenting
-                        shared_state.with_world_write(|world| {
-                            // Remove existing parent if any
-                            let _ = world.inner_mut().remove_one::<Parent>(dragged);
-                            // Add new parent
-                            let _ = world.insert_one(dragged, Parent(entity));
+                    // Perform the parenting
+                    shared_state.with_world_write(|world| {
+                        // First ensure hierarchy is up to date so GlobalTransforms exis
+                        engine::core::entity::update_hierarchy_system(world);
+
+                        // Get the current world transforms before parenting
+                        let child_world_matrix =
+                            if let Ok(global_transform) = world.get::<GlobalTransform>(dragged) {
+                                Some(global_transform.matrix)
+                            } else if let Ok(transform) = world.get::<Transform>(dragged) {
+                                // If no GlobalTransform exists yet, compute it from Transform
+                                Some(transform.to_matrix())
+                            } else {
+                                None
+                            };
+
+                        let parent_world_matrix =
+                            if let Ok(global_transform) = world.get::<GlobalTransform>(entity) {
+                                Some(global_transform.matrix)
+                            } else if let Ok(transform) = world.get::<Transform>(entity) {
+                                // If no GlobalTransform exists yet, compute it from Transform
+                                Some(transform.to_matrix())
+                            } else {
+                                None
+                            };
+
+                        // Store exact world position with f64 precision for cameras
+                        let original_world_pos = child_world_matrix.map(|m| {
+                            let (_, _, translation) = m.to_scale_rotation_translation();
+                            glam::DVec3::new(
+                                translation.x as f64,
+                                translation.y as f64,
+                                translation.z as f64,
+                            )
                         });
 
-                        // Clear drag state
-                        state.dragged_entity = None;
-                        state.drag_source_name.clear();
+                        // Remove existing parent if any
+                        let _ = world.inner_mut().remove_one::<Parent>(dragged);
+                        // Add new paren
+                        let _ = world.insert_one(dragged, Parent(entity));
 
-                        debug!("Parented entity {:?} to {:?}", dragged, entity);
-                    }
+                        // Check if this is a camera entity before transform adjustmen
+                        let is_camera = world.get::<Camera>(dragged).is_ok();
+
+                        // Adjust the child's local transform to maintain its world position
+                        if let (Some(child_world), Some(parent_world)) =
+                            (child_world_matrix, parent_world_matrix)
+                        {
+                            if let Ok(child_transform) =
+                                world.query_one_mut::<&mut Transform>(dragged)
+                            {
+                                // Calculate the local transform relative to the new paren
+                                // child_world = parent_world * child_local
+                                // child_local = parent_world^-1 * child_world
+                                let parent_inverse = parent_world.inverse();
+                                let new_local_matrix = parent_inverse * child_world;
+                                let (scale, rotation, translation) =
+                                    new_local_matrix.to_scale_rotation_translation();
+
+                                if is_camera {
+                                    let old_pos = child_transform.position;
+                                    trace!(
+                                        old_local_pos = ?old_pos,
+                                        new_local_pos = ?translation,
+                                        child_world_matrix = ?child_world,
+                                        parent_world_matrix = ?parent_world,
+                                        "Camera parenting transform calculation"
+                                    );
+                                }
+
+                                child_transform.position = translation;
+                                child_transform.rotation = rotation.normalize(); // Ensure rotation is normalized
+                                child_transform.scale = scale;
+                            }
+                        }
+
+                        // Update hierarchy immediately to ensure GlobalTransforms are correc
+                        engine::core::entity::update_hierarchy_system(world);
+
+                        // Verify the camera's world position after hierarchy update
+                        if is_camera {
+                            if let Some(original_pos) = original_world_pos {
+                                // Get the new world position and calculate drif
+                                let (new_world_pos, drift) =
+                                    if let Ok(new_global) = world.get::<GlobalTransform>(dragged) {
+                                        let pos = new_global.position();
+                                        let d = ((pos.x as f64 - original_pos.x).abs()
+                                            + (pos.y as f64 - original_pos.y).abs()
+                                            + (pos.z as f64 - original_pos.z).abs())
+                                            / 3.0;
+                                        (pos, d)
+                                    } else {
+                                        return; // Skip if we can't get the transform
+                                    };
+
+                                if drift > 0.0001 {
+                                    warn!(
+                                        entity = ?dragged,
+                                        drift = drift,
+                                        original_pos = ?original_pos,
+                                        new_pos = ?new_world_pos,
+                                        "Camera position drifted after parenting"
+                                    );
+
+                                    // If drift is significant, attempt to correct i
+                                    if drift > 0.001 {
+                                        if let Ok(child_transform) =
+                                            world.query_one_mut::<&mut Transform>(dragged)
+                                        {
+                                            // Recalculate with higher precision
+                                            let parent_world_f64 = parent_world_matrix.map(|m| {
+                                                glam::DMat4::from_cols(
+                                                    m.x_axis.as_dvec4(),
+                                                    m.y_axis.as_dvec4(),
+                                                    m.z_axis.as_dvec4(),
+                                                    m.w_axis.as_dvec4(),
+                                                )
+                                            });
+
+                                            if let Some(parent_f64) = parent_world_f64 {
+                                                let parent_inverse_f64 = parent_f64.inverse();
+                                                let child_local_pos_f64 = parent_inverse_f64
+                                                    .transform_point3(original_pos);
+                                                child_transform.position =
+                                                    child_local_pos_f64.as_vec3();
+
+                                                debug!(
+                                                    entity = ?dragged,
+                                                    corrected_pos = ?child_local_pos_f64,
+                                                    "Applied drift correction to camera"
+                                                );
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    trace!(
+                                        entity = ?dragged,
+                                        drift = drift,
+                                        "Camera parenting completed with minimal drift"
+                                    );
+                                }
+                            }
+                        }
+                    });
+
+                    // Clear drag state
+                    state.dragged_entity = None;
+                    state.drag_source_name.clear();
+
+                    debug!("Parented entity {:?} to {:?}", dragged, entity);
                 }
             }
         }
@@ -451,7 +755,7 @@ fn render_entity_tree(
 
 /// Get a display name for an entity
 fn get_entity_name(world: &World, entity: hecs::Entity) -> String {
-    // Try Name component first
+    // Try Name component firs
     if let Ok(name) = world.get::<Name>(entity) {
         if !name.0.is_empty() {
             debug!(name = %name.0, entity = ?entity, "Found entity name");

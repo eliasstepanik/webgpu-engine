@@ -203,10 +203,10 @@ fn test_transform_matrix_precision() {
 fn test_large_world_config_defaults() {
     let config = LargeWorldConfig::default();
 
-    assert!(!config.enable_large_world); // Disabled by default for compatibility
+    assert!(config.enable_large_world); // Enabled by default
     assert_eq!(config.origin_shift_threshold, 50_000.0);
-    assert!(!config.use_logarithmic_depth);
-    assert_eq!(config.max_render_distance, 100_000.0);
+    assert!(config.use_logarithmic_depth); // Enabled by default
+    assert_eq!(config.max_render_distance, 1_000_000_000.0); // 1 billion units
 }
 
 #[test]

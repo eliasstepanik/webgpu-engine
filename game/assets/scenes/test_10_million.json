@@ -1,0 +1,60 @@
+{
+  "entities": [
+    {
+      "components": {
+        "Name": {
+          "name": "Camera at 10 Million"
+        },
+        "Camera": {
+          "fov_y_radians": 1.0472,
+          "aspect_ratio": 1.7778,
+          "z_near": 0.1,
+          "z_far": 1000000000.0,
+          "projection_mode": "Perspective",
+          "use_logarithmic_depth": true
+        },
+        "Transform": {
+          "position": [9999995.0, 5.0, 10.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": {
+          "name": "Cube at 10 Million"
+        },
+        "MeshId": {
+          "0": "Cube"
+        },
+        "Material": {
+          "color": [1.0, 0.0, 0.0, 1.0]
+        },
+        "Transform": {
+          "position": [10000000.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [5.0, 5.0, 5.0]
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": {
+          "name": "Reference Sphere"
+        },
+        "MeshId": {
+          "0": "Sphere"
+        },
+        "Material": {
+          "color": [0.0, 1.0, 0.0, 1.0]
+        },
+        "Transform": {
+          "position": [9999990.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [2.0, 2.0, 2.0]
+        }
+      }
+    }
+  ]
+}

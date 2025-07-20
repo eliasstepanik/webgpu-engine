@@ -103,7 +103,14 @@
       "Bash(RUST_LOG=engine::scripting=debug cargo run --bin game)",
       "Bash(RUST_LOG=engine::scripting=info cargo run --bin game)",
       "Bash(RUST_LOG=engine::io::hot_reload=debug,engine::scripting=warn cargo run --bin game)",
-      "Bash(RUST_LOG=engine::scripting=warn cargo run --bin game)"
+      "Bash(RUST_LOG=engine::scripting=warn cargo run --bin game)",
+      "WebFetch(domain:gamedev.stackexchange.com)",
+      "Bash(RUST_LOG=engine::core::entity::hierarchy=trace cargo test --package engine test_camera_parenting_no_drift -- --nocapture)",
+      "Bash(RUST_TEST_THREADS=1 cargo test --workspace)",
+      "Bash(./test_camera_drift)",
+      "Bash(RUST_LOG=trace cargo test --package engine terrain::octree::tests::test_octree_insert_query -- --nocapture)",
+      "*",
+      "Bash(RUST_BACKTRACE=1 cargo test -p engine --lib -- --test-threads=1)"
     ],
     "deny": []
   },

@@ -87,6 +87,24 @@ let scene = Scene::load_from_file("my_scene.json")?;
 let mapper = scene.instantiate(&mut world)?;
 ```
 
+### Loading Scenes via Environment Variable:
+You can specify which scene to load when starting the game using the `SCENE` environment variable:
+
+```bash
+# Load a specific scene by name (without .json extension)
+SCENE=test_mesh_generation cargo run
+
+# Load a specific scene with full filename
+SCENE=demo_scene.json cargo run
+
+# Or on Windows:
+set SCENE=test_mesh_generation
+cargo run
+
+# The game will look for the scene in game/assets/scenes/
+# If the scene fails to load, it will fall back to the default demo scene
+```
+
 ## Notes
 
 - Entity IDs in the JSON are automatically remapped when loading

@@ -1,6 +1,6 @@
 //! Input/Output module for asset loading and scene serialization
 
-mod component_registry;
+pub mod component_registry;
 mod entity_mapper;
 pub mod hot_reload;
 mod scene;

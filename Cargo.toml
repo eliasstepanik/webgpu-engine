@@ -4,6 +4,7 @@ members = [
     "game",
     "engine",
     "editor",
+    "engine_derive",
 ]
 
 [patch.crates-io]

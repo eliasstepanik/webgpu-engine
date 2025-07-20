@@ -1,6 +1,7 @@
 //! World API for accessing entities and components from scripts
 
 use crate::core::entity::{Transform, World};
+use crate::graphics::renderer::MeshId;
 use crate::graphics::Material;
 use crate::scripting::commands::{
     CommandQueue, ComponentData, ScriptCommand, SharedComponentCache,
@@ -119,6 +120,25 @@ pub fn create_world_module(
                 material,
             });
             trace!(entity = entity_id, "Queued Material update");
+            Ok(())
+        },
+    );
+
+    // Set MeshId component
+    let queue = command_queue.clone();
+    module.set_native_fn(
+        "set_mesh_id",
+        move |entity: i64, mesh_id: &str| -> Result<(), Box<EvalAltResult>> {
+            let entity_id = entity as u64;
+            queue.write().unwrap().push(ScriptCommand::SetMeshId {
+                entity: entity_id,
+                mesh_id: MeshId(mesh_id.to_string()),
+            });
+            trace!(
+                entity = entity_id,
+                mesh_id = mesh_id,
+                "Queued MeshId update"
+            );
             Ok(())
         },
     );
@@ -261,6 +281,48 @@ pub fn create_world_module(
                 ],
             });
             debug!("Queued entity creation with components");
+            Ok(())
+        },
+    );
+
+    // Create entity with mesh
+    let queue = command_queue.clone();
+    module.set_native_fn(
+        "create_entity_with_mesh",
+        move |transform: Transform,
+              material: Material,
+              mesh_id: &str|
+              -> Result<(), Box<EvalAltResult>> {
+            queue.write().unwrap().push(ScriptCommand::CreateEntity {
+                components: vec![
+                    ComponentData::Transform(transform),
+                    ComponentData::Material(material),
+                    ComponentData::MeshId(MeshId(mesh_id.to_string())),
+                ],
+            });
+            debug!("Queued entity creation with mesh");
+            Ok(())
+        },
+    );
+
+    // Create entity with mesh and name
+    let queue = command_queue.clone();
+    module.set_native_fn(
+        "create_entity_with_mesh_and_name",
+        move |transform: Transform,
+              material: Material,
+              mesh_id: &str,
+              name: &str|
+              -> Result<(), Box<EvalAltResult>> {
+            queue.write().unwrap().push(ScriptCommand::CreateEntity {
+                components: vec![
+                    ComponentData::Transform(transform),
+                    ComponentData::Material(material),
+                    ComponentData::MeshId(MeshId(mesh_id.to_string())),
+                    ComponentData::Name(name.to_string()),
+                ],
+            });
+            debug!("Queued entity creation with mesh and name");
             Ok(())
         },
     );

@@ -3,12 +3,15 @@
 //! Provides camera functionality for 3D rendering, including perspective and
 //! orthographic projections, and view matrix calculation from transforms.
 
+use crate::component_system::{Component, ComponentMetadata, ComponentRegistryExt, EditorUI};
 use crate::core::entity::{components::GlobalWorldTransform, GlobalTransform};
+use crate::io::component_registry::ComponentRegistry;
 use glam::{DVec3, Mat4};
 use serde::{Deserialize, Serialize};
 
 /// Camera component that defines projection parameters for rendering
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI)]
+#[component(name = "Camera")]
 pub struct Camera {
     /// Field of view in radians (for perspective projection)
     pub fov_y_radians: f32,
@@ -57,7 +60,7 @@ impl Camera {
             z_near,
             z_far,
             projection_mode: ProjectionMode::Perspective,
-            use_logarithmic_depth: false,
+            use_logarithmic_depth: true, // Always use logarithmic depth
         }
     }
 
@@ -155,11 +158,11 @@ impl Camera {
     pub fn view_projection_matrix_world(
         &self,
         camera_transform: &GlobalWorldTransform,
-        camera_world_pos: DVec3,
+        _camera_world_pos: DVec3,
     ) -> Mat4 {
-        // Create a camera-relative transform for rendering
-        let camera_relative = camera_transform.to_camera_relative(camera_world_pos);
-        self.projection_matrix() * Self::view_matrix(&camera_relative)
+        // For view matrix calculation, we use the camera's transform directly
+        // The camera-relative positioning is handled when transforming objects, not the camera
+        self.projection_matrix() * Self::view_matrix_world(camera_transform)
     }
 
     /// Enable or disable logarithmic depth buffer
@@ -213,7 +216,8 @@ impl Camera {
 ///
 /// This component tracks the camera's position in high-precision world coordinates.
 /// It's separate from the regular transform to maintain backward compatibility.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI)]
+#[component(name = "CameraWorldPosition")]
 pub struct CameraWorldPosition {
     /// Camera position in world coordinates using 64-bit precision
     pub position: DVec3,

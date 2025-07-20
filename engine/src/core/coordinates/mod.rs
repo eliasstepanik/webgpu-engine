@@ -37,10 +37,10 @@ pub struct LargeWorldConfig {
 impl Default for LargeWorldConfig {
     fn default() -> Self {
         Self {
-            enable_large_world: false,
-            origin_shift_threshold: 50_000.0, // 50km
-            use_logarithmic_depth: false,
-            max_render_distance: 100_000.0, // 100km
+            enable_large_world: true,             // Always enabled
+            origin_shift_threshold: 50_000.0,     // 50km
+            use_logarithmic_depth: true,          // Always use logarithmic depth
+            max_render_distance: 1_000_000_000.0, // 1 billion units
         }
     }
 }

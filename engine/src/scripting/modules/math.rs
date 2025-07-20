@@ -110,6 +110,11 @@ pub fn register_math_types(engine: &mut Engine) {
     math_module.set_native_fn("clamp", |x: f64, min: f64, max: f64| Ok(x.clamp(min, max)));
     math_module.set_native_fn("lerp", |a: f64, b: f64, t: f64| Ok(a + (b - a) * t));
 
+    // Add math constants to the math module
+    math_module.set_var("PI", std::f64::consts::PI);
+    math_module.set_var("TAU", std::f64::consts::TAU);
+    math_module.set_var("E", std::f64::consts::E);
+
     engine.register_static_module("math", math_module.into());
 
     // Create Vec3 module with constructor functions

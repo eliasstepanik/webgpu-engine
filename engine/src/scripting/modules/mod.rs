@@ -2,6 +2,7 @@
 
 pub mod input;
 pub mod math;
+pub mod mesh;
 pub mod world;
 
 use rhai::Engine;
@@ -19,6 +20,9 @@ pub fn register_all_modules(engine: &mut Engine) {
 
     // Register input API
     input::register_input_api(engine);
+
+    // Register mesh API
+    mesh::register_mesh_api(engine);
 
     debug!("All scripting modules registered");
 }

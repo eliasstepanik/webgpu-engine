@@ -18,7 +18,9 @@ use std::io;
 use std::path::Path;
 use tracing::{debug, error, info, warn};
 
+use super::component_registry::ComponentRegistry;
 use super::entity_mapper::EntityMapper;
+use crate::component_system::ComponentRegistryExt;
 
 /// Scene data structure containing serialized entities
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,6 +80,47 @@ impl Scene {
         Self {
             entities: Vec::new(),
         }
+    }
+
+    /// Create a scene from a world using the component registry
+    /// This method uses the registry to automatically serialize all registered components
+    pub fn from_world_with_registry(world: &World, registry: &ComponentRegistry) -> Self {
+        let mut entities = Vec::new();
+        let mut entity_to_id = HashMap::new();
+
+        // First pass: assign IDs to all entities
+        for (id, (entity, _)) in world.query::<()>().iter().enumerate() {
+            entity_to_id.insert(entity, id as u64);
+        }
+
+        debug!(
+            entity_count = entity_to_id.len(),
+            "Assigned IDs to entities"
+        );
+
+        // Second pass: serialize components using registry
+        for (_entity, ()) in world.query::<()>().iter() {
+            let components = HashMap::new();
+
+            // Use registry to serialize all registered component types
+            for _metadata in registry.iter_metadata() {
+                // TODO: Need a way to check if entity has component by TypeId
+                // and get component as dyn Any for serialization
+                // For now, we'll skip registry-based serialization
+            }
+
+            // Fall back to manual serialization for now
+            // This will be replaced once we have proper type-erased component access
+
+            entities.push(SerializedEntity { components });
+        }
+
+        info!(
+            entity_count = entities.len(),
+            "Created scene from world with registry"
+        );
+
+        Scene { entities }
     }
 
     /// Create a scene from a world, capturing all entities and their components
@@ -463,6 +506,57 @@ impl Scene {
         }
 
         info!("Scene instantiation complete");
+        Ok(mapper)
+    }
+
+    /// Instantiate this scene into a world using the component registry
+    /// This method uses the registry to automatically deserialize all registered components
+    pub fn instantiate_with_registry(
+        &self,
+        world: &mut World,
+        registry: &ComponentRegistry,
+    ) -> Result<EntityMapper, SceneError> {
+        let mut mapper = EntityMapper::new();
+        let mut entities_to_build = Vec::new();
+
+        info!(
+            entity_count = self.entities.len(),
+            "Instantiating scene with registry"
+        );
+
+        // First pass: spawn all entities and build ID mapping
+        for (id, serialized_entity) in self.entities.iter().enumerate() {
+            let entity = world.spawn(());
+            mapper.register(id as u64, entity);
+            entities_to_build.push((entity, serialized_entity));
+            debug!(id = id, entity = ?entity, "Spawned entity");
+        }
+
+        // Second pass: add components using registry
+        for (entity, serialized_entity) in entities_to_build {
+            for (component_type, value) in &serialized_entity.components {
+                // Try to deserialize using registry
+                if let Some(metadata) = registry.get_metadata_by_name(component_type) {
+                    match (metadata.deserializer)(value) {
+                        Ok(_component) => {
+                            // TODO: Need a way to insert component as dyn Any
+                            // For now, this is a placeholder
+                            debug!(component_type = component_type, entity = ?entity, "Would insert component via registry");
+                        }
+                        Err(e) => {
+                            error!(error = %e, component_type = component_type, "Failed to deserialize component via registry");
+                        }
+                    }
+                } else {
+                    warn!(
+                        component_type = component_type,
+                        "Unknown component type in scene, skipping"
+                    );
+                }
+            }
+        }
+
+        info!("Scene instantiation with registry complete");
         Ok(mapper)
     }
 

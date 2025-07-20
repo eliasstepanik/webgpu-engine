@@ -248,9 +248,48 @@ impl ApplicationHandler for GameApp {
         if !self.engine.is_initialized() {
             self.engine.init(event_loop);
 
-            // Create demo scene after engine is initialized
-            if let Some(renderer) = &mut self.engine.renderer {
-                create_demo_scene(&mut self.engine.world, renderer);
+            // Check for SCENE environment variable
+            if let Ok(scene_name) = std::env::var("SCENE") {
+                info!("Loading scene from environment variable: {}", scene_name);
+
+                if let Some(renderer) = &mut self.engine.renderer {
+                    // Build the scene path
+                    let scene_path = if scene_name.ends_with(".json") {
+                        PathBuf::from("game/assets/scenes").join(&scene_name)
+                    } else {
+                        PathBuf::from("game/assets/scenes").join(format!("{scene_name}.json"))
+                    };
+
+                    // Try to load the scene
+                    match engine::io::Scene::load_from_file(&scene_path) {
+                        Ok(scene) => match scene.instantiate(&mut self.engine.world) {
+                            Ok(_) => {
+                                info!("Successfully loaded scene: {}", scene_path.display());
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to instantiate scene: {}", e);
+                                info!("Falling back to demo scene");
+                                create_demo_scene(&mut self.engine.world, renderer);
+                            }
+                        },
+                        Err(e) => {
+                            tracing::error!(
+                                "Failed to load scene from {}: {}",
+                                scene_path.display(),
+                                e
+                            );
+                            info!("Falling back to demo scene");
+                            create_demo_scene(&mut self.engine.world, renderer);
+                        }
+                    }
+                } else {
+                    tracing::error!("Renderer not available to load scene");
+                }
+            } else {
+                // Create demo scene if no environment variable is set
+                if let Some(renderer) = &mut self.engine.renderer {
+                    create_demo_scene(&mut self.engine.world, renderer);
+                }
             }
         }
 
@@ -314,6 +353,9 @@ impl ApplicationHandler for GameApp {
 
         // Special handling for RedrawRequested when editor is active
         if matches!(event, WindowEvent::RedrawRequested) {
+            // Advance to next frame for hierarchy update tracking
+            engine::core::entity::hierarchy::advance_frame();
+
             // Update time and engine state
             let current_time = std::time::Instant::now();
             let delta_time = (current_time - self.last_time).as_secs_f32();
@@ -387,7 +429,7 @@ fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
     // Create camera
     let camera_entity = world.spawn((
         Name::new("Main Camera"),
-        Camera::perspective(60.0, 16.0 / 9.0, 0.1, 1000.0),
+        Camera::perspective(60.0, 16.0 / 9.0, 0.1, 1_000_000_000.0), // 1 billion units far plane
         Transform::from_position(Vec3::new(0.0, 2.0, 5.0)).looking_at(Vec3::ZERO, Vec3::Y),
         GlobalTransform::default(),
     ));

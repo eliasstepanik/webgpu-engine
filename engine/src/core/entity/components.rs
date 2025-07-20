@@ -10,6 +10,9 @@
 //! Use [`Transform`] for normal entities and [`WorldTransform`] only when positioning
 //! objects at distances >1 million units from the world origin.
 
+use crate::component_system::{Component, ComponentMetadata, ComponentRegistryExt, EditorUI};
+use crate::io::component_registry::ComponentRegistry;
+use engine_derive;
 use glam::{DMat4, DVec3, Mat4, Quat, Vec3};
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +20,8 @@ use serde::{Deserialize, Serialize};
 pub use crate::core::coordinates::WorldTransform;
 
 /// Transform component representing position, rotation, and scale in local space
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, engine_derive::Component, engine_derive::EditorUI)]
+#[component(name = "Transform")]
 pub struct Transform {
     /// Position in local space
     pub position: Vec3,
@@ -85,7 +89,8 @@ impl Transform {
 }
 
 /// Global transform component representing the world-space transformation matrix
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI)]
+#[component(name = "GlobalTransform")]
 pub struct GlobalTransform {
     /// World-space transformation matrix
     pub matrix: Mat4,
@@ -109,13 +114,20 @@ impl GlobalTransform {
     pub fn position(&self) -> Vec3 {
         self.matrix.w_axis.truncate()
     }
+
+    /// Get the world position with f64 precision to avoid drift
+    pub fn position_f64(&self) -> DVec3 {
+        let pos = self.matrix.w_axis.truncate();
+        DVec3::new(pos.x as f64, pos.y as f64, pos.z as f64)
+    }
 }
 
 /// Global world transform component for high-precision world-space transformations
 ///
 /// This component stores the final world-space transformation matrix in 64-bit precision
 /// for entities using WorldTransform. It's automatically managed by the hierarchy system.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI)]
+#[component(name = "GlobalWorldTransform")]
 pub struct GlobalWorldTransform {
     /// World-space transformation matrix in 64-bit precision
     pub matrix: DMat4,
@@ -142,11 +154,15 @@ impl GlobalWorldTransform {
 
     /// Convert to a camera-relative GlobalTransform for rendering
     pub fn to_camera_relative(&self, camera_world_position: DVec3) -> GlobalTransform {
-        let relative_translation = self.position() - camera_world_position;
+        // Decompose the matrix to get scale, rotation, and translation
+        let (scale, rotation, translation) = self.matrix.to_scale_rotation_translation();
 
-        // Create a new matrix with relative translation but preserve rotation/scale
-        let mut relative_matrix = self.matrix;
-        relative_matrix.w_axis = relative_translation.extend(1.0);
+        // Calculate camera-relative position
+        let relative_translation = translation - camera_world_position;
+
+        // Reconstruct the matrix with camera-relative translation
+        let relative_matrix =
+            DMat4::from_scale_rotation_translation(scale, rotation, relative_translation);
 
         GlobalTransform::from_matrix(relative_matrix.as_mat4())
     }
@@ -163,7 +179,8 @@ pub struct Parent(pub hecs::Entity);
 ///
 /// This is used for scene serialization since hecs::Entity cannot be serialized directly.
 /// The entity_id is remapped during scene loading to match the new entity IDs.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, engine_derive::Component, engine_derive::EditorUI)]
+#[component(name = "Parent")]
 pub struct ParentData {
     /// Entity ID that will be remapped during scene loading
     pub entity_id: u64,
@@ -191,7 +208,8 @@ impl ParentData {
 }
 
 /// Name component for user-friendly entity identification
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI)]
+#[component(name = "Name")]
 pub struct Name(pub String);
 
 impl Name {

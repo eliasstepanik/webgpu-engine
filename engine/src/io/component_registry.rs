@@ -1,6 +1,7 @@
 //! Component registry for dynamic component deserialization
 
-use std::any::Any;
+use crate::component_system::{ComponentMetadata, ComponentRegistryExt};
+use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::debug;
@@ -22,6 +23,10 @@ pub type ComponentDeserializerFn = Arc<
 pub struct ComponentRegistry {
     /// Maps component type names to their deserializer functions
     deserializers: HashMap<String, ComponentDeserializerFn>,
+    /// Maps TypeId to component metadata
+    metadata: HashMap<TypeId, ComponentMetadata>,
+    /// Maps component names to TypeId for lookup
+    name_to_type: HashMap<String, TypeId>,
 }
 
 impl ComponentRegistry {
@@ -29,6 +34,8 @@ impl ComponentRegistry {
     pub fn new() -> Self {
         Self {
             deserializers: HashMap::new(),
+            metadata: HashMap::new(),
+            name_to_type: HashMap::new(),
         }
     }
 
@@ -90,25 +97,34 @@ impl ComponentRegistry {
 
     /// Create a registry with all default engine components registered
     pub fn with_default_components() -> Self {
-        use crate::core::camera::Camera;
-        use crate::core::entity::components::{GlobalTransform, Name, ParentData, Transform};
+        use crate::component_system::Component;
+        use crate::core::camera::{Camera, CameraWorldPosition};
+        use crate::core::coordinates::WorldTransform;
+        use crate::core::entity::components::{
+            GlobalTransform, GlobalWorldTransform, Name, ParentData, Transform,
+        };
         use crate::graphics::{Material, MeshId};
+        use crate::scripting::{ScriptProperties, ScriptRef};
 
         let mut registry = Self::new();
 
-        // Register core components
-        registry.register::<Transform>("Transform");
-        registry.register::<GlobalTransform>("GlobalTransform");
-        registry.register::<Camera>("Camera");
-        registry.register::<ParentData>("Parent");
-        registry.register::<Name>("Name");
+        // Register core components using the new Component trait
+        Transform::register(&mut registry);
+        GlobalTransform::register(&mut registry);
+        GlobalWorldTransform::register(&mut registry);
+        WorldTransform::register(&mut registry);
+        Camera::register(&mut registry);
+        CameraWorldPosition::register(&mut registry);
+        ParentData::register(&mut registry);
+        Name::register(&mut registry);
 
         // Register graphics components
-        registry.register::<MeshId>("MeshId");
-        registry.register::<Material>("Material");
+        MeshId::register(&mut registry);
+        Material::register(&mut registry);
 
         // Register scripting components
-        registry.register::<crate::scripting::ScriptRef>("ScriptRef");
+        ScriptRef::register(&mut registry);
+        ScriptProperties::register(&mut registry);
 
         debug!(
             component_count = registry.len(),
@@ -127,6 +143,41 @@ impl std::fmt::Debug for ComponentRegistry {
                 &self.deserializers.keys().collect::<Vec<_>>(),
             )
             .finish()
+    }
+}
+
+impl ComponentRegistryExt for ComponentRegistry {
+    fn register_with_metadata(&mut self, metadata: ComponentMetadata) {
+        let type_id = metadata.type_id;
+        let name = metadata.name.to_string();
+
+        // Store the deserializer function
+        self.deserializers
+            .insert(name.clone(), metadata.deserializer.clone());
+
+        // Store the metadata
+        self.name_to_type.insert(name.clone(), type_id);
+        self.metadata.insert(type_id, metadata);
+
+        debug!(component_name = %name, "Registered component with metadata");
+    }
+
+    fn get_metadata(&self, type_id: TypeId) -> Option<&ComponentMetadata> {
+        self.metadata.get(&type_id)
+    }
+
+    fn get_metadata_by_name(&self, name: &str) -> Option<&ComponentMetadata> {
+        self.name_to_type
+            .get(name)
+            .and_then(|type_id| self.metadata.get(type_id))
+    }
+
+    fn iter_metadata(&self) -> impl Iterator<Item = &ComponentMetadata> {
+        self.metadata.values()
+    }
+
+    fn component_names(&self) -> Vec<&'static str> {
+        self.metadata.values().map(|meta| meta.name).collect()
     }
 }
 
@@ -202,5 +253,68 @@ mod tests {
         assert_eq!(types.len(), 2);
         assert!(types.contains(&"TestComponent"));
         assert!(types.contains(&"AnotherComponent"));
+    }
+
+    #[test]
+    fn test_component_registry_with_metadata() {
+        use crate::component_system::{Component, ComponentMetadata, ComponentRegistryExt};
+
+        #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+        struct MetadataTestComponent {
+            value: String,
+        }
+
+        impl Component for MetadataTestComponent {
+            fn component_name() -> &'static str {
+                "MetadataTestComponent"
+            }
+
+            fn register(registry: &mut ComponentRegistry) {
+                let metadata = ComponentMetadata::new::<Self>(Self::component_name());
+                registry.register_with_metadata(metadata);
+            }
+        }
+
+        let mut registry = ComponentRegistry::new();
+        MetadataTestComponent::register(&mut registry);
+
+        // Check metadata is stored
+        let metadata = registry
+            .get_metadata_by_name("MetadataTestComponent")
+            .unwrap();
+        assert_eq!(metadata.name, "MetadataTestComponent");
+
+        // Test serialization through metadata
+        let component = MetadataTestComponent {
+            value: "test value".to_string(),
+        };
+        let serialized = (metadata.serializer)(&component).unwrap();
+        assert_eq!(serialized["value"], "test value");
+
+        // Test deserialization through metadata
+        let json = serde_json::json!({ "value": "deserialized value" });
+        let deserialized = (metadata.deserializer)(&json).unwrap();
+        let result = deserialized
+            .downcast_ref::<MetadataTestComponent>()
+            .unwrap();
+        assert_eq!(result.value, "deserialized value");
+    }
+
+    #[test]
+    fn test_registry_metadata_iteration() {
+        use crate::component_system::ComponentRegistryExt;
+
+        // Use the default components registry which uses the new system
+        let registry = ComponentRegistry::with_default_components();
+
+        // Count metadata entries
+        let metadata_count = registry.iter_metadata().count();
+        assert!(metadata_count > 0);
+
+        // Check component names
+        let names = registry.component_names();
+        assert!(names.contains(&"Transform"));
+        assert!(names.contains(&"Camera"));
+        assert!(names.contains(&"Material"));
     }
 }

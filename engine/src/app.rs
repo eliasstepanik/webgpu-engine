@@ -224,6 +224,11 @@ impl EngineApp {
                 &script_input_state,
                 delta_time,
             );
+
+            // Process mesh uploads from scripts
+            if let Some(renderer) = &mut self.renderer {
+                crate::scripting::process_script_mesh_uploads(script_engine, renderer);
+            }
         }
 
         update_hierarchy_system(&mut self.world);
@@ -364,6 +369,9 @@ impl ApplicationHandler for EngineApp {
                 self.handle_resize(window_id, new_size);
             }
             WindowEvent::RedrawRequested => {
+                // Advance to next frame for hierarchy update tracking
+                crate::core::entity::hierarchy::advance_frame();
+
                 // Update time
                 let current_time = std::time::Instant::now();
                 let delta_time = (current_time - self.last_time).as_secs_f32();
@@ -452,6 +460,23 @@ impl EngineBuilder {
     /// Enable or disable scripting
     pub fn with_scripting(mut self, enable: bool) -> Self {
         self.config.enable_scripting = enable;
+        self
+    }
+
+    /// Configure large world coordinate system
+    pub fn with_large_world(mut self, config: LargeWorldConfig) -> Self {
+        self.config.large_world = config;
+        self
+    }
+
+    /// Enable large world coordinates with default settings
+    pub fn enable_large_world(mut self) -> Self {
+        self.config.large_world = LargeWorldConfig {
+            enable_large_world: true,
+            origin_shift_threshold: 10_000.0, // 10km
+            use_logarithmic_depth: true,
+            max_render_distance: 1_000_000.0, // 1000km
+        };
         self
     }
 

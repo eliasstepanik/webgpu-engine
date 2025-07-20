@@ -3,7 +3,9 @@
 //! Provides a high-precision transform component using 64-bit floating point
 //! for position coordinates, enabling stable positioning at planetary scales.
 
+use crate::component_system::{Component, ComponentMetadata, ComponentRegistryExt, EditorUI};
 use crate::core::entity::components::Transform;
+use crate::io::component_registry::ComponentRegistry;
 use glam::{DMat4, DVec3, Quat, Vec3};
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +15,8 @@ use serde::{Deserialize, Serialize};
 /// from the world origin (>1 million units) without precision loss.
 ///
 /// For normal gameplay objects, the regular Transform component is sufficient.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, engine_derive::Component, engine_derive::EditorUI)]
+#[component(name = "WorldTransform")]
 pub struct WorldTransform {
     /// Position in world space using 64-bit precision
     pub position: DVec3,

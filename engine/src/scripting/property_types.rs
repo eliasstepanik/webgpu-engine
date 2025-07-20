@@ -3,6 +3,8 @@
 //! This module provides types for defining and storing script properties that can be
 //! configured per-entity in the editor and accessed at runtime by scripts.
 
+use crate::component_system::{Component, ComponentMetadata, ComponentRegistryExt, EditorUI};
+use crate::io::component_registry::ComponentRegistry;
 use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -158,7 +160,8 @@ pub struct PropertyMetadata {
 }
 
 /// Component that stores script property values per entity
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, engine_derive::Component, engine_derive::EditorUI)]
+#[component(name = "ScriptProperties")]
 pub struct ScriptProperties {
     /// Map of property name to value
     pub values: HashMap<String, PropertyValue>,

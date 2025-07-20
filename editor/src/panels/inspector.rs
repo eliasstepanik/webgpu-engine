@@ -65,7 +65,7 @@ pub fn render_inspector_panel(
                 ui.text(format!("Entity: {entity:?}"));
                 ui.separator();
 
-                // Check which components exist first
+                // Check which components exist firs
                 let (has_name, has_transform, has_camera, has_material, has_mesh, has_script, _has_script_properties) = shared_state.with_world_read(|world| {
                     let components = (
                         world.get::<Name>(entity).is_ok(),
@@ -85,9 +85,11 @@ pub fn render_inspector_panel(
 
 
 
-                // Name component
+                // Name componen
                 if has_name {
                     if ui.collapsing_header("Name", TreeNodeFlags::DEFAULT_OPEN) {
+                        let mut remove_component = false;
+
                         shared_state.with_world_write(|world| {
                             if let Ok(mut name) = world.inner_mut().remove_one::<Name>(entity) {
                                 let mut name_buffer = name.0.clone();
@@ -96,28 +98,53 @@ pub fn render_inspector_panel(
                                     shared_state.mark_scene_modified();
                                     debug!(entity = ?entity, name = %name.0, "Modified entity name");
                                 }
-                                // Re-insert the component
-                                let _ = world.insert_one(entity, name);
+
+                                // Remove component button
+                                ui.same_line();
+                                if ui.small_button("Remove##name") {
+                                    remove_component = true;
+                                    debug!(entity = ?entity, "Removed Name component");
+                                } else {
+                                    // Re-insert the component only if not removing
+                                    let _ = world.insert_one(entity, name);
+                                }
                             }
                         });
+
+                        if remove_component {
+                            shared_state.mark_scene_modified();
+                        }
                     }
                 } else {
                     warn!(entity = ?entity, "Entity missing Name component");
                 }
 
-                // Transform component
+                // Transform componen
                 if has_transform
                     && ui.collapsing_header("Transform", TreeNodeFlags::DEFAULT_OPEN) {
+                        let mut remove_component = false;
+
                         shared_state.with_world_write(|world| {
                             if let Ok(mut transform) = world.inner_mut().remove_one::<Transform>(entity) {
                                 if render_editable_transform(ui, &mut transform, entity) {
                                     shared_state.mark_scene_modified();
                                     debug!(entity = ?entity, "Modified transform");
                                 }
-                                // Re-insert the component
-                                let _ = world.insert_one(entity, transform);
+
+                                // Remove component button
+                                if ui.small_button("Remove Transform") {
+                                    remove_component = true;
+                                    debug!(entity = ?entity, "Removed Transform component");
+                                } else {
+                                    // Re-insert the component only if not removing
+                                    let _ = world.insert_one(entity, transform);
+                                }
                             }
                         });
+
+                        if remove_component {
+                            shared_state.mark_scene_modified();
+                        }
                     }
 
                 // Parent component (read-only)
@@ -129,39 +156,67 @@ pub fn render_inspector_panel(
                     ui.text(format!("{parent_entity:?}"));
                 }
 
-                // Camera component
+                // Camera componen
                 if has_camera
                     && ui.collapsing_header("Camera", TreeNodeFlags::DEFAULT_OPEN) {
+                        let mut remove_component = false;
+
                         shared_state.with_world_write(|world| {
                             if let Ok(mut camera) = world.inner_mut().remove_one::<Camera>(entity) {
                                 if render_editable_camera(ui, &mut camera) {
                                     shared_state.mark_scene_modified();
                                     debug!(entity = ?entity, "Modified camera");
                                 }
-                                // Re-insert the component
-                                let _ = world.insert_one(entity, camera);
+
+                                // Remove component button
+                                if ui.small_button("Remove Camera") {
+                                    remove_component = true;
+                                    debug!(entity = ?entity, "Removed Camera component");
+                                } else {
+                                    // Re-insert the component only if not removing
+                                    let _ = world.insert_one(entity, camera);
+                                }
                             }
                         });
+
+                        if remove_component {
+                            shared_state.mark_scene_modified();
+                        }
                     }
 
-                // Material component
+                // Material componen
                 if has_material
                     && ui.collapsing_header("Material", TreeNodeFlags::DEFAULT_OPEN) {
+                        let mut remove_component = false;
+
                         shared_state.with_world_write(|world| {
                             if let Ok(mut material) = world.inner_mut().remove_one::<Material>(entity) {
                                 if render_editable_material(ui, &mut material) {
                                     shared_state.mark_scene_modified();
                                     debug!(entity = ?entity, "Modified material");
                                 }
-                                // Re-insert the component
-                                let _ = world.insert_one(entity, material);
+
+                                // Remove component button
+                                if ui.small_button("Remove Material") {
+                                    remove_component = true;
+                                    debug!(entity = ?entity, "Removed Material component");
+                                } else {
+                                    // Re-insert the component only if not removing
+                                    let _ = world.insert_one(entity, material);
+                                }
                             }
                         });
+
+                        if remove_component {
+                            shared_state.mark_scene_modified();
+                        }
                     }
 
-                // MeshId component
+                // MeshId componen
                 if has_mesh
                     && ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
+                        let mut remove_component = false;
+
                         shared_state.with_world_write(|world| {
                             if let Ok(mut mesh_id) = world.inner_mut().remove_one::<MeshId>(entity) {
                                 let mut mesh_name = mesh_id.0.clone();
@@ -169,7 +224,7 @@ pub fn render_inspector_panel(
                                     .hint("e.g. cube, sphere, or path/to/model.obj")
                                     .build();
 
-                                // Add drop target
+                                // Add drop targe
                                 let mut drop_accepted = false;
                                 if let Some(target) = ui.drag_drop_target() {
                                     // Visual feedback when hovering
@@ -203,15 +258,28 @@ pub fn render_inspector_panel(
                                     shared_state.mark_scene_modified();
                                     debug!(entity = ?entity, mesh = %mesh_id.0, "Modified mesh");
                                 }
-                                // Re-insert the component
-                                let _ = world.insert_one(entity, mesh_id);
+
+                                // Remove component button
+                                if ui.small_button("Remove Mesh") {
+                                    remove_component = true;
+                                    debug!(entity = ?entity, "Removed MeshId component");
+                                } else {
+                                    // Re-insert the component only if not removing
+                                    let _ = world.insert_one(entity, mesh_id);
+                                }
                             }
                         });
+
+                        if remove_component {
+                            shared_state.mark_scene_modified();
+                        }
                     }
 
                 // Script component
                 if has_script
                     && ui.collapsing_header("Script", TreeNodeFlags::DEFAULT_OPEN) {
+                        let mut remove_component = false;
+
                         shared_state.with_world_write(|world| {
                             if let Ok(mut script) = world.inner_mut().remove_one::<ScriptRef>(entity) {
                                 let mut script_name = script.name.clone();
@@ -219,7 +287,7 @@ pub fn render_inspector_panel(
                                     .hint("e.g. fly_camera, rotating_cube")
                                     .build();
 
-                                // Add drop target
+                                // Add drop targe
                                 let mut drop_accepted = false;
                                 if let Some(target) = ui.drag_drop_target() {
                                     // Visual feedback when hovering
@@ -256,10 +324,21 @@ pub fn render_inspector_panel(
                                     shared_state.mark_scene_modified();
                                     debug!(entity = ?entity, script = %script.name, "Modified script");
                                 }
-                                // Re-insert the component
-                                let _ = world.insert_one(entity, script);
+
+                                // Remove component button
+                                if ui.small_button("Remove Script") {
+                                    remove_component = true;
+                                    debug!(entity = ?entity, "Removed ScriptRef component");
+                                } else {
+                                    // Re-insert the component only if not removing
+                                    let _ = world.insert_one(entity, script);
+                                }
                             }
                         });
+
+                        if remove_component {
+                            shared_state.mark_scene_modified();
+                        }
 
                         // Script Properties
                         // Always check for properties when a script is present
@@ -279,7 +358,7 @@ pub fn render_inspector_panel(
                                         .ok();
                                     if let Ok(mut properties) = world.inner_mut().remove_one::<ScriptProperties>(entity) {
                                         let mut properties_modified = false;
-                                        // Update script name if not set
+                                        // Update script name if not se
                                         if properties.script_name.is_none() && script_name.is_some() {
                                             properties.script_name = script_name;
                                             properties_modified = true;
@@ -300,11 +379,11 @@ pub fn render_inspector_panel(
                                                     .build(ui, f)
                                                 {
                                                     warn!(
-                                                        "\n💡💡💡 INSPECTOR CHANGED PROPERTY! 💡💡💡\n\
-                                                        Entity: {:?}\n\
-                                                        Property: {}\n\
-                                                        Old Value: {}\n\
-                                                        New Value: {}\n\
+                                                        "\n💡💡💡 INSPECTOR CHANGED PROPERTY! 💡💡💡\n
+                                                        Entity: {:?}\n
+                                                        Property: {}\n
+                                                        Old Value: {}\n
+                                                        New Value: {}\n
                                                         ================================",
                                                         entity, name, old_val, f
                                                     );
@@ -402,6 +481,7 @@ pub fn render_inspector_panel(
                         }
                     }
 
+
                 // Add component button
                 ui.separator();
                 let state = get_inspector_state();
@@ -424,7 +504,7 @@ pub fn render_inspector_panel(
                     ui.text("Add Component");
                     ui.separator();
 
-                    // Filter input
+                    // Filter inpu
                     if ui.input_text("Filter", &mut state.component_filter)
                         .hint("Type to filter...")
                         .build()
@@ -434,7 +514,7 @@ pub fn render_inspector_panel(
 
                     ui.separator();
 
-                    // Component list
+                    // Component lis
                     let filter = state.component_filter.to_lowercase();
                     let mut component_added = false;
 
@@ -502,7 +582,7 @@ pub fn render_inspector_panel(
                             debug!(entity = ?entity, "Added Name component");
                         }
 
-                    // Script
+                    // Scrip
                     if !has_script && "script".contains(&filter)
                         && ui.selectable("Script") {
                             shared_state.with_world_write(|world| {
@@ -513,6 +593,7 @@ pub fn render_inspector_panel(
                             debug!(entity = ?entity, "Added Script component");
                         }
 
+
                     ui.separator();
 
                     if ui.button("Cancel") || component_added {
@@ -520,16 +601,51 @@ pub fn render_inspector_panel(
                         ui.close_current_popup();
                     }
                 }
+
+                // Entity controls section
+                ui.separator();
+                ui.text("Entity Actions:");
+
+                // Delete entity button
+                if ui.button("Delete Entity") {
+                    shared_state.with_world_write(|world| {
+                        if world.despawn(entity).is_ok() {
+                            debug!(entity = ?entity, "Deleted entity");
+                            shared_state.set_selected_entity(None);
+                            shared_state.mark_scene_modified();
+                        }
+                    });
+                }
+
+                // Note: Duplicate entity feature temporarily disabled due to lifetime issues
+                // TODO: Fix entity duplication to properly handle component lifetimes
             } else {
                 ui.text("No entity selected");
                 ui.text("Select an entity from the hierarchy to inspect its components.");
+
+                ui.separator();
+
+                // Create new entity button
+                if ui.button("Create New Entity") {
+                    shared_state.with_world_write(|world| {
+                        let new_entity = world.spawn((
+                            Name::new("New Entity"),
+                            Transform::default(),
+                            engine::prelude::GlobalTransform::default(),
+                        ));
+
+                        debug!(entity = ?new_entity, "Created new entity");
+                        shared_state.set_selected_entity(Some(new_entity));
+                        shared_state.mark_scene_modified();
+                    });
+                }
             }
 
             // Panel position and size are now managed by ImGui's docking system
         });
 }
 
-/// Render editable transform component
+/// Render editable transform componen
 fn render_editable_transform(
     ui: &imgui::Ui,
     transform: &mut Transform,
@@ -538,7 +654,7 @@ fn render_editable_transform(
     let mut modified = false;
     let state = get_inspector_state();
 
-    // Calculate available width and column layout
+    // Calculate available width and column layou
     let available_width = ui.content_region_avail()[0];
     let label_width = 20.0; // Width for "X:", "Y:", "Z:" labels
     let spacing = unsafe { ui.style().item_spacing[0] };
@@ -713,7 +829,7 @@ fn render_editable_transform(
     modified
 }
 
-/// Render editable camera component
+/// Render editable camera componen
 fn render_editable_camera(ui: &imgui::Ui, camera: &mut Camera) -> bool {
     let mut modified = false;
 
@@ -779,7 +895,7 @@ fn render_editable_camera(ui: &imgui::Ui, camera: &mut Camera) -> bool {
     modified
 }
 
-/// Render editable material component
+/// Render editable material componen
 fn render_editable_material(ui: &imgui::Ui, material: &mut Material) -> bool {
     let mut modified = false;
 

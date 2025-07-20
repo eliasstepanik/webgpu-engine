@@ -1,6 +1,7 @@
 use crate::core::entity::components::Transform;
 use crate::core::entity::{Entity, Name};
 use crate::graphics::material::Material;
+use crate::graphics::renderer::MeshId;
 use crate::scripting::commands::ComponentCache;
 use hecs::World;
 use tracing::{debug, error, trace};
@@ -49,6 +50,15 @@ pub fn query_component(
                 Err(format!("Entity {entity_id} missing Name component"))
             }
         }
+        "MeshId" => {
+            if let Ok(mesh_id) = world.get::<&MeshId>(entity) {
+                cache.mesh_ids.insert(entity_id, (*mesh_id).clone());
+                trace!(entity = entity_id, "Cached MeshId component");
+                Ok(())
+            } else {
+                Err(format!("Entity {entity_id} missing MeshId component"))
+            }
+        }
         _ => Err(format!("Unknown component type: {component_type}")),
     }
 }
@@ -86,6 +96,14 @@ pub fn query_entities_with_component(
             }
             debug!(count = entities.len(), "Queried entities with Name");
         }
+        "MeshId" => {
+            for (entity, mesh_id) in world.query::<&MeshId>().iter() {
+                let entity_id = entity.to_bits().get();
+                cache.mesh_ids.insert(entity_id, mesh_id.clone());
+                entities.push(entity_id);
+            }
+            debug!(count = entities.len(), "Queried entities with MeshId");
+        }
         _ => {
             error!(component_type, "Unknown component type in query");
         }
@@ -99,8 +117,13 @@ pub fn populate_cache_for_scripts(world: &World, cache: &mut ComponentCache) {
     cache.clear();
 
     // Query all entities with scriptable components
-    for (entity, (transform, material, name)) in world
-        .query::<(&Transform, Option<&Material>, Option<&Name>)>()
+    for (entity, (transform, material, name, mesh_id)) in world
+        .query::<(
+            &Transform,
+            Option<&Material>,
+            Option<&Name>,
+            Option<&MeshId>,
+        )>()
         .iter()
     {
         let entity_id = entity.to_bits().get();
@@ -117,12 +140,18 @@ pub fn populate_cache_for_scripts(world: &World, cache: &mut ComponentCache) {
         if let Some(n) = name {
             cache.names.insert(entity_id, n.0.clone());
         }
+
+        // Cache mesh ID if present
+        if let Some(id) = mesh_id {
+            cache.mesh_ids.insert(entity_id, id.clone());
+        }
     }
 
     debug!(
         transforms = cache.transforms.len(),
         materials = cache.materials.len(),
         names = cache.names.len(),
+        mesh_ids = cache.mesh_ids.len(),
         "Populated component cache for scripts"
     );
 }

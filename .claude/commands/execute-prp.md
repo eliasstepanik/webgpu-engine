@@ -23,10 +23,20 @@ Implement a feature using using the PRP file.
    - Execute the PRP
    - Implement all the code
 
-4. **Validate**
+4. **Test** (CRITICAL - YOU MUST TEST!)
+   - **ALWAYS TEST YOUR IMPLEMENTATION!**
+   - Use the SCENE environment variable for testing scene-related features:
+     ```bash
+     # Test specific scenes
+     SCENE=test_mesh_generation cargo run
+     SCENE=your_test_scene cargo run
+     ```
    - Run each validation command
+   - Test the feature manually to ensure it works as expected
+   - Test edge cases and error conditions
    - Fix any failures
    - Re-run until all pass (You can test on windows using the windows-ssh-mcp)
+   - **NO IMPLEMENTATION IS COMPLETE WITHOUT THOROUGH TESTING!**
 
 5. **Complete**
    - If needed write follow-up requests in the .claude/requests/ folder with the .claude/requests/templates/INITIAL.md as a template.
@@ -35,7 +45,8 @@ Implement a feature using using the PRP file.
    - Run final validation suite
    - Report completion status
    - Read the PRP again to ensure you have implemented everything
-   - Create a git commit. (Don´t mention Claude Code or anthropic in any of it)
+   - Create a branch with a fitting name.
+   - Create a git commit. (Don´t mention Claude Code or anthropic in any of it, (Author: Elias Stepanik, email: eliasstepanik@proton.me))
    - Move PRP File to the `.claude/prp/done` folder
 
 
