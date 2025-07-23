@@ -38,6 +38,8 @@ pub struct Renderer {
     basic_pipeline: RenderPipeline,
     /// Outline render pipeline for selection
     outline_pipeline: RenderPipeline,
+    /// Debug lines render pipeline
+    debug_pipeline: RenderPipeline,
     /// Depth texture for depth testing
     depth_texture: DepthTexture,
     /// Camera uniform buffer
@@ -46,6 +48,12 @@ pub struct Renderer {
     camera_bind_group: wgpu::BindGroup,
     /// Outline camera bind group
     outline_camera_bind_group: wgpu::BindGroup,
+    /// Debug camera bind group
+    debug_camera_bind_group: wgpu::BindGroup,
+    /// Debug line vertex buffer
+    debug_line_buffer: Option<wgpu::Buffer>,
+    /// Number of debug line vertices
+    debug_line_count: u32,
     /// Cached mesh GPU data
     mesh_cache: HashMap<String, MeshGpuData>,
     /// Mesh library for default meshes and fallbacks
@@ -65,6 +73,7 @@ impl Renderer {
         // Create render pipelines
         let basic_pipeline = RenderPipeline::new_basic_3d(&context.device, surface_format);
         let outline_pipeline = RenderPipeline::new_outline(&context.device, surface_format);
+        let debug_pipeline = RenderPipeline::new_debug_lines(&context.device, surface_format);
 
         // Create depth texture with default size
         let depth_texture = DepthTexture::new(&context.device, 1280, 720);
@@ -79,15 +88,21 @@ impl Renderer {
             basic_pipeline.create_camera_bind_group(&context.device, &camera_uniform_buffer);
         let outline_camera_bind_group =
             outline_pipeline.create_camera_bind_group(&context.device, &camera_uniform_buffer);
+        let debug_camera_bind_group =
+            debug_pipeline.create_camera_bind_group(&context.device, &camera_uniform_buffer);
 
         Self {
             context,
             basic_pipeline,
             outline_pipeline,
+            debug_pipeline,
             depth_texture,
             camera_uniform_buffer,
             camera_bind_group,
             outline_camera_bind_group,
+            debug_camera_bind_group,
+            debug_line_buffer: None,
+            debug_line_count: 0,
             mesh_cache: HashMap::new(),
             mesh_library: MeshLibrary::new(),
             surface_format,
@@ -107,14 +122,19 @@ impl Renderer {
     pub fn update_surface_format(&mut self, format: wgpu::TextureFormat) {
         if self.surface_format != format {
             self.surface_format = format;
-            // Recreate pipeline with new format
+            // Recreate pipelines with new format
             self.basic_pipeline = RenderPipeline::new_basic_3d(&self.context.device, format);
-            // Recreate camera bind group
+            self.outline_pipeline = RenderPipeline::new_outline(&self.context.device, format);
+            self.debug_pipeline = RenderPipeline::new_debug_lines(&self.context.device, format);
+            // Recreate camera bind groups
             self.camera_bind_group = self
                 .basic_pipeline
                 .create_camera_bind_group(&self.context.device, &self.camera_uniform_buffer);
             self.outline_camera_bind_group = self
                 .outline_pipeline
+                .create_camera_bind_group(&self.context.device, &self.camera_uniform_buffer);
+            self.debug_camera_bind_group = self
+                .debug_pipeline
                 .create_camera_bind_group(&self.context.device, &self.camera_uniform_buffer);
         }
     }
@@ -410,6 +430,9 @@ impl Renderer {
                 // Draw
                 render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
             }
+
+            // Render debug lines after all entities
+            self.render_debug_lines(&mut render_pass);
         }
 
         // Submit command buffer
@@ -646,6 +669,9 @@ impl Renderer {
                 // Draw
                 render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
             }
+
+            // Render debug lines after all entities
+            self.render_debug_lines(&mut render_pass);
         }
 
         // Submit command buffer
@@ -872,6 +898,9 @@ impl Renderer {
                 // Draw
                 render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
             }
+
+            // Render debug lines after all entities
+            self.render_debug_lines(&mut render_pass);
         }
 
         // Submit command buffer
@@ -893,6 +922,48 @@ impl Renderer {
 
         meshes.sort();
         meshes
+    }
+
+    /// Update debug lines for rendering
+    ///
+    /// The lines parameter should contain vertex data as [x, y, z, r, g, b, a] for each vertex.
+    /// Lines are drawn as pairs of vertices (line list topology).
+    pub fn update_debug_lines(&mut self, lines: &[f32]) {
+        if lines.is_empty() {
+            self.debug_line_buffer = None;
+            self.debug_line_count = 0;
+            return;
+        }
+
+        // Create or update the debug line buffer
+        let buffer = self
+            .context
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Debug Line Buffer"),
+                contents: bytemuck::cast_slice(lines),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+
+        self.debug_line_buffer = Some(buffer);
+        self.debug_line_count = (lines.len() / 7) as u32; // 7 floats per vertex
+    }
+
+    /// Render debug lines if any are present
+    fn render_debug_lines(&self, render_pass: &mut wgpu::RenderPass) {
+        if let Some(ref buffer) = self.debug_line_buffer {
+            if self.debug_line_count > 0 {
+                // Set debug pipeline
+                render_pass.set_pipeline(&self.debug_pipeline.pipeline);
+                render_pass.set_bind_group(0, &self.debug_camera_bind_group, &[]);
+
+                // Set vertex buffer
+                render_pass.set_vertex_buffer(0, buffer.slice(..));
+
+                // Draw lines
+                render_pass.draw(0..self.debug_line_count, 0..1);
+            }
+        }
     }
 }
 

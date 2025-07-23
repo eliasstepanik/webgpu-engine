@@ -1,0 +1,284 @@
+{
+  "table_of_contents": [
+    {
+      "title": "Crazy Fast Physics! Augmented Vertex Block Descent in Action!",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          56.57365036010742,
+          82.76910400390625
+        ],
+        [
+          553.6864013671875,
+          82.76910400390625
+        ],
+        [
+          553.6864013671875,
+          100.11159217357635
+        ],
+        [
+          56.57365036010742,
+          100.11159217357635
+        ]
+      ]
+    },
+    {
+      "title": "ACM Reference Format:",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          53.28182163834572,
+          330.7697710990906
+        ],
+        [
+          140.49667358398438,
+          330.7697710990906
+        ],
+        [
+          140.49667358398438,
+          339.40423583984375
+        ],
+        [
+          53.28182163834572,
+          339.40423583984375
+        ]
+      ]
+    },
+    {
+      "title": "1 Introduction",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          53.56375586986542,
+          402.9595642089844
+        ],
+        [
+          133.7055959701538,
+          402.9595642089844
+        ],
+        [
+          133.7055959701538,
+          413.86865234375
+        ],
+        [
+          53.56375586986542,
+          413.86865234375
+        ]
+      ]
+    },
+    {
+      "title": "2 Vertex Block Descent",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          317.8110795021057,
+          361.7105712890625
+        ],
+        [
+          439.340576171875,
+          361.7105712890625
+        ],
+        [
+          439.340576171875,
+          372.6196594238281
+        ],
+        [
+          316.6157670021057,
+          373.0982201099396
+        ]
+      ]
+    },
+    {
+      "title": "3 Augmented Vertex Block Descent",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          52.70177060365677,
+          479.8965759277344
+        ],
+        [
+          235.28490686416626,
+          479.8965759277344
+        ],
+        [
+          235.28490686416626,
+          490.8056640625
+        ],
+        [
+          52.70177060365677,
+          490.8056640625
+        ]
+      ]
+    },
+    {
+      "title": "4 Conclusion",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          317.9549865722656,
+          524.3895568847656
+        ],
+        [
+          394.25825929641724,
+          524.3895568847656
+        ],
+        [
+          393.06294679641724,
+          535.2986450195312
+        ],
+        [
+          317.9549865722656,
+          535.6070265769958
+        ]
+      ]
+    },
+    {
+      "title": "References",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          317.9549865722656,
+          646.9295806884766
+        ],
+        [
+          372.603981256485,
+          646.9295806884766
+        ],
+        [
+          372.3041076660156,
+          657.8386840820312
+        ],
+        [
+          317.53577971458435,
+          658.0650687217712
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          380
+        ],
+        [
+          "Line",
+          115
+        ],
+        [
+          "Text",
+          12
+        ],
+        [
+          "SectionHeader",
+          4
+        ],
+        [
+          "TextInlineMath",
+          4
+        ],
+        [
+          "Equation",
+          3
+        ],
+        [
+          "Reference",
+          3
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "Caption",
+          1
+        ],
+        [
+          "PictureGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 1,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          898
+        ],
+        [
+          "Line",
+          234
+        ],
+        [
+          "Equation",
+          14
+        ],
+        [
+          "Text",
+          12
+        ],
+        [
+          "TextInlineMath",
+          10
+        ],
+        [
+          "Reference",
+          4
+        ],
+        [
+          "SectionHeader",
+          3
+        ],
+        [
+          "Caption",
+          2
+        ],
+        [
+          "ListItem",
+          2
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "PictureGroup",
+          1
+        ],
+        [
+          "ListGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data\\Augmented_VBD-SIGGRAPH25_RTL"
+}

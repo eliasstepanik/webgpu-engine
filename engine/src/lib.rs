@@ -11,6 +11,7 @@ pub mod dev;
 pub mod graphics;
 pub mod input;
 pub mod io;
+pub mod physics;
 pub mod scripting;
 pub mod shaders;
 pub mod utils;
@@ -46,6 +47,9 @@ pub mod prelude {
 
     // Scripting types
     pub use crate::scripting::{ScriptEngine, ScriptProperties, ScriptRef};
+
+    // Physics types
+    pub use crate::physics::{update_physics_system, Collider, PhysicsMaterial, Rigidbody};
 
     pub use wgpu;
     pub use winit;

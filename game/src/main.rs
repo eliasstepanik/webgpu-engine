@@ -262,16 +262,41 @@ impl ApplicationHandler for GameApp {
 
                     // Try to load the scene
                     match engine::io::Scene::load_from_file(&scene_path) {
-                        Ok(scene) => match scene.instantiate(&mut self.engine.world) {
-                            Ok(_) => {
+                        Ok(scene) => {
+                            // Validate physics scene configuration in debug builds
+                            #[cfg(debug_assertions)]
+                            {
+                                let validation_result = engine::physics::validate_physics_scene(&scene);
+                                if !validation_result.is_valid {
+                                    tracing::warn!("Physics validation warnings for scene '{}':", scene_path.display());
+                                    for error in &validation_result.errors {
+                                        tracing::warn!("  - {}: {}", error.entity_name, error.details);
+                                    }
+                                    for warning in &validation_result.warnings {
+                                        tracing::warn!("  - {}: {}", warning.entity, warning.warning);
+                                    }
+                                } else {
+                                    tracing::debug!("Physics scene validation passed for '{}'", scene_path.display());
+                                }
+                            }
+
+                            match scene.instantiate(&mut self.engine.world) {
+                                Ok(_) => {
                                 info!("Successfully loaded scene: {}", scene_path.display());
+                                // Advance frame counter and run hierarchy system once to ensure GlobalTransform
+                                // components are created. This is needed for physics entities to be properly detected.
+                                engine::core::entity::hierarchy::advance_frame();
+                                engine::core::entity::update_hierarchy_system(
+                                    &mut self.engine.world,
+                                );
                             }
                             Err(e) => {
                                 tracing::error!("Failed to instantiate scene: {}", e);
                                 info!("Falling back to demo scene");
                                 create_demo_scene(&mut self.engine.world, renderer);
                             }
-                        },
+                        }
+                    },
                         Err(e) => {
                             tracing::error!(
                                 "Failed to load scene from {}: {}",
@@ -364,25 +389,82 @@ impl ApplicationHandler for GameApp {
             // Update through editor's shared state if editor is active
             #[cfg(feature = "editor")]
             {
-                if let (Some(editor_state), Some(script_engine)) =
-                    (&self.editor_state, &mut self.engine.script_engine)
-                {
+                if self.editor_state.is_some() {
+                    // Clear per-frame input data
+                    self.engine.input_state.clear_frame_data();
+
                     let script_input_state = self.engine.input_state.to_script_input_state();
 
+                    // Get references we need
+                    let editor_state = self.editor_state.as_ref().unwrap();
+
+                    // First handle scripting with the world
+                    if let Some(script_engine) = &mut self.engine.script_engine {
+                        editor_state.shared_state.with_world_write(|world| {
+                            // Initialize script properties for new scripts
+                            engine::scripting::script_initialization_system(world, script_engine);
+
+                            // Execute scripts
+                            engine::scripting::script_execution_system(
+                                world,
+                                script_engine,
+                                &script_input_state,
+                                delta_time,
+                            );
+                        });
+                    }
+
+                    // Then handle physics separately
+                    // Update accumulator
+                    *self.engine.physics_accumulator_mut() += delta_time;
+
+                    // Process physics steps
+                    loop {
+                        let accumulator_value = *self.engine.physics_accumulator_mut();
+                        if accumulator_value < engine::app::PHYSICS_TIMESTEP {
+                            break;
+                        }
+
+                        let physics_solver = &mut self.engine.physics_solver;
+                        let physics_config = &self.engine.physics_config;
+                        editor_state.shared_state.with_world_write(|world| {
+                             engine::physics::systems::update_physics_system(
+                                world,
+                                physics_solver,
+                                physics_config,
+                                engine::app::PHYSICS_TIMESTEP,
+                            );
+                        });
+
+                        *self.engine.physics_accumulator_mut() -= engine::app::PHYSICS_TIMESTEP;
+                    }
+
+                    // Update hierarchy
                     editor_state.shared_state.with_world_write(|world| {
-                        // Initialize script properties for new scripts
-                        engine::scripting::script_initialization_system(world, script_engine);
-
-                        // Execute scripts
-                        engine::scripting::script_execution_system(
-                            world,
-                            script_engine,
-                            &script_input_state,
-                            delta_time,
-                        );
-
                         update_hierarchy_system(world);
                     });
+
+                    // Update physics debug visualization based on editor state
+                    if let Some(renderer) = &mut self.engine.renderer {
+                        let physics_debug_enabled = editor_state
+                            .shared_state
+                            .physics_debug_enabled
+                            .load(std::sync::atomic::Ordering::Relaxed);
+                        self.engine.physics_debug.enabled = physics_debug_enabled;
+
+                        editor_state.shared_state.with_world_read(|world| {
+                            self.engine
+                                .physics_debug
+                                .update_debug_lines(world, renderer);
+                        });
+                    }
+
+                    // Process mesh uploads from scripts
+                    if let (Some(script_engine), Some(renderer)) =
+                        (&mut self.engine.script_engine, &mut self.engine.renderer)
+                    {
+                        engine::scripting::process_script_mesh_uploads(script_engine, renderer);
+                    }
 
                     // Render with editor
                     self.render_frame(window_id);

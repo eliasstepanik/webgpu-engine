@@ -1,0 +1,150 @@
+{
+  "entities": [
+    {
+      "components": {
+        "Transform": {
+          "position": [5.0, 5.0, 10.0],
+          "rotation": [0.0, 0.1, 0.0, 0.995],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Camera": {
+          "fov_y_radians": 1.0472,
+          "aspect_ratio": 1.7778,
+          "z_near": 0.1,
+          "z_far": 1000.0,
+          "projection_mode": "Perspective",
+          "use_logarithmic_depth": false
+        },
+        "Name": "Camera"
+      }
+    },
+    {
+      "components": {
+        "Transform": {
+          "position": [0.0, -0.5, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [20.0, 1.0, 20.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.5, 0.5, 0.5, 1.0]
+        },
+        "Collider": {
+          "shape": {
+            "Box": {
+              "half_extents": [0.5, 0.5, 0.5]
+            }
+          },
+          "is_trigger": false
+        },
+        "Name": "Floor"
+      }
+    },
+    {
+      "components": {
+        "Transform": {
+          "position": [0.0, 5.0, 0.0],
+          "rotation": [0.1, 0.2, 0.3, 0.94],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [1.0, 0.2, 0.2, 1.0]
+        },
+        "Rigidbody": {
+          "mass": 1.0,
+          "linear_damping": 0.01,
+          "angular_damping": 0.01,
+          "linear_velocity": [0.0, 0.0, 0.0],
+          "angular_velocity": [0.0, 0.0, 0.0],
+          "inertia_tensor": [0.16666667, 0.0, 0.0, 0.0, 0.16666667, 0.0, 0.0, 0.0, 0.16666667],
+          "use_gravity": true,
+          "is_kinematic": false
+        },
+        "Collider": {
+          "shape": {
+            "Box": {
+              "half_extents": [0.5, 0.5, 0.5]
+            }
+          },
+          "is_trigger": false
+        },
+        "PhysicsMaterial": {
+          "static_friction": 0.6,
+          "dynamic_friction": 0.4,
+          "restitution": 0.3
+        },
+        "Name": "Falling Box"
+      }
+    },
+    {
+      "components": {
+        "Transform": {
+          "position": [2.0, 5.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": "sphere",
+        "Material": {
+          "color": [0.2, 1.0, 0.2, 1.0]
+        },
+        "Rigidbody": {
+          "mass": 0.5,
+          "linear_damping": 0.01,
+          "angular_damping": 0.01,
+          "linear_velocity": [0.0, 0.0, 0.0],
+          "angular_velocity": [0.0, 0.0, 0.0],
+          "inertia_tensor": [0.05, 0.0, 0.0, 0.0, 0.05, 0.0, 0.0, 0.0, 0.05],
+          "use_gravity": true,
+          "is_kinematic": false
+        },
+        "Collider": {
+          "shape": {
+            "Sphere": {
+              "radius": 0.5
+            }
+          },
+          "is_trigger": false
+        },
+        "PhysicsMaterial": {
+          "static_friction": 0.4,
+          "dynamic_friction": 0.3,
+          "restitution": 0.6
+        },
+        "Name": "Sphere"
+      }
+    },
+    {
+      "components": {
+        "Transform": {
+          "position": [-3.0, 2.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [3.0, 0.5, 3.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.2, 0.2, 1.0, 1.0]
+        },
+        "Rigidbody": {
+          "mass": 1.0,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "linear_velocity": [0.0, 0.0, 0.0],
+          "angular_velocity": [0.0, 0.5, 0.0],
+          "inertia_tensor": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+          "use_gravity": false,
+          "is_kinematic": true
+        },
+        "Collider": {
+          "shape": {
+            "Box": {
+              "half_extents": [0.5, 0.5, 0.5]
+            }
+          },
+          "is_trigger": false
+        },
+        "Name": "Kinematic Platform"
+      }
+    }
+  ]
+}

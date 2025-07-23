@@ -116,7 +116,9 @@ fn generate_widget_metadata(widget: &UIWidget) -> TokenStream {
         },
 
         Custom(path) => {
-            let path_str = path.segments.iter()
+            let path_str = path
+                .segments
+                .iter()
                 .map(|seg| seg.ident.to_string())
                 .collect::<Vec<_>>()
                 .join("::");

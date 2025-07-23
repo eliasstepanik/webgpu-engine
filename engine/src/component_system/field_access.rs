@@ -24,7 +24,7 @@ pub enum FieldValue {
 pub trait FieldAccess {
     /// Get a field value by name
     fn get_field(&self, field_name: &str) -> Option<FieldValue>;
-    
+
     /// Set a field value by name
     /// Returns true if the field was successfully set
     fn set_field(&mut self, field_name: &str, value: FieldValue) -> bool;
@@ -38,7 +38,7 @@ impl FieldValue {
             _ => None,
         }
     }
-    
+
     /// Try to get as i32
     pub fn as_i32(&self) -> Option<i32> {
         match self {
@@ -46,7 +46,7 @@ impl FieldValue {
             _ => None,
         }
     }
-    
+
     /// Try to get as bool
     pub fn as_bool(&self) -> Option<bool> {
         match self {
@@ -54,7 +54,7 @@ impl FieldValue {
             _ => None,
         }
     }
-    
+
     /// Try to get as String
     pub fn as_string(&self) -> Option<&String> {
         match self {
@@ -62,7 +62,7 @@ impl FieldValue {
             _ => None,
         }
     }
-    
+
     /// Try to get as Vec3
     pub fn as_vec3(&self) -> Option<Vec3> {
         match self {
@@ -70,7 +70,7 @@ impl FieldValue {
             _ => None,
         }
     }
-    
+
     /// Try to get as Quat
     pub fn as_quat(&self) -> Option<Quat> {
         match self {
@@ -78,7 +78,7 @@ impl FieldValue {
             _ => None,
         }
     }
-    
+
     /// Try to get as RGB color
     pub fn as_color_rgb(&self) -> Option<[f32; 3]> {
         match self {
@@ -86,7 +86,7 @@ impl FieldValue {
             _ => None,
         }
     }
-    
+
     /// Try to get as RGBA color
     pub fn as_color_rgba(&self) -> Option<[f32; 4]> {
         match self {

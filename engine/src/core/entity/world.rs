@@ -148,6 +148,7 @@ impl World {
         &mut self,
         path: P,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        use super::update_hierarchy_system;
         use crate::io::Scene;
 
         // Clear the world first
@@ -155,6 +156,12 @@ impl World {
 
         let scene = Scene::load_from_file(path)?;
         scene.instantiate(self)?;
+
+        // Advance frame counter and run hierarchy system once to ensure GlobalTransform
+        // components are created. This is needed for physics entities to be properly detected.
+        super::hierarchy::advance_frame();
+        update_hierarchy_system(self);
+
         Ok(())
     }
 
@@ -167,10 +174,17 @@ impl World {
         &mut self,
         path: P,
     ) -> Result<crate::io::EntityMapper, Box<dyn std::error::Error>> {
+        use super::update_hierarchy_system;
         use crate::io::Scene;
 
         let scene = Scene::load_from_file(path)?;
         let mapper = scene.instantiate(self)?;
+
+        // Advance frame counter and run hierarchy system once to ensure GlobalTransform
+        // components are created. This is needed for physics entities to be properly detected.
+        super::hierarchy::advance_frame();
+        update_hierarchy_system(self);
+
         Ok(mapper)
     }
 

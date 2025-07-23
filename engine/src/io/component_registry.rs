@@ -104,6 +104,7 @@ impl ComponentRegistry {
             GlobalTransform, GlobalWorldTransform, Name, ParentData, Transform,
         };
         use crate::graphics::{Material, MeshId};
+        use crate::physics::{Collider, PhysicsMaterial, Rigidbody};
         use crate::scripting::{ScriptProperties, ScriptRef};
 
         let mut registry = Self::new();
@@ -125,6 +126,11 @@ impl ComponentRegistry {
         // Register scripting components
         ScriptRef::register(&mut registry);
         ScriptProperties::register(&mut registry);
+
+        // Register physics components
+        Rigidbody::register(&mut registry);
+        Collider::register(&mut registry);
+        PhysicsMaterial::register(&mut registry);
 
         debug!(
             component_count = registry.len(),
@@ -151,7 +157,11 @@ impl ComponentRegistryExt for ComponentRegistry {
         let type_id = metadata.type_id;
         let name = metadata.name.to_string();
         let has_ui_metadata = metadata.ui_metadata.is_some();
-        let ui_field_count = metadata.ui_metadata.as_ref().map(|m| m.fields.len()).unwrap_or(0);
+        let ui_field_count = metadata
+            .ui_metadata
+            .as_ref()
+            .map(|m| m.fields.len())
+            .unwrap_or(0);
 
         // Store the deserializer function
         self.deserializers
@@ -162,7 +172,7 @@ impl ComponentRegistryExt for ComponentRegistry {
         self.metadata.insert(type_id, metadata);
 
         debug!(
-            component_name = %name, 
+            component_name = %name,
             has_ui_metadata = has_ui_metadata,
             ui_field_count = ui_field_count,
             "Registered component with metadata"

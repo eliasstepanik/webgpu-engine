@@ -5,9 +5,8 @@
 use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
 use engine::component_system::ComponentRegistryExt;
-use engine::prelude::{
-    Camera, Material, MeshId, Name, Parent, ScriptProperties, Transform,
-};
+use engine::physics::{Collider, CollisionShape, PhysicsMaterial, Rigidbody};
+use engine::prelude::{Camera, Material, MeshId, Name, Parent, ScriptProperties, Transform, Vec3};
 use engine::scripting::property_types::PropertyValue;
 use engine::scripting::ScriptRef;
 use imgui::*;
@@ -64,8 +63,8 @@ pub fn render_inspector_panel(
                 ui.text(format!("Entity: {entity:?}"));
                 ui.separator();
 
-                // Check which components exist firs
-                let (has_name, has_transform, has_camera, has_material, has_mesh, has_script, _has_script_properties) = shared_state.with_world_read(|world| {
+                // Check which components exist first
+                let (has_name, has_transform, has_camera, has_material, has_mesh, has_script, _has_script_properties, has_rigidbody, has_collider, has_physics_material) = shared_state.with_world_read(|world| {
                     let components = (
                         world.get::<Name>(entity).is_ok(),
                         world.get::<Transform>(entity).is_ok(),
@@ -74,26 +73,29 @@ pub fn render_inspector_panel(
                         world.get::<MeshId>(entity).is_ok(),
                         world.get::<ScriptRef>(entity).is_ok(),
                         world.get::<ScriptProperties>(entity).is_ok(),
+                        world.get::<Rigidbody>(entity).is_ok(),
+                        world.get::<Collider>(entity).is_ok(),
+                        world.get::<PhysicsMaterial>(entity).is_ok(),
                     );
-                    debug!(entity = ?entity, has_name = components.0, has_transform = components.1, has_camera = components.2, has_material = components.3, has_mesh = components.4, has_script = components.5, has_script_properties = components.6, "Entity components");
+                    debug!(entity = ?entity, has_name = components.0, has_transform = components.1, has_camera = components.2, has_material = components.3, has_mesh = components.4, has_script = components.5, has_script_properties = components.6, has_rigidbody = components.7, has_collider = components.8, has_physics_material = components.9, "Entity components");
                     components
                 }).unwrap_or_else(|| {
                     warn!(entity = ?entity, "Failed to access world for entity");
-                    (false, false, false, false, false, false, false)
+                    (false, false, false, false, false, false, false, false, false, false)
                 });
 
 
 
                 // Render components using metadata where available
                 let registry = shared_state.component_registry.clone();
-                
+
                 // Name component
                 if has_name {
                     debug!("Rendering Name component");
                     render_component_with_metadata::<Name>(
-                        ui, 
-                        entity, 
-                        "Name", 
+                        ui,
+                        entity,
+                        "Name",
                         shared_state,
                         &registry,
                     );
@@ -102,9 +104,9 @@ pub fn render_inspector_panel(
                 // Transform component
                 if has_transform {
                     render_component_with_metadata::<Transform>(
-                        ui, 
-                        entity, 
-                        "Transform", 
+                        ui,
+                        entity,
+                        "Transform",
                         shared_state,
                         &registry,
                     );
@@ -122,9 +124,9 @@ pub fn render_inspector_panel(
                 // Camera component
                 if has_camera {
                     render_component_with_metadata::<Camera>(
-                        ui, 
-                        entity, 
-                        "Camera", 
+                        ui,
+                        entity,
+                        "Camera",
                         shared_state,
                         &registry,
                     );
@@ -133,9 +135,9 @@ pub fn render_inspector_panel(
                 // Material component
                 if has_material {
                     render_component_with_metadata::<Material>(
-                        ui, 
-                        entity, 
-                        "Material", 
+                        ui,
+                        entity,
+                        "Material",
                         shared_state,
                         &registry,
                     );
@@ -410,6 +412,81 @@ pub fn render_inspector_panel(
                         }
                     }
 
+                // Rigidbody component
+                if has_rigidbody {
+                    render_component_with_metadata::<Rigidbody>(
+                        ui,
+                        entity,
+                        "Rigidbody",
+                        shared_state,
+                        &registry,
+                    );
+                }
+
+                // Collider component
+                if has_collider {
+                    if ui.collapsing_header("Collider", TreeNodeFlags::DEFAULT_OPEN) {
+                        let mut remove_component = false;
+
+                        shared_state.with_world_write(|world| {
+                            if let Ok(mut collider) = world.inner_mut().remove_one::<Collider>(entity) {
+                                let mut modified = false;
+
+                                // Shape selection
+                                ui.text("Shape:");
+                                if ui.is_item_hovered() {
+                                    ui.tooltip_text("Collision shape type");
+                                }
+
+                                // Use custom UI for CollisionShape
+                                modified |= render_collision_shape_ui(ui, &mut collider.shape);
+
+                                // Is trigger checkbox
+                                ui.text("Is Trigger:");
+                                if ui.is_item_hovered() {
+                                    ui.tooltip_text("Is trigger (no collision response)");
+                                }
+                                if ui.checkbox("##is_trigger", &mut collider.is_trigger) {
+                                    modified = true;
+                                }
+
+                                if modified {
+                                    shared_state.mark_scene_modified();
+                                    debug!(entity = ?entity, "Modified Collider component");
+                                }
+
+                                // Re-insert the component
+                                let _ = world.insert_one(entity, collider);
+                            }
+                        });
+
+                        // Remove component button
+                        ui.separator();
+                        if ui.small_button("Remove##Collider") {
+                            shared_state.with_world_write(|world| {
+                                world.inner_mut().remove_one::<Collider>(entity).ok();
+                                remove_component = true;
+                                debug!(entity = ?entity, component = "Collider", "Removed component");
+                            });
+                        }
+
+                        if remove_component {
+                            shared_state.mark_scene_modified();
+                        }
+                    }
+                }
+
+                // PhysicsMaterial component
+                if has_physics_material {
+                    render_component_with_metadata::<PhysicsMaterial>(
+                        ui,
+                        entity,
+                        "PhysicsMaterial",
+                        shared_state,
+                        &registry,
+                    );
+                }
+
 
                 // Add component button
                 ui.separator();
@@ -454,6 +531,9 @@ pub fn render_inspector_panel(
                     let has_mesh = shared_state.with_world_read(|world| world.get::<MeshId>(entity).is_ok()).unwrap_or(false);
                     let has_name = shared_state.with_world_read(|world| world.get::<Name>(entity).is_ok()).unwrap_or(false);
                     let has_script = shared_state.with_world_read(|world| world.get::<ScriptRef>(entity).is_ok()).unwrap_or(false);
+                    let has_rigidbody = shared_state.with_world_read(|world| world.get::<Rigidbody>(entity).is_ok()).unwrap_or(false);
+                    let has_collider = shared_state.with_world_read(|world| world.get::<Collider>(entity).is_ok()).unwrap_or(false);
+                    let has_physics_material = shared_state.with_world_read(|world| world.get::<PhysicsMaterial>(entity).is_ok()).unwrap_or(false);
 
                     // Transform
                     if !has_transform && "transform".contains(&filter)
@@ -511,7 +591,7 @@ pub fn render_inspector_panel(
                             debug!(entity = ?entity, "Added Name component");
                         }
 
-                    // Scrip
+                    // Script
                     if !has_script && "script".contains(&filter)
                         && ui.selectable("Script") {
                             shared_state.with_world_write(|world| {
@@ -520,6 +600,39 @@ pub fn render_inspector_panel(
                             shared_state.mark_scene_modified();
                             component_added = true;
                             debug!(entity = ?entity, "Added Script component");
+                        }
+
+                    // Rigidbody
+                    if !has_rigidbody && "rigidbody".contains(&filter)
+                        && ui.selectable("Rigidbody") {
+                            shared_state.with_world_write(|world| {
+                                let _ = world.insert_one(entity, Rigidbody::default());
+                            });
+                            shared_state.mark_scene_modified();
+                            component_added = true;
+                            debug!(entity = ?entity, "Added Rigidbody component");
+                        }
+
+                    // Collider
+                    if !has_collider && "collider".contains(&filter)
+                        && ui.selectable("Collider") {
+                            shared_state.with_world_write(|world| {
+                                let _ = world.insert_one(entity, Collider::default());
+                            });
+                            shared_state.mark_scene_modified();
+                            component_added = true;
+                            debug!(entity = ?entity, "Added Collider component");
+                        }
+
+                    // PhysicsMaterial
+                    if !has_physics_material && "physicsmaterial".contains(&filter)
+                        && ui.selectable("PhysicsMaterial") {
+                            shared_state.with_world_write(|world| {
+                                let _ = world.insert_one(entity, PhysicsMaterial::default());
+                            });
+                            shared_state.mark_scene_modified();
+                            component_added = true;
+                            debug!(entity = ?entity, "Added PhysicsMaterial component");
                         }
 
 
@@ -574,9 +687,10 @@ pub fn render_inspector_panel(
         });
 }
 
-
 /// Render a component using its metadata if available
-fn render_component_with_metadata<T: 'static + Send + Sync + engine::component_system::field_access::FieldAccess>(
+fn render_component_with_metadata<
+    T: 'static + Send + Sync + engine::component_system::field_access::FieldAccess,
+>(
     ui: &imgui::Ui,
     entity: hecs::Entity,
     component_name: &str,
@@ -584,21 +698,24 @@ fn render_component_with_metadata<T: 'static + Send + Sync + engine::component_s
     registry: &engine::io::component_registry::ComponentRegistry,
 ) -> bool {
     use std::any::TypeId;
-    
+
     let mut component_modified = false;
-    
+
     // Get component metadata
     let metadata = registry.get_metadata(TypeId::of::<T>());
     debug!(
-        component = component_name, 
+        component = component_name,
         has_metadata = metadata.is_some(),
-        has_ui_metadata = metadata.as_ref().and_then(|m| m.ui_metadata.as_ref()).is_some(),
+        has_ui_metadata = metadata
+            .as_ref()
+            .and_then(|m| m.ui_metadata.as_ref())
+            .is_some(),
         "Checking component metadata"
     );
-    
+
     if ui.collapsing_header(component_name, TreeNodeFlags::DEFAULT_OPEN) {
         let mut remove_component = false;
-        
+
         // Check if we have UI metadata for this component
         if let Some(metadata) = metadata {
             if let Some(ui_metadata) = &metadata.ui_metadata {
@@ -616,15 +733,18 @@ fn render_component_with_metadata<T: 'static + Send + Sync + engine::component_s
                             ui,
                             &mut component,
                             ui_metadata,
-                            entity
+                            entity,
                         );
-                        
+
                         if modified {
                             component_modified = true;
                             shared_state.mark_scene_modified();
-                            debug!(component = component_name, "Component modified via metadata UI");
+                            debug!(
+                                component = component_name,
+                                "Component modified via metadata UI"
+                            );
                         }
-                        
+
                         // Always re-insert the component
                         let _ = world.insert_one(entity, component);
                     }
@@ -637,7 +757,7 @@ fn render_component_with_metadata<T: 'static + Send + Sync + engine::component_s
             // Component not registered
             ui.text(format!("{} not registered", component_name));
         }
-        
+
         // Remove component button
         ui.separator();
         if ui.small_button(format!("Remove##{}", component_name)) {
@@ -647,12 +767,141 @@ fn render_component_with_metadata<T: 'static + Send + Sync + engine::component_s
                 debug!(entity = ?entity, component = component_name, "Removed component");
             });
         }
-        
+
         if remove_component {
             shared_state.mark_scene_modified();
         }
     }
-    
+
     component_modified
 }
 
+/// Custom UI function for CollisionShape enum
+fn render_collision_shape_ui(ui: &imgui::Ui, shape: &mut CollisionShape) -> bool {
+    use imgui::Drag;
+
+    let mut modified = false;
+
+    // Create combo box for shape type selection
+    let shape_types = ["Sphere", "Box", "Capsule"];
+    let mut current_index = match shape {
+        CollisionShape::Sphere { .. } => 0,
+        CollisionShape::Box { .. } => 1,
+        CollisionShape::Capsule { .. } => 2,
+    };
+
+    let old_index = current_index;
+    ui.combo("##shape_type", &mut current_index, &shape_types, |item| {
+        std::borrow::Cow::Borrowed(item)
+    });
+
+    if current_index != old_index {
+        // Shape type changed, create new shape with default values
+        *shape = match current_index {
+            0 => CollisionShape::Sphere { radius: 0.5 },
+            1 => CollisionShape::Box {
+                half_extents: Vec3::splat(0.5),
+            },
+            2 => CollisionShape::Capsule {
+                radius: 0.5,
+                half_height: 1.0,
+            },
+            _ => shape.clone(),
+        };
+        modified = true;
+    }
+
+    // Shape-specific parameters
+    match shape {
+        CollisionShape::Sphere { radius } => {
+            ui.text("Radius:");
+            ui.same_line();
+            ui.set_next_item_width(100.0);
+            if Drag::new("##sphere_radius")
+                .range(0.01, 100.0)
+                .speed(0.01)
+                .display_format("%.3f")
+                .build(ui, radius)
+            {
+                modified = true;
+            }
+        }
+        CollisionShape::Box { half_extents } => {
+            ui.text("Half Extents:");
+            let mut x = half_extents.x;
+            let mut y = half_extents.y;
+            let mut z = half_extents.z;
+
+            ui.text("X:");
+            ui.same_line();
+            ui.set_next_item_width(80.0);
+            if Drag::new("##box_x")
+                .range(0.01, 100.0)
+                .speed(0.01)
+                .display_format("%.3f")
+                .build(ui, &mut x)
+            {
+                half_extents.x = x;
+                modified = true;
+            }
+
+            ui.same_line();
+            ui.text("Y:");
+            ui.same_line();
+            ui.set_next_item_width(80.0);
+            if Drag::new("##box_y")
+                .range(0.01, 100.0)
+                .speed(0.01)
+                .display_format("%.3f")
+                .build(ui, &mut y)
+            {
+                half_extents.y = y;
+                modified = true;
+            }
+
+            ui.same_line();
+            ui.text("Z:");
+            ui.same_line();
+            ui.set_next_item_width(80.0);
+            if Drag::new("##box_z")
+                .range(0.01, 100.0)
+                .speed(0.01)
+                .display_format("%.3f")
+                .build(ui, &mut z)
+            {
+                half_extents.z = z;
+                modified = true;
+            }
+        }
+        CollisionShape::Capsule {
+            radius,
+            half_height,
+        } => {
+            ui.text("Radius:");
+            ui.same_line();
+            ui.set_next_item_width(100.0);
+            if Drag::new("##capsule_radius")
+                .range(0.01, 100.0)
+                .speed(0.01)
+                .display_format("%.3f")
+                .build(ui, radius)
+            {
+                modified = true;
+            }
+
+            ui.text("Half Height:");
+            ui.same_line();
+            ui.set_next_item_width(100.0);
+            if Drag::new("##capsule_half_height")
+                .range(0.01, 100.0)
+                .speed(0.01)
+                .display_format("%.3f")
+                .build(ui, half_height)
+            {
+                modified = true;
+            }
+        }
+    }
+
+    modified
+}

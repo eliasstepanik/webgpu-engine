@@ -35,9 +35,20 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     // For now, hardcode the list of components that have EditorUI
     // This is a workaround because we can't reliably detect EditorUI in the same derive macro expansion
-    let components_with_ui = ["Transform", "Name", "Camera", "Material", "MeshId", "GlobalTransform", "GlobalWorldTransform"];
+    let components_with_ui = [
+        "Transform",
+        "Name",
+        "Camera",
+        "Material",
+        "MeshId",
+        "GlobalTransform",
+        "GlobalWorldTransform",
+        "Rigidbody",
+        "Collider",
+        "PhysicsMaterial",
+    ];
     let has_editor_ui = components_with_ui.contains(&component_name.as_str());
-    
+
     let metadata_constructor = if has_editor_ui {
         quote! { ComponentMetadata::new_with_ui::<Self>(Self::component_name()) }
     } else {
@@ -108,15 +119,14 @@ pub fn derive_editor_ui(input: TokenStream) -> TokenStream {
 
     // Generate the UI metadata builder
     let ui_metadata_fn = generate_ui_metadata_builder(&field_info);
-    
+
     // Generate the FieldAccess implementation
     let field_access_impl = if _is_tuple_struct {
-        generate_field_access_impl_tuple(&name, &field_info)
+        generate_field_access_impl_tuple(name, &field_info)
     } else {
-        generate_field_access_impl(&name, &field_info)
+        generate_field_access_impl(name, &field_info)
     };
 
-    
     // Generate the implementation
     let expanded = quote! {
         impl EditorUI for #name {
@@ -129,7 +139,7 @@ pub fn derive_editor_ui(input: TokenStream) -> TokenStream {
                 // This default implementation just returns false
                 false
             }
-            
+
             fn ui_metadata() -> Option<crate::component_system::ui_metadata::ComponentUIMetadata> {
                 Some(Self::__build_ui_metadata())
             }
@@ -142,7 +152,7 @@ pub fn derive_editor_ui(input: TokenStream) -> TokenStream {
                 #ui_metadata_fn
             }
         }
-        
+
         #field_access_impl
     };
 

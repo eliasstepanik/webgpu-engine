@@ -1,0 +1,158 @@
+{
+  "name": "Physics Test Scene",
+  "entities": [
+    {
+      "components": {
+        "Name": "Ground",
+        "Transform": {
+          "position": [0.0, -5.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [20.0, 1.0, 20.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.5, 0.5, 0.5, 1.0]
+        },
+        "Rigidbody": {
+          "mass": 0.0,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "linear_velocity": [0.0, 0.0, 0.0],
+          "angular_velocity": [0.0, 0.0, 0.0],
+          "inertia_tensor": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+          "use_gravity": false,
+          "is_kinematic": true
+        },
+        "Collider": {
+          "shape": {
+            "Box": {
+              "half_extents": [10.0, 0.5, 10.0]
+            }
+          },
+          "is_trigger": false,
+          "material_id": null
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Falling Cube 1",
+        "Transform": {
+          "position": [0.0, 5.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [1.0, 0.0, 0.0, 1.0]
+        },
+        "Rigidbody": {
+          "mass": 1.0,
+          "linear_damping": 0.1,
+          "angular_damping": 0.1,
+          "linear_velocity": [0.0, 0.0, 0.0],
+          "angular_velocity": [0.0, 0.0, 0.0],
+          "inertia_tensor": [0.167, 0.0, 0.0, 0.0, 0.167, 0.0, 0.0, 0.0, 0.167],
+          "use_gravity": true,
+          "is_kinematic": false
+        },
+        "Collider": {
+          "shape": {
+            "Box": {
+              "half_extents": [0.5, 0.5, 0.5]
+            }
+          },
+          "is_trigger": false,
+          "material_id": null
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Falling Cube 2",
+        "Transform": {
+          "position": [0.2, 8.0, 0.1],
+          "rotation": [0.1, 0.2, 0.3, 0.9273],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.0, 1.0, 0.0, 1.0]
+        },
+        "Rigidbody": {
+          "mass": 1.0,
+          "linear_damping": 0.1,
+          "angular_damping": 0.1,
+          "linear_velocity": [0.0, 0.0, 0.0],
+          "angular_velocity": [0.1, 0.2, 0.0],
+          "inertia_tensor": [0.167, 0.0, 0.0, 0.0, 0.167, 0.0, 0.0, 0.0, 0.167],
+          "use_gravity": true,
+          "is_kinematic": false
+        },
+        "Collider": {
+          "shape": {
+            "Box": {
+              "half_extents": [0.5, 0.5, 0.5]
+            }
+          },
+          "is_trigger": false,
+          "material_id": null
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Falling Sphere",
+        "Transform": {
+          "position": [-2.0, 10.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": "sphere",
+        "Material": {
+          "color": [0.0, 0.0, 1.0, 1.0]
+        },
+        "Rigidbody": {
+          "mass": 2.0,
+          "linear_damping": 0.05,
+          "angular_damping": 0.05,
+          "linear_velocity": [0.0, 0.0, 0.0],
+          "angular_velocity": [0.0, 0.0, 0.0],
+          "inertia_tensor": [0.4, 0.0, 0.0, 0.0, 0.4, 0.0, 0.0, 0.0, 0.4],
+          "use_gravity": true,
+          "is_kinematic": false
+        },
+        "Collider": {
+          "shape": {
+            "Sphere": {
+              "radius": 1.0
+            }
+          },
+          "is_trigger": false,
+          "material_id": null
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Camera",
+        "Transform": {
+          "position": [10.0, 5.0, 10.0],
+          "rotation": [-0.1305, 0.3826, 0.0522, 0.9131],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Camera": {
+          "fov_y_radians": 1.0472,
+          "aspect_ratio": 1.778,
+          "z_near": 0.1,
+          "z_far": 1000.0,
+          "projection_mode": "Perspective",
+          "use_logarithmic_depth": false
+        },
+        "ScriptRef": {
+          "name": "fly_camera"
+        }
+      }
+    }
+  ]
+}

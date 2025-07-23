@@ -17,16 +17,16 @@ pub fn generate_field_access_impl(
         impl crate::component_system::field_access::FieldAccess for #type_name {
             fn get_field(&self, field_name: &str) -> Option<crate::component_system::field_access::FieldValue> {
                 use crate::component_system::field_access::FieldValue;
-                
+
                 match field_name {
                     #(#get_field_arms)*
                     _ => None,
                 }
             }
-            
+
             fn set_field(&mut self, field_name: &str, value: crate::component_system::field_access::FieldValue) -> bool {
                 use crate::component_system::field_access::FieldValue;
-                
+
                 match field_name {
                     #(#set_field_arms)*
                     _ => false,
@@ -68,8 +68,12 @@ fn generate_get_field_arms(fields: &[(&Field, UIFieldAttribute, UIWidget)]) -> V
                     if let syn::Type::Path(path) = &field.ty {
                         if let Some(ident) = path.path.get_ident() {
                             let ident_str = ident.to_string();
-                            if ident_str.contains("32") || ident_str.contains("16") || 
-                               ident_str.contains("8") || ident_str == "isize" || ident_str == "usize" {
+                            if ident_str.contains("32")
+                                || ident_str.contains("16")
+                                || ident_str.contains("8")
+                                || ident_str == "isize"
+                                || ident_str == "usize"
+                            {
                                 quote! { FieldValue::Int(self.#field_name as i32) }
                             } else {
                                 return None;
@@ -167,8 +171,12 @@ fn generate_set_field_arms(fields: &[(&Field, UIFieldAttribute, UIWidget)]) -> V
                                         false
                                     }
                                 }
-                            } else if ident_str.contains("64") || ident_str.contains("16") || 
-                                      ident_str.contains("8") || ident_str == "isize" || ident_str == "usize" {
+                            } else if ident_str.contains("64")
+                                || ident_str.contains("16")
+                                || ident_str.contains("8")
+                                || ident_str == "isize"
+                                || ident_str == "usize"
+                            {
                                 quote! {
                                     if let Some(v) = value.as_i32() {
                                         self.#field_name = v as #ident;
@@ -266,16 +274,16 @@ pub fn generate_field_access_impl_tuple(
     // For tuple structs with a single field, we can provide limited support
     if fields.len() == 1 {
         let (_, attrs, widget) = &fields[0];
-        
+
         if attrs.hidden {
             return generate_empty_field_access(type_name);
         }
-        
+
         let get_value = match widget {
             UIWidget::InputText { .. } => quote! { FieldValue::String(self.0.clone()) },
             _ => return generate_empty_field_access(type_name),
         };
-        
+
         let set_value = if !attrs.readonly {
             match widget {
                 UIWidget::InputText { .. } => quote! {
@@ -291,21 +299,21 @@ pub fn generate_field_access_impl_tuple(
         } else {
             quote! { false }
         };
-        
+
         quote! {
             impl crate::component_system::field_access::FieldAccess for #type_name {
                 fn get_field(&self, field_name: &str) -> Option<crate::component_system::field_access::FieldValue> {
                     use crate::component_system::field_access::FieldValue;
-                    
+
                     match field_name {
                         "0" => Some(#get_value),
                         _ => None,
                     }
                 }
-                
+
                 fn set_field(&mut self, field_name: &str, value: crate::component_system::field_access::FieldValue) -> bool {
                     use crate::component_system::field_access::FieldValue;
-                    
+
                     match field_name {
                         "0" => #set_value,
                         _ => false,
@@ -325,7 +333,7 @@ fn generate_empty_field_access(type_name: &syn::Ident) -> TokenStream {
             fn get_field(&self, _field_name: &str) -> Option<crate::component_system::field_access::FieldValue> {
                 None
             }
-            
+
             fn set_field(&mut self, _field_name: &str, _value: crate::component_system::field_access::FieldValue) -> bool {
                 false
             }

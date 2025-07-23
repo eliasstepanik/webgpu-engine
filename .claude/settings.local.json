@@ -115,7 +115,10 @@
       "mcp__pdf-extraction__extract-pdf-contents",
       "WebFetch(domain:graphics.cs.utah.edu)",
       "Bash(wget:*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(SCENE=physics_debug_test cargo run --bin game)",
+      "Bash(RUST_LOG=info SCENE=physics_debug_test timeout 5 cargo run --bin game)",
+      "Bash(RUST_LOG=debug cargo test -p engine test_minimal_physics -- --nocapture)"
     ],
     "deny": []
   },

@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::io::component_registry::ComponentRegistry;
-use crate::prelude::{Transform, Name, Camera, Material};
+use crate::prelude::{Camera, Material, Name, Transform};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -151,10 +151,13 @@ fn test_registry_iteration() {
 fn test_builtin_components_have_ui_metadata() {
     // Test Transform UI metadata
     let transform_metadata = Transform::ui_metadata();
-    assert!(transform_metadata.is_some(), "Transform should have UI metadata");
+    assert!(
+        transform_metadata.is_some(),
+        "Transform should have UI metadata"
+    );
     if let Some(metadata) = transform_metadata {
         println!("Transform UI metadata: {} fields", metadata.fields.len());
-        assert!(metadata.fields.len() > 0, "Transform should have fields");
+        assert!(!metadata.fields.is_empty(), "Transform should have fields");
         for field in &metadata.fields {
             println!("  - Field: {}, Widget: {:?}", field.name, field.widget);
         }
@@ -165,7 +168,7 @@ fn test_builtin_components_have_ui_metadata() {
     assert!(name_metadata.is_some(), "Name should have UI metadata");
     if let Some(metadata) = name_metadata {
         println!("Name UI metadata: {} fields", metadata.fields.len());
-        assert!(metadata.fields.len() > 0, "Name should have fields");
+        assert!(!metadata.fields.is_empty(), "Name should have fields");
     }
 
     // Test Camera UI metadata
@@ -173,15 +176,18 @@ fn test_builtin_components_have_ui_metadata() {
     assert!(camera_metadata.is_some(), "Camera should have UI metadata");
     if let Some(metadata) = camera_metadata {
         println!("Camera UI metadata: {} fields", metadata.fields.len());
-        assert!(metadata.fields.len() > 0, "Camera should have fields");
+        assert!(!metadata.fields.is_empty(), "Camera should have fields");
     }
 
     // Test Material UI metadata
     let material_metadata = Material::ui_metadata();
-    assert!(material_metadata.is_some(), "Material should have UI metadata");
+    assert!(
+        material_metadata.is_some(),
+        "Material should have UI metadata"
+    );
     if let Some(metadata) = material_metadata {
         println!("Material UI metadata: {} fields", metadata.fields.len());
-        assert!(metadata.fields.len() > 0, "Material should have fields");
+        assert!(!metadata.fields.is_empty(), "Material should have fields");
     }
 }
 
@@ -189,16 +195,22 @@ fn test_builtin_components_have_ui_metadata() {
 fn test_component_registry_has_ui_metadata() {
     use crate::io::component_registry::ComponentRegistry;
     use std::any::TypeId;
-    
+
     let registry = ComponentRegistry::with_default_components();
-    
+
     // Check Transform
     let transform_meta = registry.get_metadata(TypeId::of::<Transform>()).unwrap();
-    println!("Transform component registered with UI metadata: {:?}", transform_meta.ui_metadata.is_some());
-    
+    println!(
+        "Transform component registered with UI metadata: {:?}",
+        transform_meta.ui_metadata.is_some()
+    );
+
     // Check Name
     let name_meta = registry.get_metadata(TypeId::of::<Name>()).unwrap();
-    println!("Name component registered with UI metadata: {:?}", name_meta.ui_metadata.is_some());
+    println!(
+        "Name component registered with UI metadata: {:?}",
+        name_meta.ui_metadata.is_some()
+    );
 }
 
 #[test]
@@ -227,62 +239,71 @@ fn test_component_ui_builder() {
 fn test_ui_metadata_generation() {
     use crate::component_system::ui_metadata::UIWidgetType;
     use engine_derive::{Component, EditorUI};
-    
+
     #[derive(Component, EditorUI, Default, Serialize, Deserialize)]
     #[component(name = "TestUIComponent")]
     struct TestUIComponent {
         #[ui(range = 0.0..100.0, speed = 0.5, tooltip = "Test float value")]
         pub value: f32,
-        
+
         #[ui(tooltip = "Test name field")]
         pub name: String,
-        
+
         #[ui(readonly)]
         pub id: u32,
-        
+
         #[ui(hidden)]
         pub internal_state: bool,
     }
-    
+
     // Get the UI metadata
     let metadata = TestUIComponent::ui_metadata();
     assert!(metadata.is_some(), "UI metadata should be generated");
-    
+
     let metadata = metadata.unwrap();
-    
+
     // Check that we have the right number of fields (hidden fields are filtered out during generation)
-    assert_eq!(metadata.fields.len(), 3, "Should have 3 fields (hidden ones are excluded)");
-    
+    assert_eq!(
+        metadata.fields.len(),
+        3,
+        "Should have 3 fields (hidden ones are excluded)"
+    );
+
     // All fields in metadata should be visible since hidden ones are filtered out
     let visible_count = metadata.fields.iter().filter(|f| !f.hidden).count();
     assert_eq!(visible_count, 3, "All fields in metadata should be visible");
-    
+
     // Check the float field
     let value_field = metadata.fields.iter().find(|f| f.name == "value").unwrap();
     assert_eq!(value_field.tooltip, Some("Test float value".to_string()));
     assert!(!value_field.hidden);
     assert!(!value_field.readonly);
-    
+
     // Verify it's a DragFloat widget
     match &value_field.widget {
-        UIWidgetType::DragFloat { min, max, speed, .. } => {
+        UIWidgetType::DragFloat {
+            min, max, speed, ..
+        } => {
             assert_eq!(*min, 0.0);
             assert_eq!(*max, 100.0);
             assert_eq!(*speed, 0.5);
         }
         _ => panic!("Expected DragFloat widget for float field"),
     }
-    
+
     // Check the string field
     let name_field = metadata.fields.iter().find(|f| f.name == "name").unwrap();
     assert_eq!(name_field.tooltip, Some("Test name field".to_string()));
     assert!(!name_field.readonly);
-    
+
     // Check the readonly field
     let id_field = metadata.fields.iter().find(|f| f.name == "id").unwrap();
     assert!(id_field.readonly);
-    
+
     // Verify that hidden fields are not included in metadata
     let internal_field = metadata.fields.iter().find(|f| f.name == "internal_state");
-    assert!(internal_field.is_none(), "Hidden fields should not be in metadata");
+    assert!(
+        internal_field.is_none(),
+        "Hidden fields should not be in metadata"
+    );
 }

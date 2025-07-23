@@ -11,6 +11,7 @@ This guide defines how AI agents must work within this repository. Follow every 
 * **Follow Conventions**: Match the established coding style and architecture. Check `PLANNING.md` first.
 * **Preserve Working Code**: Do not delete or overwrite functional code unless it is provably wrong or obsolete.
 * **Verify Changes**: After each modification run `just preflight` (format, clippy, tests, docs) and fix all failures.
+* **No Root Files**: Never create random files in the project root directory (e.g., `validate_scene.rs`, `COMPREHENSIVE_PHYSICS_FIXES.md`, `debug_physics.rs`). Place all new files in appropriate directories within the project structure.
 
 ---
 

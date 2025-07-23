@@ -214,6 +214,40 @@ impl Scene {
                 }
             }
 
+            // Serialize Physics components
+            if let Ok(rigidbody) = world.get::<crate::physics::Rigidbody>(entity) {
+                match serde_json::to_value((*rigidbody).clone()) {
+                    Ok(value) => {
+                        components.insert("Rigidbody".to_string(), value);
+                    }
+                    Err(e) => {
+                        error!(error = %e, "Failed to serialize Rigidbody");
+                    }
+                }
+            }
+
+            if let Ok(collider) = world.get::<crate::physics::Collider>(entity) {
+                match serde_json::to_value((*collider).clone()) {
+                    Ok(value) => {
+                        components.insert("Collider".to_string(), value);
+                    }
+                    Err(e) => {
+                        error!(error = %e, "Failed to serialize Collider");
+                    }
+                }
+            }
+
+            if let Ok(physics_material) = world.get::<crate::physics::PhysicsMaterial>(entity) {
+                match serde_json::to_value((*physics_material).clone()) {
+                    Ok(value) => {
+                        components.insert("PhysicsMaterial".to_string(), value);
+                    }
+                    Err(e) => {
+                        error!(error = %e, "Failed to serialize PhysicsMaterial");
+                    }
+                }
+            }
+
             // Special handling for Parent component
             if let Ok(parent) = world.get::<Parent>(entity) {
                 // Convert Parent to ParentData with remapped ID
@@ -492,6 +526,44 @@ impl Scene {
                             }
                             Err(e) => {
                                 error!(error = %e, "Failed to deserialize ScriptProperties");
+                            }
+                        }
+                    }
+                    "Rigidbody" => {
+                        match serde_json::from_value::<crate::physics::Rigidbody>(value.clone()) {
+                            Ok(rigidbody) => {
+                                if let Err(e) = world.insert_one(entity, rigidbody) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert Rigidbody");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize Rigidbody");
+                            }
+                        }
+                    }
+                    "Collider" => {
+                        match serde_json::from_value::<crate::physics::Collider>(value.clone()) {
+                            Ok(collider) => {
+                                if let Err(e) = world.insert_one(entity, collider) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert Collider");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize Collider");
+                            }
+                        }
+                    }
+                    "PhysicsMaterial" => {
+                        match serde_json::from_value::<crate::physics::PhysicsMaterial>(
+                            value.clone(),
+                        ) {
+                            Ok(physics_material) => {
+                                if let Err(e) = world.insert_one(entity, physics_material) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert PhysicsMaterial");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize PhysicsMaterial");
                             }
                         }
                     }
@@ -864,6 +936,44 @@ impl Scene {
                             }
                             Err(e) => {
                                 error!(error = %e, "Failed to deserialize ScriptProperties");
+                            }
+                        }
+                    }
+                    "Rigidbody" => {
+                        match serde_json::from_value::<crate::physics::Rigidbody>(value.clone()) {
+                            Ok(rigidbody) => {
+                                if let Err(e) = world.insert_one(entity, rigidbody) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert Rigidbody");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize Rigidbody");
+                            }
+                        }
+                    }
+                    "Collider" => {
+                        match serde_json::from_value::<crate::physics::Collider>(value.clone()) {
+                            Ok(collider) => {
+                                if let Err(e) = world.insert_one(entity, collider) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert Collider");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize Collider");
+                            }
+                        }
+                    }
+                    "PhysicsMaterial" => {
+                        match serde_json::from_value::<crate::physics::PhysicsMaterial>(
+                            value.clone(),
+                        ) {
+                            Ok(physics_material) => {
+                                if let Err(e) = world.insert_one(entity, physics_material) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert PhysicsMaterial");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize PhysicsMaterial");
                             }
                         }
                     }

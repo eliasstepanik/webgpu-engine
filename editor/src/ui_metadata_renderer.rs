@@ -17,7 +17,7 @@ pub fn render_component_ui<T>(
     component: &mut T,
     metadata: &ComponentUIMetadata,
     _entity: hecs::Entity,
-) -> bool 
+) -> bool
 where
     T: FieldAccess + ?Sized,
 {
@@ -46,11 +46,7 @@ where
 }
 
 /// Render a single field's UI based on its metadata
-fn render_field_ui<T>(
-    ui: &Ui,
-    component: &mut T,
-    field: &UIFieldMetadata,
-) -> bool 
+fn render_field_ui<T>(ui: &Ui, component: &mut T, field: &UIFieldMetadata) -> bool
 where
     T: FieldAccess + ?Sized,
 {
@@ -77,14 +73,20 @@ where
 
     // Render widget based on type
     match &field.widget {
-        UIWidgetType::DragFloat { min, max, speed, format } => {
+        UIWidgetType::DragFloat {
+            min,
+            max,
+            speed,
+            format,
+        } => {
             if let Some(mut value) = current_value.as_f32() {
                 ui.set_next_item_width(100.0);
-                if !field.readonly && Drag::new(format!("##{}", field.name))
-                    .range(*min, *max)
-                    .speed(*speed)
-                    .display_format(format)
-                    .build(ui, &mut value)
+                if !field.readonly
+                    && Drag::new(format!("##{}", field.name))
+                        .range(*min, *max)
+                        .speed(*speed)
+                        .display_format(format)
+                        .build(ui, &mut value)
                 {
                     component.set_field(&field.name, FieldValue::Float(value));
                     modified = true;
@@ -93,14 +95,20 @@ where
                 }
             }
         }
-        UIWidgetType::DragInt { min, max, speed, format } => {
+        UIWidgetType::DragInt {
+            min,
+            max,
+            speed,
+            format,
+        } => {
             if let Some(mut value) = current_value.as_i32() {
                 ui.set_next_item_width(100.0);
-                if !field.readonly && Drag::new(format!("##{}", field.name))
-                    .range(*min, *max)
-                    .speed(*speed)
-                    .display_format(format)
-                    .build(ui, &mut value)
+                if !field.readonly
+                    && Drag::new(format!("##{}", field.name))
+                        .range(*min, *max)
+                        .speed(*speed)
+                        .display_format(format)
+                        .build(ui, &mut value)
                 {
                     component.set_field(&field.name, FieldValue::Int(value));
                     modified = true;
@@ -109,22 +117,33 @@ where
                 }
             }
         }
-        UIWidgetType::InputText { multiline, max_length: _ } => {
+        UIWidgetType::InputText {
+            multiline,
+            max_length: _,
+        } => {
             if let Some(current_str) = current_value.as_string() {
                 let mut buffer = current_str.clone();
                 if !field.readonly {
                     if *multiline {
-                        let lines = field.properties.get("lines")
+                        let lines = field
+                            .properties
+                            .get("lines")
                             .and_then(|v| v.as_str())
                             .and_then(|s| s.parse::<f32>().ok())
                             .unwrap_or(3.0);
                         let size = [0.0, ui.text_line_height_with_spacing() * lines];
-                        if ui.input_text_multiline(format!("##{}", field.name), &mut buffer, size).build() {
+                        if ui
+                            .input_text_multiline(format!("##{}", field.name), &mut buffer, size)
+                            .build()
+                        {
                             component.set_field(&field.name, FieldValue::String(buffer));
                             modified = true;
                         }
                     } else {
-                        if ui.input_text(format!("##{}", field.name), &mut buffer).build() {
+                        if ui
+                            .input_text(format!("##{}", field.name), &mut buffer)
+                            .build()
+                        {
                             component.set_field(&field.name, FieldValue::String(buffer));
                             modified = true;
                         }
@@ -151,8 +170,10 @@ where
                         component.set_field(&field.name, FieldValue::ColorRGBA(color));
                         modified = true;
                     } else if field.readonly {
-                        ui.text(format!("RGBA({:.2}, {:.2}, {:.2}, {:.2})", 
-                            color[0], color[1], color[2], color[3]));
+                        ui.text(format!(
+                            "RGBA({:.2}, {:.2}, {:.2}, {:.2})",
+                            color[0], color[1], color[2], color[3]
+                        ));
                     }
                 }
             } else {
@@ -161,27 +182,45 @@ where
                         component.set_field(&field.name, FieldValue::ColorRGB(color));
                         modified = true;
                     } else if field.readonly {
-                        ui.text(format!("RGB({:.2}, {:.2}, {:.2})", 
-                            color[0], color[1], color[2]));
+                        ui.text(format!(
+                            "RGB({:.2}, {:.2}, {:.2})",
+                            color[0], color[1], color[2]
+                        ));
                     }
                 }
             }
         }
         UIWidgetType::Vec3Input { speed, format } => {
             if let Some(vec3) = current_value.as_vec3() {
-                modified |= render_vec3_input(ui, &field.name, vec3, *speed, format, field.readonly, component);
+                modified |= render_vec3_input(
+                    ui,
+                    &field.name,
+                    vec3,
+                    *speed,
+                    format,
+                    field.readonly,
+                    component,
+                );
             }
         }
         UIWidgetType::QuatInput { speed, format } => {
             if let Some(quat) = current_value.as_quat() {
-                modified |= render_quat_input(ui, &field.name, quat, *speed, format, field.readonly, component);
+                modified |= render_quat_input(
+                    ui,
+                    &field.name,
+                    quat,
+                    *speed,
+                    format,
+                    field.readonly,
+                    component,
+                );
             }
         }
         UIWidgetType::Custom { function } => {
             ui.text(format!("Custom UI: {function}"));
         }
     }
-    
+
     modified
 }
 
@@ -194,7 +233,7 @@ fn render_vec3_input<T>(
     format: &str,
     readonly: bool,
     component: &mut T,
-) -> bool 
+) -> bool
 where
     T: FieldAccess + ?Sized,
 {
@@ -212,10 +251,11 @@ where
     ui.text("X:");
     ui.same_line();
     ui.set_next_item_width(input_width);
-    if !readonly && Drag::new(format!("##{}x", field_name))
-        .speed(speed)
-        .display_format(format)
-        .build(ui, &mut x)
+    if !readonly
+        && Drag::new(format!("##{}x", field_name))
+            .speed(speed)
+            .display_format(format)
+            .build(ui, &mut x)
     {
         modified = true;
     } else if readonly {
@@ -227,10 +267,11 @@ where
     ui.text("Y:");
     ui.same_line();
     ui.set_next_item_width(input_width);
-    if !readonly && Drag::new(format!("##{}y", field_name))
-        .speed(speed)
-        .display_format(format)
-        .build(ui, &mut y)
+    if !readonly
+        && Drag::new(format!("##{}y", field_name))
+            .speed(speed)
+            .display_format(format)
+            .build(ui, &mut y)
     {
         modified = true;
     } else if readonly {
@@ -242,16 +283,17 @@ where
     ui.text("Z:");
     ui.same_line();
     ui.set_next_item_width(input_width);
-    if !readonly && Drag::new(format!("##{}z", field_name))
-        .speed(speed)
-        .display_format(format)
-        .build(ui, &mut z)
+    if !readonly
+        && Drag::new(format!("##{}z", field_name))
+            .speed(speed)
+            .display_format(format)
+            .build(ui, &mut z)
     {
         modified = true;
     } else if readonly {
         ui.text(format!("{z:.3}"));
     }
-    
+
     if modified {
         component.set_field(field_name, FieldValue::Vec3(Vec3::new(x, y, z)));
     }
@@ -268,12 +310,12 @@ fn render_quat_input<T>(
     format: &str,
     readonly: bool,
     component: &mut T,
-) -> bool 
+) -> bool
 where
     T: FieldAccess + ?Sized,
 {
     let mut modified = false;
-    
+
     // Convert quaternion to euler angles
     let (mut yaw, mut pitch, mut roll) = current.to_euler(glam::EulerRot::YXZ);
     yaw = yaw.to_degrees();
@@ -289,10 +331,11 @@ where
     ui.text("Pitch:");
     ui.same_line();
     ui.set_next_item_width(input_width);
-    if !readonly && Drag::new(format!("##{}pitch", field_name))
-        .speed(speed)
-        .display_format(format)
-        .build(ui, &mut pitch)
+    if !readonly
+        && Drag::new(format!("##{}pitch", field_name))
+            .speed(speed)
+            .display_format(format)
+            .build(ui, &mut pitch)
     {
         modified = true;
     } else if readonly {
@@ -304,10 +347,11 @@ where
     ui.text("Yaw:");
     ui.same_line();
     ui.set_next_item_width(input_width);
-    if !readonly && Drag::new(format!("##{}yaw", field_name))
-        .speed(speed)
-        .display_format(format)
-        .build(ui, &mut yaw)
+    if !readonly
+        && Drag::new(format!("##{}yaw", field_name))
+            .speed(speed)
+            .display_format(format)
+            .build(ui, &mut yaw)
     {
         modified = true;
     } else if readonly {
@@ -319,16 +363,17 @@ where
     ui.text("Roll:");
     ui.same_line();
     ui.set_next_item_width(input_width);
-    if !readonly && Drag::new(format!("##{}roll", field_name))
-        .speed(speed)
-        .display_format(format)
-        .build(ui, &mut roll)
+    if !readonly
+        && Drag::new(format!("##{}roll", field_name))
+            .speed(speed)
+            .display_format(format)
+            .build(ui, &mut roll)
     {
         modified = true;
     } else if readonly {
         ui.text(format!("{roll:.1}°"));
     }
-    
+
     if modified {
         // Convert back to quaternion
         let quat = Quat::from_euler(

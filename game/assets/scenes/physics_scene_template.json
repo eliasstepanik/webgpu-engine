@@ -1,0 +1,189 @@
+{
+  "_comment": "Template for physics scenes with proper collision configuration",
+  "entities": [
+    {
+      "_comment": "Camera positioned to view the physics simulation",
+      "components": {
+        "Transform": {
+          "position": [5.0, 3.0, 8.0],
+          "rotation": [0.0, 0.3, 0.0, 0.954],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Camera": {
+          "fov_y_radians": 1.0472,
+          "aspect_ratio": 1.7778,
+          "z_near": 0.1,
+          "z_far": 1000.0,
+          "projection_mode": "Perspective",
+          "use_logarithmic_depth": false
+        },
+        "Name": "Camera"
+      }
+    },
+    {
+      "_comment": "Ground/Floor - Positioned at Y=-0.5 with scale Y=1.0 for proper thickness",
+      "components": {
+        "Transform": {
+          "position": [0.0, -0.5, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [20.0, 1.0, 20.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.3, 0.3, 0.3, 1.0]
+        },
+        "Collider": {
+          "shape": {
+            "Box": {
+              "half_extents": [0.5, 0.5, 0.5]
+            }
+          },
+          "is_trigger": false,
+          "material_id": 0
+        },
+        "Name": "Ground"
+      }
+    },
+    {
+      "_comment": "Dynamic cube - Positioned at Y=2.0 for proper gap to ground (1.5 units)",
+      "components": {
+        "Transform": {
+          "position": [0.0, 2.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [1.0, 0.2, 0.2, 1.0]
+        },
+        "Rigidbody": {
+          "mass": 1.0,
+          "linear_damping": 0.01,
+          "angular_damping": 0.01,
+          "linear_velocity": [0.0, 0.0, 0.0],
+          "angular_velocity": [0.0, 0.0, 0.0],
+          "inertia_tensor": [0.16666667, 0.0, 0.0, 0.0, 0.16666667, 0.0, 0.0, 0.0, 0.16666667],
+          "use_gravity": true,
+          "is_kinematic": false
+        },
+        "Collider": {
+          "shape": {
+            "Box": {
+              "half_extents": [0.5, 0.5, 0.5]
+            }
+          },
+          "is_trigger": false,
+          "material_id": 0
+        },
+        "PhysicsMaterial": {
+          "static_friction": 0.6,
+          "dynamic_friction": 0.4,
+          "restitution": 0.3
+        },
+        "Name": "Falling Cube"
+      }
+    },
+    {
+      "_comment": "Sphere for variety - Different position to avoid overlap",
+      "components": {
+        "Transform": {
+          "position": [2.0, 3.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": "sphere",
+        "Material": {
+          "color": [0.2, 1.0, 0.2, 1.0]
+        },
+        "Rigidbody": {
+          "mass": 0.8,
+          "linear_damping": 0.01,
+          "angular_damping": 0.01,
+          "linear_velocity": [0.0, 0.0, 0.0],
+          "angular_velocity": [0.0, 0.0, 0.0],
+          "inertia_tensor": [0.08, 0.0, 0.0, 0.0, 0.08, 0.0, 0.0, 0.0, 0.08],
+          "use_gravity": true,
+          "is_kinematic": false
+        },
+        "Collider": {
+          "shape": {
+            "Sphere": {
+              "radius": 0.5
+            }
+          },
+          "is_trigger": false,
+          "material_id": 0
+        },
+        "PhysicsMaterial": {
+          "static_friction": 0.4,
+          "dynamic_friction": 0.3,
+          "restitution": 0.7
+        },
+        "Name": "Bouncy Sphere"
+      }
+    },
+    {
+      "_comment": "Ramp for testing rolling physics - Rotated to create an incline",
+      "components": {
+        "Transform": {
+          "position": [-3.0, 1.0, 0.0],
+          "rotation": [0.0, 0.0, 0.259, 0.966],
+          "scale": [4.0, 0.2, 2.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.2, 0.2, 1.0, 1.0]
+        },
+        "Collider": {
+          "shape": {
+            "Box": {
+              "half_extents": [0.5, 0.5, 0.5]
+            }
+          },
+          "is_trigger": false,
+          "material_id": 0
+        },
+        "Name": "Ramp"
+      }
+    },
+    {
+      "_comment": "Small cube on the ramp for rolling demo",
+      "components": {
+        "Transform": {
+          "position": [-2.0, 4.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.5, 0.5, 0.5]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [1.0, 1.0, 0.2, 1.0]
+        },
+        "Rigidbody": {
+          "mass": 0.5,
+          "linear_damping": 0.01,
+          "angular_damping": 0.01,
+          "linear_velocity": [0.0, 0.0, 0.0],
+          "angular_velocity": [0.0, 0.0, 0.0],
+          "inertia_tensor": [0.04166667, 0.0, 0.0, 0.0, 0.04166667, 0.0, 0.0, 0.0, 0.04166667],
+          "use_gravity": true,
+          "is_kinematic": false
+        },
+        "Collider": {
+          "shape": {
+            "Box": {
+              "half_extents": [0.5, 0.5, 0.5]
+            }
+          },
+          "is_trigger": false,
+          "material_id": 0
+        },
+        "PhysicsMaterial": {
+          "static_friction": 0.8,
+          "dynamic_friction": 0.6,
+          "restitution": 0.1
+        },
+        "Name": "Rolling Cube"
+      }
+    }
+  ]
+}

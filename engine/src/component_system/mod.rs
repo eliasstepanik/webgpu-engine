@@ -58,7 +58,7 @@ pub trait EditorUI: Component {
     fn build_ui(component: &mut Self, ui: &mut dyn Any, entity: hecs::Entity) -> bool
     where
         Self: Sized;
-    
+
     /// Get the UI metadata for this component type
     ///
     /// This is used by the editor to generate UI based on field attributes
@@ -148,14 +148,18 @@ impl ComponentMetadata {
                 false
             }
         }));
-        
+
         // Get UI metadata from the component type
         metadata.ui_metadata = T::ui_metadata();
-        
+
         tracing::debug!(
             component_name = name,
             has_ui_metadata = metadata.ui_metadata.is_some(),
-            ui_field_count = metadata.ui_metadata.as_ref().map(|m| m.fields.len()).unwrap_or(0),
+            ui_field_count = metadata
+                .ui_metadata
+                .as_ref()
+                .map(|m| m.fields.len())
+                .unwrap_or(0),
             "Created component metadata with UI"
         );
 

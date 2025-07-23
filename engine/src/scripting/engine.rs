@@ -171,10 +171,7 @@ impl ScriptEngine {
                 self.engine
                     .call_fn::<()>(scope, &cached.ast, "on_start", (entity_id as i64,))
                     .map_err(|e| -> Box<EvalAltResult> {
-                        debug!(
-                            "Script error calling on_start for {}: {:?}",
-                            script_name, e
-                        );
+                        debug!("Script error calling on_start for {}: {:?}", script_name, e);
                         let position = e.position();
                         Box::new(
                             format!(
@@ -204,7 +201,12 @@ impl ScriptEngine {
         if let Some(cached) = cache.get(script_name) {
             if cached.has_on_update {
                 self.engine
-                    .call_fn::<()>(scope, &cached.ast, "on_update", (entity_id as i64, delta_time as f64))
+                    .call_fn::<()>(
+                        scope,
+                        &cached.ast,
+                        "on_update",
+                        (entity_id as i64, delta_time as f64),
+                    )
                     .map_err(|e| -> Box<EvalAltResult> {
                         let position = e.position();
                         Box::new(

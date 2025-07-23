@@ -73,5 +73,9 @@ pub fn load_scene_from_file(
     path: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("Loading scene from: {:?}", path);
-    world.load_scene(path)
+
+    // Load the scene - this already runs hierarchy system internally
+    world.load_scene(path)?;
+
+    Ok(())
 }

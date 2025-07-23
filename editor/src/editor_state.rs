@@ -105,6 +105,8 @@ pub struct EditorState {
     pending_menu_actions: Option<MenuActions>,
     /// Pending dialog actions to be handled after UI rendering
     pending_dialog_actions: Option<DialogActions>,
+    /// Performance metrics for viewport overlay
+    pub performance_metrics: crate::panels::viewport::PerformanceMetrics,
 }
 
 impl EditorState {
@@ -229,8 +231,9 @@ impl EditorState {
             .expect("Initial frame preparation failed");
 
         // Create component registry with all default components
-        let component_registry = engine::io::component_registry::ComponentRegistry::with_default_components();
-        
+        let component_registry =
+            engine::io::component_registry::ComponentRegistry::with_default_components();
+
         // Create shared state for multi-window synchronization
         let shared_state = EditorSharedState::new(world, component_registry);
 
@@ -265,6 +268,7 @@ impl EditorState {
             ),
             pending_menu_actions: None,
             pending_dialog_actions: None,
+            performance_metrics: Default::default(),
         };
 
         // Force proper initialization by setting initial values
@@ -388,6 +392,16 @@ impl EditorState {
                 if let PhysicalKey::Code(KeyCode::Tab) = key_event.physical_key {
                     self.ui_mode = !self.ui_mode;
                     debug!("Toggled input mode: UI mode = {}", self.ui_mode);
+                    return true;
+                }
+
+                // Check for F3 key to toggle performance overlay
+                if let PhysicalKey::Code(KeyCode::F3) = key_event.physical_key {
+                    self.performance_metrics.show_overlay = !self.performance_metrics.show_overlay;
+                    debug!(
+                        "Toggled performance overlay: show = {}",
+                        self.performance_metrics.show_overlay
+                    );
                     return true;
                 }
             }
@@ -707,6 +721,25 @@ impl EditorState {
                         action_reset_layout = true;
                     }
                 });
+                ui.menu("Debug", || {
+                    let mut physics_debug_enabled = self
+                        .shared_state
+                        .physics_debug_enabled
+                        .load(std::sync::atomic::Ordering::Relaxed);
+                    if ui.checkbox("Show Physics Colliders", &mut physics_debug_enabled) {
+                        self.shared_state
+                            .physics_debug_enabled
+                            .store(physics_debug_enabled, std::sync::atomic::Ordering::Relaxed);
+                        info!(
+                            "Physics debug visualization: {}",
+                            if physics_debug_enabled {
+                                "enabled"
+                            } else {
+                                "disabled"
+                            }
+                        );
+                    }
+                });
                 ui.menu("Help", || {
                     if ui.menu_item("About") {
                         info!("About requested");
@@ -745,8 +778,9 @@ impl EditorState {
                 &self.shared_state,
                 &mut self.panel_manager,
                 self.window_size,
+                &mut self.performance_metrics,
             );
-            
+
             // Store viewport resize request to handle after frame
             if let Some(new_size) = viewport_resize {
                 self.pending_viewport_resize = Some(new_size);
@@ -1056,52 +1090,52 @@ impl EditorState {
         );
         self.texture_id = self.imgui_renderer.textures().insert(imgui_texture);
     }
-    
+
     /// Resize only the viewport render target
     fn resize_viewport(&mut self, render_context: &RenderContext, width: u32, height: u32) {
         debug!("Resizing viewport to {}x{}", width, height);
-        
+
         // Create new render target with the new size
-        self.render_target = RenderTarget::new(
-            &render_context.device,
-            width,
-            height,
-            self.surface_format,
-        );
-        
+        self.render_target =
+            RenderTarget::new(&render_context.device, width, height, self.surface_format);
+
         // Re-register the new texture with ImGui
         self.imgui_renderer.textures().remove(self.texture_id);
-        
-        // Create texture configuration for the render target
-        let texture_config = imgui_wgpu::RawTextureConfig {
-            label: Some("Editor Viewport Texture"),
-            sampler_desc: wgpu::SamplerDescriptor {
-                label: Some("Viewport Sampler"),
-                address_mode_u: wgpu::AddressMode::ClampToEdge,
-                address_mode_v: wgpu::AddressMode::ClampToEdge,
-                address_mode_w: wgpu::AddressMode::ClampToEdge,
-                mag_filter: wgpu::FilterMode::Linear,
-                min_filter: wgpu::FilterMode::Linear,
-                mipmap_filter: wgpu::FilterMode::Nearest,
-                ..Default::default()
-            },
+
+        // Create a sampler for the texture
+        let sampler_desc = wgpu::SamplerDescriptor {
+            label: Some("Viewport Sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
         };
-        
+
+        // Create texture config for imgui
+        let texture_config = imgui_wgpu::RawTextureConfig {
+            label: Some("Editor Viewport Texture"),
+            sampler_desc,
+        };
+
+        // Create the imgui texture from the render target
         let imgui_texture = imgui_wgpu::Texture::from_raw_parts(
             &render_context.device,
-            &render_context.queue,
-            &mut self.imgui_renderer.renderer,
+            self.imgui_renderer.inner(),
             std::sync::Arc::new(self.render_target.texture.clone()),
             std::sync::Arc::new(self.render_target.view.clone()),
-            None,
-            Some(&texture_config),
+            None,                  // bind_group - let imgui create it
+            Some(&texture_config), // config for sampler
             wgpu::Extent3d {
                 width,
                 height,
                 depth_or_array_layers: 1,
             },
         );
+
+        // Register the texture with imgui
         self.texture_id = self.imgui_renderer.textures().insert(imgui_texture);
     }
 
