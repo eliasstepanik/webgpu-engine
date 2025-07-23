@@ -298,7 +298,7 @@ fn detect_all_collisions(colliders: &[ColliderEntry], bodies: &[RigidbodyData]) 
 
     // Broad phase
     let pairs = sweep_and_prune(&broad_entries);
-    debug!("Broad phase found {} potential collision pairs", pairs.len());
+    debug!("Broad phase found {} potential collision pairs: {:?}", pairs.len(), pairs);
 
     // Narrow phase
     let mut contacts = Vec::new();
@@ -330,6 +330,7 @@ fn detect_all_collisions(colliders: &[ColliderEntry], bodies: &[RigidbodyData]) 
         }
 
         // Test collision
+        debug!("Testing collision: {:?} vs {:?}", entry_a.entity, entry_b.entity);
         if let Some(contact) = test_collision(
             &entry_a.collider.shape,
             (entry_a.position, entry_a.rotation),
@@ -338,7 +339,11 @@ fn detect_all_collisions(colliders: &[ColliderEntry], bodies: &[RigidbodyData]) 
             (entry_b.position, entry_b.rotation),
             entry_b.entity,
         ) {
+            debug!("Contact detected: pos={:?}, normal={:?}, penetration={}", 
+                   contact.position, contact.normal, contact.penetration);
             contacts.push(contact);
+        } else {
+            debug!("No contact between {:?} and {:?}", entry_a.entity, entry_b.entity);
         }
     }
 

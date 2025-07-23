@@ -37,6 +37,11 @@ pub trait Constraint: Send + Sync + Debug {
     fn get_contact_info(&self) -> Option<(Vec3, f32)> {
         None // Default implementation returns None
     }
+    
+    /// Check if constraint involves static bodies that need special handling
+    fn has_static_body(&self) -> bool {
+        false // Default implementation returns false
+    }
 }
 
 /// Base constraint data for AVBD
@@ -393,6 +398,10 @@ impl Constraint for ContactConstraint {
     fn get_contact_info(&self) -> Option<(Vec3, f32)> {
         // Return the contact normal and penetration depth
         Some((self.normal, self.data.lambda.z))
+    }
+    
+    fn has_static_body(&self) -> bool {
+        self.body_a == usize::MAX || self.body_b == usize::MAX
     }
 }
 
