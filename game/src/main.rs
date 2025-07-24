@@ -36,11 +36,16 @@ impl GameApp {
             "scenes".to_string(),
         );
 
+        // Create custom physics config with reduced gravity for better demos
+        let mut physics_config = engine::physics::PhysicsConfig::default();
+        physics_config.gravity = Vec3::new(0.0, -2.0, 0.0); // Reduced from -9.81 to -2.0
+
         // Create engine configuration
         let engine_config = EngineBuilder::new()
             .title("WebGPU Game Engine Demo")
             .asset_config(asset_config)
             .with_scripting(true)
+            .physics_config(physics_config)
             .build();
 
         Self {

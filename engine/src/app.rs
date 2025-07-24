@@ -36,6 +36,8 @@ pub struct EngineConfig {
     pub log_filter: Option<String>,
     /// Large world coordinate system configuration
     pub large_world: LargeWorldConfig,
+    /// Custom physics configuration (None = use default)
+    pub physics_config: Option<crate::physics::PhysicsConfig>,
 }
 
 impl Default for EngineConfig {
@@ -47,6 +49,7 @@ impl Default for EngineConfig {
             enable_scripting: true,
             log_filter: None,
             large_world: LargeWorldConfig::default(),
+            physics_config: None,
         }
     }
 }
@@ -101,7 +104,7 @@ impl EngineApp {
 
         info!("Creating EngineApp with config: {:?}", config);
 
-        let physics_config = PhysicsConfig::default();
+        let physics_config = config.physics_config.clone().unwrap_or_else(PhysicsConfig::default);
         let physics_solver = crate::physics::systems::create_physics_solver(&physics_config);
 
         Self {
@@ -535,6 +538,12 @@ impl EngineBuilder {
     /// Set a custom log filter
     pub fn log_filter(mut self, filter: impl Into<String>) -> Self {
         self.config.log_filter = Some(filter.into());
+        self
+    }
+
+    /// Set custom physics configuration
+    pub fn physics_config(mut self, config: crate::physics::PhysicsConfig) -> Self {
+        self.config.physics_config = Some(config);
         self
     }
 

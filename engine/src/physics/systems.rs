@@ -105,7 +105,8 @@ pub fn update_physics_system_avbd(world: &mut World, solver: &mut AVBDSolver, de
 
     // 5. Create contact constraints
     solver.constraints.clear();
-    for contact in contacts {
+    debug!("Creating constraints from {} contacts", contacts.len());
+    for (i, contact) in contacts.iter().enumerate() {
         // Get material properties
         let material = get_contact_material(world, &contact);
 
@@ -113,14 +114,20 @@ pub fn update_physics_system_avbd(world: &mut World, solver: &mut AVBDSolver, de
         let body_a_idx = body_entity_map.get(&contact.entity_a).copied();
         let body_b_idx = body_entity_map.get(&contact.entity_b).copied();
 
+        debug!("Contact {}: entities {:?} <-> {:?}, body indices {:?} <-> {:?}", 
+               i, contact.entity_a, contact.entity_b, body_a_idx, body_b_idx);
+        debug!("  Position: {:?}, Normal: {:?}, Penetration: {}", 
+               contact.position, contact.normal, contact.penetration);
+
         // Skip if neither entity has a rigidbody
         if body_a_idx.is_none() && body_b_idx.is_none() {
+            debug!("  Skipping - no rigidbodies found");
             continue;
         }
 
         // Create constraint - handle static bodies by using special index
         let constraint = ContactConstraint::new_with_optional_bodies(
-            contact,
+            contact.clone(),
             body_a_idx,
             body_b_idx,
             &bodies,
@@ -128,13 +135,17 @@ pub fn update_physics_system_avbd(world: &mut World, solver: &mut AVBDSolver, de
             delta_time,
         );
         solver.constraints.push(Box::new(constraint));
+        debug!("  Created constraint, total constraints: {}", solver.constraints.len());
     }
 
     // 6. Update vertex coloring for parallelization
     solver.update_coloring(&bodies);
 
     // 7. Run AVBD solver
+    debug!("Running AVBD solver with {} constraints and {} bodies", 
+           solver.constraints.len(), bodies.len());
     solver.step(&mut bodies, delta_time);
+    debug!("AVBD solver step completed");
 
     // 8. Write back to components
     update_transforms(world, &bodies);
@@ -143,7 +154,7 @@ pub fn update_physics_system_avbd(world: &mut World, solver: &mut AVBDSolver, de
 }
 
 /// Gather all rigidbodies from the world
-fn gather_rigidbodies(world: &World) -> (Vec<RigidbodyData>, HashMap<Entity, usize>) {
+pub fn gather_rigidbodies(world: &World) -> (Vec<RigidbodyData>, HashMap<Entity, usize>) {
     let mut bodies = Vec::new();
     let mut entity_map = HashMap::new();
 
@@ -191,7 +202,7 @@ fn gather_rigidbodies(world: &World) -> (Vec<RigidbodyData>, HashMap<Entity, usi
 }
 
 /// Gather all colliders with their transforms
-fn gather_colliders(world: &World, body_map: &HashMap<Entity, usize>) -> Vec<ColliderEntry> {
+pub fn gather_colliders(world: &World, body_map: &HashMap<Entity, usize>) -> Vec<ColliderEntry> {
     let mut colliders = Vec::new();
 
     // Use GlobalTransform to get the actual world position/rotation/scale
@@ -250,12 +261,12 @@ fn scale_collider(collider: &Collider, scale: Vec3) -> Collider {
 }
 
 /// Entry for collision detection
-struct ColliderEntry {
-    entity: Entity,
-    collider: Collider,
-    position: Vec3,
-    rotation: Quat,
-    body_index: usize,
+pub struct ColliderEntry {
+    pub entity: Entity,
+    pub collider: Collider,
+    pub position: Vec3,
+    pub rotation: Quat,
+    pub body_index: usize,
 }
 
 /// Apply damping to all bodies
@@ -271,7 +282,7 @@ fn apply_damping(bodies: &mut [RigidbodyData], _dt: f32) {
 }
 
 /// Detect all collisions
-fn detect_all_collisions(colliders: &[ColliderEntry], bodies: &[RigidbodyData]) -> Vec<Contact> {
+pub fn detect_all_collisions(colliders: &[ColliderEntry], bodies: &[RigidbodyData]) -> Vec<Contact> {
     if colliders.is_empty() {
         return Vec::new();
     }
