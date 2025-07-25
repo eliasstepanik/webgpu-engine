@@ -3,3 +3,8 @@ Cargo.lock
 .idea
 .envrc
 /.claude/documentation/pbrt-4ed/
+.claude
+.run
+.mcp.json
+CLAUDE.md
+PLANNING.md

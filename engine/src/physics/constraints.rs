@@ -32,12 +32,12 @@ pub trait Constraint: Send + Sync + Debug {
 
     /// Update dual variables (lambda and k)
     fn update_dual_variables(&mut self, bodies: &[RigidbodyData], beta: f32, alpha: f32);
-    
+
     /// Get contact information if this is a contact constraint
     fn get_contact_info(&self) -> Option<(Vec3, f32)> {
         None // Default implementation returns None
     }
-    
+
     /// Check if constraint involves static bodies that need special handling
     fn has_static_body(&self) -> bool {
         false // Default implementation returns false
@@ -394,12 +394,12 @@ impl Constraint for ContactConstraint {
             self.data.lambda.y = friction_dir.y * max_friction;
         }
     }
-    
+
     fn get_contact_info(&self) -> Option<(Vec3, f32)> {
         // Return the contact normal and penetration depth
         Some((self.normal, self.data.lambda.z))
     }
-    
+
     fn has_static_body(&self) -> bool {
         self.body_a == usize::MAX || self.body_b == usize::MAX
     }

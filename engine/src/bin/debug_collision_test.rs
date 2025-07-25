@@ -90,7 +90,8 @@ fn main() {
         // Get transforms and colliders
         let floor_global = world.get::<GlobalTransform>(floor).unwrap();
         let floor_collider = world.get::<Collider>(floor).unwrap();
-        let (floor_scale, floor_rot, floor_pos) = floor_global.matrix.to_scale_rotation_translation();
+        let (floor_scale, floor_rot, floor_pos) =
+            floor_global.matrix.to_scale_rotation_translation();
 
         let box_global = world.get::<GlobalTransform>(falling_box).unwrap();
         let box_collider = world.get::<Collider>(falling_box).unwrap();
@@ -114,14 +115,20 @@ fn main() {
             _ => panic!("Expected box"),
         };
 
-        println!("Floor scaled half_extents: {:?}", match &floor_scaled {
-            CollisionShape::Box { half_extents } => half_extents,
-            _ => panic!(),
-        });
-        println!("Box scaled half_extents: {:?}", match &box_scaled {
-            CollisionShape::Box { half_extents } => half_extents,
-            _ => panic!(),
-        });
+        println!(
+            "Floor scaled half_extents: {:?}",
+            match &floor_scaled {
+                CollisionShape::Box { half_extents } => half_extents,
+                _ => panic!(),
+            }
+        );
+        println!(
+            "Box scaled half_extents: {:?}",
+            match &box_scaled {
+                CollisionShape::Box { half_extents } => half_extents,
+                _ => panic!(),
+            }
+        );
 
         // Test collision
         let contact = test_collision(
@@ -139,7 +146,10 @@ fn main() {
         let floor_aabb = floor_scaled.world_aabb(floor_pos, floor_rot);
         let box_aabb = box_scaled.world_aabb(box_pos, box_rot);
 
-        println!("Floor AABB: min={:?}, max={:?}", floor_aabb.min, floor_aabb.max);
+        println!(
+            "Floor AABB: min={:?}, max={:?}",
+            floor_aabb.min, floor_aabb.max
+        );
         println!("Box AABB: min={:?}, max={:?}", box_aabb.min, box_aabb.max);
         println!("AABBs overlap: {}", floor_aabb.overlaps(&box_aabb));
     }
@@ -147,16 +157,13 @@ fn main() {
     // Test 3: Sweep and prune
     println!("\nTest 3: Broad phase detection");
     {
-        let floor_aabb = AABB::new(
-            Vec3::new(-10.0, -1.1, -10.0),
-            Vec3::new(10.0, -0.9, 10.0),
-        );
-        let box_aabb = AABB::new(
-            Vec3::new(-0.5, -0.5, -0.5),
-            Vec3::new(0.5, 0.5, 0.5),
-        );
+        let floor_aabb = AABB::new(Vec3::new(-10.0, -1.1, -10.0), Vec3::new(10.0, -0.9, 10.0));
+        let box_aabb = AABB::new(Vec3::new(-0.5, -0.5, -0.5), Vec3::new(0.5, 0.5, 0.5));
 
-        println!("Floor AABB: min={:?}, max={:?}", floor_aabb.min, floor_aabb.max);
+        println!(
+            "Floor AABB: min={:?}, max={:?}",
+            floor_aabb.min, floor_aabb.max
+        );
         println!("Box AABB: min={:?}, max={:?}", box_aabb.min, box_aabb.max);
         println!("Overlap: {}", floor_aabb.overlaps(&box_aabb));
 

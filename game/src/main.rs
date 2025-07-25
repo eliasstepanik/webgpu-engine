@@ -271,37 +271,52 @@ impl ApplicationHandler for GameApp {
                             // Validate physics scene configuration in debug builds
                             #[cfg(debug_assertions)]
                             {
-                                let validation_result = engine::physics::validate_physics_scene(&scene);
+                                let validation_result =
+                                    engine::physics::validate_physics_scene(&scene);
                                 if !validation_result.is_valid {
-                                    tracing::warn!("Physics validation warnings for scene '{}':", scene_path.display());
+                                    tracing::warn!(
+                                        "Physics validation warnings for scene '{}':",
+                                        scene_path.display()
+                                    );
                                     for error in &validation_result.errors {
-                                        tracing::warn!("  - {}: {}", error.entity_name, error.details);
+                                        tracing::warn!(
+                                            "  - {}: {}",
+                                            error.entity_name,
+                                            error.details
+                                        );
                                     }
                                     for warning in &validation_result.warnings {
-                                        tracing::warn!("  - {}: {}", warning.entity, warning.warning);
+                                        tracing::warn!(
+                                            "  - {}: {}",
+                                            warning.entity,
+                                            warning.warning
+                                        );
                                     }
                                 } else {
-                                    tracing::debug!("Physics scene validation passed for '{}'", scene_path.display());
+                                    tracing::debug!(
+                                        "Physics scene validation passed for '{}'",
+                                        scene_path.display()
+                                    );
                                 }
                             }
 
                             match scene.instantiate(&mut self.engine.world) {
                                 Ok(_) => {
-                                info!("Successfully loaded scene: {}", scene_path.display());
-                                // Advance frame counter and run hierarchy system once to ensure GlobalTransform
-                                // components are created. This is needed for physics entities to be properly detected.
-                                engine::core::entity::hierarchy::advance_frame();
-                                engine::core::entity::update_hierarchy_system(
-                                    &mut self.engine.world,
-                                );
-                            }
-                            Err(e) => {
-                                tracing::error!("Failed to instantiate scene: {}", e);
-                                info!("Falling back to demo scene");
-                                create_demo_scene(&mut self.engine.world, renderer);
+                                    info!("Successfully loaded scene: {}", scene_path.display());
+                                    // Advance frame counter and run hierarchy system once to ensure GlobalTransform
+                                    // components are created. This is needed for physics entities to be properly detected.
+                                    engine::core::entity::hierarchy::advance_frame();
+                                    engine::core::entity::update_hierarchy_system(
+                                        &mut self.engine.world,
+                                    );
+                                }
+                                Err(e) => {
+                                    tracing::error!("Failed to instantiate scene: {}", e);
+                                    info!("Falling back to demo scene");
+                                    //create_demo_scene(&mut self.engine.world, renderer);
+                                }
                             }
                         }
-                    },
                         Err(e) => {
                             tracing::error!(
                                 "Failed to load scene from {}: {}",
@@ -309,7 +324,7 @@ impl ApplicationHandler for GameApp {
                                 e
                             );
                             info!("Falling back to demo scene");
-                            create_demo_scene(&mut self.engine.world, renderer);
+                            //create_demo_scene(&mut self.engine.world, renderer);
                         }
                     }
                 } else {
@@ -318,7 +333,7 @@ impl ApplicationHandler for GameApp {
             } else {
                 // Create demo scene if no environment variable is set
                 if let Some(renderer) = &mut self.engine.renderer {
-                    create_demo_scene(&mut self.engine.world, renderer);
+                    //create_demo_scene(&mut self.engine.world, renderer);
                 }
             }
         }
@@ -433,7 +448,7 @@ impl ApplicationHandler for GameApp {
                         let physics_solver = &mut self.engine.physics_solver;
                         let physics_config = &self.engine.physics_config;
                         editor_state.shared_state.with_world_write(|world| {
-                             engine::physics::systems::update_physics_system(
+                            engine::physics::systems::update_physics_system(
                                 world,
                                 physics_solver,
                                 physics_config,

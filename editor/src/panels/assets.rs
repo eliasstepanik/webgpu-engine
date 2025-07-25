@@ -149,12 +149,26 @@ fn scan_directory(path: &Path) -> Result<FileNode, std::io::Error> {
     }
 }
 
+/// Check if a file is a scene file (JSON in scenes directory)
+pub fn is_scene_file(path: &Path) -> bool {
+    // Check if it's a JSON file
+    if let Some(ext) = path.extension() {
+        if ext == "json" {
+            // Check if path contains "scenes/" directory
+            let path_str = path.to_string_lossy();
+            return path_str.contains("scenes/") || path_str.contains("scenes\\");
+        }
+    }
+    false
+}
+
 /// Check if a file is draggable
 fn is_draggable_file(path: &Path) -> bool {
-    matches!(
-        path.extension().and_then(|e| e.to_str()),
-        Some("obj") | Some("rhai") | Some("json")
-    )
+    match path.extension().and_then(|e| e.to_str()) {
+        Some("obj") | Some("rhai") => true,
+        Some("json") => is_scene_file(path), // Only drag scene JSONs
+        _ => false,
+    }
 }
 
 /// Get the appropriate icon for a file type
@@ -162,7 +176,13 @@ fn get_file_icon(path: &Path) -> &'static str {
     match path.extension().and_then(|e| e.to_str()) {
         Some("obj") => "🗿",
         Some("rhai") => "📜",
-        Some("json") => "📋",
+        Some("json") => {
+            if is_scene_file(path) {
+                "🎬" // Scene icon
+            } else {
+                "📋" // Regular JSON
+            }
+        }
         _ => "📄",
     }
 }

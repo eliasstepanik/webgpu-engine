@@ -1,18 +1,5 @@
 [
   {
-    "id": "inspector",
-    "title": "Entity Inspector",
-    "position": [
-      60.0,
-      60.0
-    ],
-    "size": [
-      280.0,
-      300.0
-    ],
-    "is_visible": true
-  },
-  {
     "id": "hierarchy",
     "title": "Scene Hierarchy",
     "position": [
@@ -22,6 +9,19 @@
     "size": [
       280.0,
       400.0
+    ],
+    "is_visible": true
+  },
+  {
+    "id": "inspector",
+    "title": "Entity Inspector",
+    "position": [
+      60.0,
+      60.0
+    ],
+    "size": [
+      280.0,
+      300.0
     ],
     "is_visible": true
   },

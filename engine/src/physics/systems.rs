@@ -59,7 +59,7 @@ pub fn update_physics_system_avbd(world: &mut World, solver: &mut AVBDSolver, de
     if delta_time < 0.0001 {
         return;
     }
-    
+
     // 0. Update hierarchy to ensure GlobalTransform components exist
     crate::core::entity::hierarchy::advance_frame();
     crate::core::entity::update_hierarchy_system(world);
@@ -114,10 +114,14 @@ pub fn update_physics_system_avbd(world: &mut World, solver: &mut AVBDSolver, de
         let body_a_idx = body_entity_map.get(&contact.entity_a).copied();
         let body_b_idx = body_entity_map.get(&contact.entity_b).copied();
 
-        debug!("Contact {}: entities {:?} <-> {:?}, body indices {:?} <-> {:?}", 
-               i, contact.entity_a, contact.entity_b, body_a_idx, body_b_idx);
-        debug!("  Position: {:?}, Normal: {:?}, Penetration: {}", 
-               contact.position, contact.normal, contact.penetration);
+        debug!(
+            "Contact {}: entities {:?} <-> {:?}, body indices {:?} <-> {:?}",
+            i, contact.entity_a, contact.entity_b, body_a_idx, body_b_idx
+        );
+        debug!(
+            "  Position: {:?}, Normal: {:?}, Penetration: {}",
+            contact.position, contact.normal, contact.penetration
+        );
 
         // Skip if neither entity has a rigidbody
         if body_a_idx.is_none() && body_b_idx.is_none() {
@@ -135,15 +139,21 @@ pub fn update_physics_system_avbd(world: &mut World, solver: &mut AVBDSolver, de
             delta_time,
         );
         solver.constraints.push(Box::new(constraint));
-        debug!("  Created constraint, total constraints: {}", solver.constraints.len());
+        debug!(
+            "  Created constraint, total constraints: {}",
+            solver.constraints.len()
+        );
     }
 
     // 6. Update vertex coloring for parallelization
     solver.update_coloring(&bodies);
 
     // 7. Run AVBD solver
-    debug!("Running AVBD solver with {} constraints and {} bodies", 
-           solver.constraints.len(), bodies.len());
+    debug!(
+        "Running AVBD solver with {} constraints and {} bodies",
+        solver.constraints.len(),
+        bodies.len()
+    );
     solver.step(&mut bodies, delta_time);
     debug!("AVBD solver step completed");
 
@@ -282,7 +292,10 @@ fn apply_damping(bodies: &mut [RigidbodyData], _dt: f32) {
 }
 
 /// Detect all collisions
-pub fn detect_all_collisions(colliders: &[ColliderEntry], bodies: &[RigidbodyData]) -> Vec<Contact> {
+pub fn detect_all_collisions(
+    colliders: &[ColliderEntry],
+    bodies: &[RigidbodyData],
+) -> Vec<Contact> {
     if colliders.is_empty() {
         return Vec::new();
     }
@@ -298,7 +311,9 @@ pub fn detect_all_collisions(colliders: &[ColliderEntry], bodies: &[RigidbodyDat
                 .world_aabb(entry.position, entry.rotation);
             trace!(
                 "AABB for collider {}: min={:?}, max={:?}",
-                idx, aabb.min, aabb.max
+                idx,
+                aabb.min,
+                aabb.max
             );
             BroadPhaseEntry {
                 entity: entry.entity,
@@ -309,7 +324,11 @@ pub fn detect_all_collisions(colliders: &[ColliderEntry], bodies: &[RigidbodyDat
 
     // Broad phase
     let pairs = sweep_and_prune(&broad_entries);
-    debug!("Broad phase found {} potential collision pairs: {:?}", pairs.len(), pairs);
+    debug!(
+        "Broad phase found {} potential collision pairs: {:?}",
+        pairs.len(),
+        pairs
+    );
 
     // Narrow phase
     let mut contacts = Vec::new();
@@ -341,7 +360,10 @@ pub fn detect_all_collisions(colliders: &[ColliderEntry], bodies: &[RigidbodyDat
         }
 
         // Test collision
-        debug!("Testing collision: {:?} vs {:?}", entry_a.entity, entry_b.entity);
+        debug!(
+            "Testing collision: {:?} vs {:?}",
+            entry_a.entity, entry_b.entity
+        );
         if let Some(contact) = test_collision(
             &entry_a.collider.shape,
             (entry_a.position, entry_a.rotation),
@@ -350,11 +372,16 @@ pub fn detect_all_collisions(colliders: &[ColliderEntry], bodies: &[RigidbodyDat
             (entry_b.position, entry_b.rotation),
             entry_b.entity,
         ) {
-            debug!("Contact detected: pos={:?}, normal={:?}, penetration={}", 
-                   contact.position, contact.normal, contact.penetration);
+            debug!(
+                "Contact detected: pos={:?}, normal={:?}, penetration={}",
+                contact.position, contact.normal, contact.penetration
+            );
             contacts.push(contact);
         } else {
-            debug!("No contact between {:?} and {:?}", entry_a.entity, entry_b.entity);
+            debug!(
+                "No contact between {:?} and {:?}",
+                entry_a.entity, entry_b.entity
+            );
         }
     }
 

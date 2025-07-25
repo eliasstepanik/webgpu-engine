@@ -465,19 +465,21 @@ impl AVBDSolver {
 
                 // Linear velocity = (new_position - old_position) / dt
                 body.linear_velocity = (body.position - old_position) / dt;
-                
+
                 // Clamp linear velocity to prevent tunneling
                 if body.linear_velocity.length() > self.max_linear_velocity {
-                    body.linear_velocity = body.linear_velocity.normalize() * self.max_linear_velocity;
+                    body.linear_velocity =
+                        body.linear_velocity.normalize() * self.max_linear_velocity;
                 }
 
                 // Angular velocity from quaternion difference
                 let dq = body.rotation * body.inertial_rotation.conjugate();
                 body.angular_velocity = 2.0 * Vec3::new(dq.x, dq.y, dq.z) / dt;
-                
+
                 // Clamp angular velocity
                 if body.angular_velocity.length() > self.max_angular_velocity {
-                    body.angular_velocity = body.angular_velocity.normalize() * self.max_angular_velocity;
+                    body.angular_velocity =
+                        body.angular_velocity.normalize() * self.max_angular_velocity;
                 }
             }
         });

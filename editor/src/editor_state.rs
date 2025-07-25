@@ -771,7 +771,7 @@ impl EditorState {
             );
 
             // Central viewport that displays the 3D scene
-            let viewport_resize = crate::panels::render_viewport_panel(
+            let viewport_action = crate::panels::render_viewport_panel(
                 ui,
                 self.texture_id,
                 &self.render_target,
@@ -781,9 +781,24 @@ impl EditorState {
                 &mut self.performance_metrics,
             );
 
-            // Store viewport resize request to handle after frame
-            if let Some(new_size) = viewport_resize {
-                self.pending_viewport_resize = Some(new_size);
+            // Handle viewport actions
+            if let Some(action) = viewport_action {
+                match action {
+                    crate::panels::viewport::ViewportAction::Resize(width, height) => {
+                        self.pending_viewport_resize = Some((width, height));
+                    }
+                    crate::panels::viewport::ViewportAction::LoadScene(path) => {
+                        // Check if scene has unsaved changes
+                        if self.scene_modified {
+                            self.show_unsaved_dialog = true;
+                            self.pending_action = Some(PendingAction::LoadScene);
+                            self.pending_scene_operation = Some(SceneOperation::LoadScene(path));
+                        } else {
+                            // Load scene immediately
+                            self.pending_scene_operation = Some(SceneOperation::LoadScene(path));
+                        }
+                    }
+                }
             }
 
             // Dialog handling
