@@ -71,7 +71,11 @@ fn test_torque_from_offset_impact() {
 
     // Run one physics step
     println!("\nRunning physics step...");
-    simple_physics_update(&mut world, 0.016);
+    simple_physics_update(
+        &mut world,
+        &engine::physics::PhysicsConfig::default(),
+        0.016,
+    );
 
     // Check if we generated any angular velocity
     let rb = world.get::<Rigidbody>(box_entity).unwrap();

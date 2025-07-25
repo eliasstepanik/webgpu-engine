@@ -139,14 +139,12 @@ where
                             component.set_field(&field.name, FieldValue::String(buffer));
                             modified = true;
                         }
-                    } else {
-                        if ui
-                            .input_text(format!("##{}", field.name), &mut buffer)
-                            .build()
-                        {
-                            component.set_field(&field.name, FieldValue::String(buffer));
-                            modified = true;
-                        }
+                    } else if ui
+                        .input_text(format!("##{}", field.name), &mut buffer)
+                        .build()
+                    {
+                        component.set_field(&field.name, FieldValue::String(buffer));
+                        modified = true;
                     }
                 } else {
                     ui.text(&buffer);
@@ -176,17 +174,15 @@ where
                         ));
                     }
                 }
-            } else {
-                if let Some(mut color) = current_value.as_color_rgb() {
-                    if !field.readonly && ui.color_edit3(format!("##{}", field.name), &mut color) {
-                        component.set_field(&field.name, FieldValue::ColorRGB(color));
-                        modified = true;
-                    } else if field.readonly {
-                        ui.text(format!(
-                            "RGB({:.2}, {:.2}, {:.2})",
-                            color[0], color[1], color[2]
-                        ));
-                    }
+            } else if let Some(mut color) = current_value.as_color_rgb() {
+                if !field.readonly && ui.color_edit3(format!("##{}", field.name), &mut color) {
+                    component.set_field(&field.name, FieldValue::ColorRGB(color));
+                    modified = true;
+                } else if field.readonly {
+                    ui.text(format!(
+                        "RGB({:.2}, {:.2}, {:.2})",
+                        color[0], color[1], color[2]
+                    ));
                 }
             }
         }
@@ -252,7 +248,7 @@ where
     ui.same_line();
     ui.set_next_item_width(input_width);
     if !readonly
-        && Drag::new(format!("##{}x", field_name))
+        && Drag::new(format!("##{field_name}x"))
             .speed(speed)
             .display_format(format)
             .build(ui, &mut x)
@@ -268,7 +264,7 @@ where
     ui.same_line();
     ui.set_next_item_width(input_width);
     if !readonly
-        && Drag::new(format!("##{}y", field_name))
+        && Drag::new(format!("##{field_name}y"))
             .speed(speed)
             .display_format(format)
             .build(ui, &mut y)
@@ -284,7 +280,7 @@ where
     ui.same_line();
     ui.set_next_item_width(input_width);
     if !readonly
-        && Drag::new(format!("##{}z", field_name))
+        && Drag::new(format!("##{field_name}z"))
             .speed(speed)
             .display_format(format)
             .build(ui, &mut z)
@@ -332,7 +328,7 @@ where
     ui.same_line();
     ui.set_next_item_width(input_width);
     if !readonly
-        && Drag::new(format!("##{}pitch", field_name))
+        && Drag::new(format!("##{field_name}pitch"))
             .speed(speed)
             .display_format(format)
             .build(ui, &mut pitch)
@@ -348,7 +344,7 @@ where
     ui.same_line();
     ui.set_next_item_width(input_width);
     if !readonly
-        && Drag::new(format!("##{}yaw", field_name))
+        && Drag::new(format!("##{field_name}yaw"))
             .speed(speed)
             .display_format(format)
             .build(ui, &mut yaw)
@@ -364,7 +360,7 @@ where
     ui.same_line();
     ui.set_next_item_width(input_width);
     if !readonly
-        && Drag::new(format!("##{}roll", field_name))
+        && Drag::new(format!("##{field_name}roll"))
             .speed(speed)
             .display_format(format)
             .build(ui, &mut roll)

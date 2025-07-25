@@ -104,10 +104,7 @@ impl EngineApp {
 
         info!("Creating EngineApp with config: {:?}", config);
 
-        let physics_config = config
-            .physics_config
-            .clone()
-            .unwrap_or_else(PhysicsConfig::default);
+        let physics_config = config.physics_config.clone().unwrap_or_default();
         let physics_solver = crate::physics::systems::create_physics_solver(&physics_config);
 
         Self {

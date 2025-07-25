@@ -36,9 +36,9 @@ fn main() {
     info!("Scene instantiated, running physics analysis...");
 
     // Create physics config and solver
-    let physics_config = PhysicsConfig::default();
+    let _physics_config = PhysicsConfig::default();
     let avbd_config = AVBDConfig::default();
-    let mut solver = AVBDSolver::new(avbd_config);
+    let _solver = AVBDSolver::new(avbd_config);
 
     // Gather rigidbodies
     let (bodies, body_entity_map) = gather_rigidbodies(&world);

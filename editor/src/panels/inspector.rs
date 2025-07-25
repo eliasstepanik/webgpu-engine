@@ -425,8 +425,8 @@ pub fn render_inspector_panel(
                 }
 
                 // Collider component
-                if has_collider {
-                    if ui.collapsing_header("Collider", TreeNodeFlags::DEFAULT_OPEN) {
+                if has_collider
+                    && ui.collapsing_header("Collider", TreeNodeFlags::DEFAULT_OPEN) {
                         let mut remove_component = false;
 
                         shared_state.with_world_write(|world| {
@@ -475,7 +475,6 @@ pub fn render_inspector_panel(
                             shared_state.mark_scene_modified();
                         }
                     }
-                }
 
                 // PhysicsMaterial component
                 if has_physics_material {
@@ -519,7 +518,7 @@ pub fn render_inspector_panel(
                                 if file_path.ends_with(".obj") {
                                     // Add MeshId component
                                     shared_state.with_world_write(|world| {
-                                        let mesh_path = format!("game/assets/{}", file_path);
+                                        let mesh_path = format!("game/assets/{file_path}");
                                         let _ = world.insert_one(entity, MeshId(mesh_path));
                                         debug!(entity = ?entity, "Added MeshId component via drag-drop");
                                     });
@@ -799,16 +798,16 @@ fn render_component_with_metadata<
                 });
             } else {
                 // No UI metadata, show placeholder
-                ui.text(format!("No UI metadata for {}", component_name));
+                ui.text(format!("No UI metadata for {component_name}"));
             }
         } else {
             // Component not registered
-            ui.text(format!("{} not registered", component_name));
+            ui.text(format!("{component_name} not registered"));
         }
 
         // Remove component button
         ui.separator();
-        if ui.small_button(format!("Remove##{}", component_name)) {
+        if ui.small_button(format!("Remove##{component_name}")) {
             shared_state.with_world_write(|world| {
                 world.inner_mut().remove_one::<T>(entity).ok();
                 remove_component = true;

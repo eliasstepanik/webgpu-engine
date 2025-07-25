@@ -39,8 +39,10 @@ fn main() {
     info!("Scene instantiated, testing with reduced gravity...");
 
     // Create custom physics config with reduced gravity
-    let mut physics_config = PhysicsConfig::default();
-    physics_config.gravity = Vec3::new(0.0, -2.0, 0.0); // Much gentler than -9.81
+    let physics_config = PhysicsConfig {
+        gravity: Vec3::new(0.0, -2.0, 0.0), // Much gentler than -9.81
+        ..Default::default()
+    };
 
     info!("Using custom gravity: {:?}", physics_config.gravity);
 

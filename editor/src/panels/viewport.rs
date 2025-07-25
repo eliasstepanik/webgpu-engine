@@ -206,10 +206,10 @@ pub fn render_viewport_panel(
                     } else {
                         [1.0, 0.0, 0.0, 1.0] // Red
                     };
-                    ui.text_colored(fps_color, format!("FPS: {:.1}", fps));
-                    ui.text(format!("Frame: {:.2} ms", avg_frame_time));
-                    ui.text(format!("Min: {:.2} ms", min_time));
-                    ui.text(format!("Max: {:.2} ms", max_time));
+                    ui.text_colored(fps_color, format!("FPS: {fps:.1}"));
+                    ui.text(format!("Frame: {avg_frame_time:.2} ms"));
+                    ui.text(format!("Min: {min_time:.2} ms"));
+                    ui.text(format!("Max: {max_time:.2} ms"));
                     // Simple frame time graph
                     if !performance_metrics.frame_times.is_empty() {
                         let values: Vec<f32> = performance_metrics.frame_times.iter().copied().collect();

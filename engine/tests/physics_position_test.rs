@@ -50,8 +50,9 @@ fn test_sphere_on_ground_position() {
 
     // Simulate for 2 seconds with detailed output
     let dt = 0.016;
+    let config = engine::physics::PhysicsConfig::default();
     for i in 0..125 {
-        simple_physics_update(&mut world, dt);
+        simple_physics_update(&mut world, &config, dt);
 
         let transform = world.get::<Transform>(sphere).unwrap();
         let velocity = world.get::<Rigidbody>(sphere).unwrap();
@@ -145,8 +146,9 @@ fn test_box_on_ground_position() {
 
     // Simulate for 2 seconds
     let dt = 0.016;
+    let config = engine::physics::PhysicsConfig::default();
     for i in 0..125 {
-        simple_physics_update(&mut world, dt);
+        simple_physics_update(&mut world, &config, dt);
 
         if i % 25 == 0 {
             let transform = world.get::<Transform>(box_entity).unwrap();

@@ -51,6 +51,7 @@ struct ColliderInfo {
     position: Vec3,
     scale: Vec3,
     half_extents: Vec3,
+    #[allow(dead_code)]
     is_static: bool,
 }
 
@@ -59,6 +60,7 @@ struct ColliderInfo {
 struct RigidbodyInfo {
     name: String,
     position: Vec3,
+    #[allow(dead_code)]
     scale: Vec3,
     scaled_half_extents: Vec3,
     has_gravity: bool,
@@ -206,7 +208,7 @@ fn check_floating_objects(
                 error_type: ErrorType::FloatingObject {
                     height: body_bottom,
                 },
-                details: format!("No floor found below object at height {:.1}", body_bottom),
+                details: format!("No floor found below object at height {body_bottom:.1}"),
             });
         }
     }
@@ -256,8 +258,7 @@ fn check_floor_configuration(
             result.warnings.push(ValidationWarning {
                 entity: collider.name.clone(),
                 warning: format!(
-                    "Floor is only {:.3}m thick - may cause tunneling at high velocities",
-                    actual_height
+                    "Floor is only {actual_height:.3}m thick - may cause tunneling at high velocities"
                 ),
             });
         }

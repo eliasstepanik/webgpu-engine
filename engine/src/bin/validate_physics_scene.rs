@@ -29,13 +29,13 @@ fn main() {
     // Process each scene file argument
     for scene_path in &args[1..] {
         println!("=== Physics Scene Validation Report ===");
-        println!("Scene: {}", scene_path);
+        println!("Scene: {scene_path}");
 
         // Load scene
         let scene = match load_scene(scene_path) {
             Ok(scene) => scene,
             Err(e) => {
-                eprintln!("ERROR: Failed to load scene '{}': {}", scene_path, e);
+                eprintln!("ERROR: Failed to load scene '{scene_path}': {e}");
                 all_valid = false;
                 continue;
             }
@@ -56,16 +56,16 @@ fn main() {
                 match &error.error_type {
                     ErrorType::NoOverlap { gap_distance } => {
                         println!("    Fix: Reduce gap by moving floor up or object down");
-                        println!("    Current gap: {:.1}m", gap_distance);
+                        println!("    Current gap: {gap_distance:.1}m");
                     }
                     ErrorType::FloatingObject { height } => {
-                        println!("    Fix: Add a floor below object at Y < {:.1}", height);
+                        println!("    Fix: Add a floor below object at Y < {height:.1}");
                     }
                     ErrorType::InitialPenetration => {
                         println!("    Fix: Separate overlapping objects in scene");
                     }
                     ErrorType::InvalidScale { scale } => {
-                        println!("    Fix: Use reasonable scale values, got {:?}", scale);
+                        println!("    Fix: Use reasonable scale values, got {scale:?}");
                     }
                     ErrorType::MissingCollider => {
                         println!("    Fix: Add Collider component to physics object");
@@ -85,7 +85,7 @@ fn main() {
         if !result.suggestions.is_empty() {
             println!("\nSUGGESTIONS:");
             for suggestion in &result.suggestions {
-                println!("  - {}", suggestion);
+                println!("  - {suggestion}");
             }
         }
 

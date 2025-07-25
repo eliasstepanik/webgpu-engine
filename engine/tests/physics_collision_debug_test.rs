@@ -2,7 +2,6 @@
 
 use engine::core::entity::{components::GlobalTransform, Transform, World};
 use engine::physics::{
-    avbd_solver::AVBDSolver,
     components::{Collider, CollisionShape, Rigidbody},
     systems::{create_default_solver, update_physics_system_avbd},
 };
@@ -98,10 +97,7 @@ fn test_collision_detection_pipeline() {
         // (floor is at y = -1.0 with scale.y = 0.2, so top surface is at y = -0.8)
         // (box half extents are 0.5, so bottom of box should be at y = -0.3)
         if frame > 50 && box_world_pos.y < -0.5 {
-            panic!(
-                "Box fell through floor! Frame {}, position: {:?}",
-                frame, box_world_pos
-            );
+            panic!("Box fell through floor! Frame {frame}, position: {box_world_pos:?}");
         }
 
         // Check if collision was detected

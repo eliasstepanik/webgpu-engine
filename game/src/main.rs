@@ -37,8 +37,10 @@ impl GameApp {
         );
 
         // Create custom physics config with reduced gravity for better demos
-        let mut physics_config = engine::physics::PhysicsConfig::default();
-        physics_config.gravity = Vec3::new(0.0, -2.0, 0.0); // Reduced from -9.81 to -2.0
+        let physics_config = engine::physics::PhysicsConfig {
+            gravity: Vec3::new(0.0, -2.0, 0.0), // Reduced from -9.81 to -2.0
+            ..Default::default()
+        };
 
         // Create engine configuration
         let engine_config = EngineBuilder::new()
@@ -257,7 +259,7 @@ impl ApplicationHandler for GameApp {
             if let Ok(scene_name) = std::env::var("SCENE") {
                 info!("Loading scene from environment variable: {}", scene_name);
 
-                if let Some(renderer) = &mut self.engine.renderer {
+                if let Some(_renderer) = &mut self.engine.renderer {
                     // Build the scene path
                     let scene_path = if scene_name.ends_with(".json") {
                         PathBuf::from("game/assets/scenes").join(&scene_name)
@@ -332,7 +334,7 @@ impl ApplicationHandler for GameApp {
                 }
             } else {
                 // Create demo scene if no environment variable is set
-                if let Some(renderer) = &mut self.engine.renderer {
+                if let Some(_renderer) = &mut self.engine.renderer {
                     //create_demo_scene(&mut self.engine.world, renderer);
                 }
             }
@@ -525,6 +527,7 @@ fn main() {
 }
 
 /// Create a demo scene with a rotating cube
+#[allow(dead_code)]
 fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
     info!("Creating demo scene");
 

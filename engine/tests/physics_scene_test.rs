@@ -33,7 +33,12 @@ fn test_physics_scene_loading() {
     let mut solver = engine::physics::systems::create_default_solver();
 
     // Run physics update - should not panic and should find rigidbodies
-    update_physics_system(&mut world, &mut solver, 0.016);
+    update_physics_system(
+        &mut world,
+        &mut solver,
+        &engine::physics::PhysicsConfig::default(),
+        0.016,
+    );
 
     // Verify we still have the same number of rigidbodies
     assert_eq!(bodies_before, bodies_after, "Rigidbody count changed!");

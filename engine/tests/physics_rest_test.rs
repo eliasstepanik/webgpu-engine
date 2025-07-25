@@ -54,7 +54,7 @@ fn test_object_comes_to_rest() {
     let mut at_rest_count = 0;
 
     for i in 0..300 {
-        simple_physics_update(&mut world, dt);
+        simple_physics_update(&mut world, &engine::physics::PhysicsConfig::default(), dt);
 
         let transform = world.get::<Transform>(sphere).unwrap();
         let velocity = world.get::<Rigidbody>(sphere).unwrap();
@@ -153,11 +153,11 @@ fn test_stacking_stability() {
     // Simulate for 3 seconds
     let dt = 0.016;
     for frame in 0..180 {
-        simple_physics_update(&mut world, dt);
+        simple_physics_update(&mut world, &engine::physics::PhysicsConfig::default(), dt);
 
         // Print positions every 30 frames
         if frame % 30 == 29 {
-            println!("Frame {}:", frame);
+            println!("Frame {frame}:");
             for (i, &box_entity) in boxes.iter().enumerate() {
                 let transform = world.get::<Transform>(box_entity).unwrap();
                 let velocity = world.get::<Rigidbody>(box_entity).unwrap();

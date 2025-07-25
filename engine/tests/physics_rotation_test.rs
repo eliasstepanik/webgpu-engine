@@ -74,9 +74,9 @@ fn test_cube_tips_over() {
 
     for i in 0..180 {
         if i < 5 {
-            println!("\n=== Frame {} ===", i);
+            println!("\n=== Frame {i} ===");
         }
-        simple_physics_update(&mut world, dt);
+        simple_physics_update(&mut world, &engine::physics::PhysicsConfig::default(), dt);
 
         let transform = world.get::<Transform>(cube).unwrap();
         let velocity = world.get::<Rigidbody>(cube).unwrap();
@@ -98,7 +98,7 @@ fn test_cube_tips_over() {
 
         // Check if cube has settled
         if velocity.linear_velocity.length() < 0.01 && velocity.angular_velocity.length() < 0.01 {
-            println!("Cube settled at frame {}", i);
+            println!("Cube settled at frame {i}");
             break;
         }
     }
@@ -116,14 +116,10 @@ fn test_cube_tips_over() {
 
     assert!(
         max_alignment > 0.9,
-        "Cube should have rotated to rest on a face, but max axis alignment with Y is only {:.3}",
-        max_alignment
+        "Cube should have rotated to rest on a face, but max axis alignment with Y is only {max_alignment:.3}"
     );
 
-    println!(
-        "Final orientation - Up: {:?}, Right: {:?}, Forward: {:?}",
-        up, right, forward
-    );
+    println!("Final orientation - Up: {up:?}, Right: {right:?}, Forward: {forward:?}");
 }
 
 #[test]
@@ -162,7 +158,7 @@ fn test_angular_momentum_conservation() {
     // Simulate for 1 second
     let dt = 0.016;
     for _ in 0..60 {
-        simple_physics_update(&mut world, dt);
+        simple_physics_update(&mut world, &engine::physics::PhysicsConfig::default(), dt);
     }
 
     // Check angular momentum is conserved
@@ -171,8 +167,6 @@ fn test_angular_momentum_conservation() {
 
     assert!(
         (final_angular_speed - initial_angular_vel).abs() < 0.01,
-        "Angular momentum should be conserved, but speed changed from {} to {}",
-        initial_angular_vel,
-        final_angular_speed
+        "Angular momentum should be conserved, but speed changed from {initial_angular_vel} to {final_angular_speed}"
     );
 }

@@ -108,7 +108,7 @@ pub fn update_physics_system_avbd(world: &mut World, solver: &mut AVBDSolver, de
     debug!("Creating constraints from {} contacts", contacts.len());
     for (i, contact) in contacts.iter().enumerate() {
         // Get material properties
-        let material = get_contact_material(world, &contact);
+        let material = get_contact_material(world, contact);
 
         // Find body indices - handle static bodies
         let body_a_idx = body_entity_map.get(&contact.entity_a).copied();
@@ -473,7 +473,8 @@ fn update_transforms(world: &mut World, bodies: &[RigidbodyData]) {
 /// Store previous transforms for interpolation
 fn store_previous_transforms(world: &mut World) {
     // Store current positions as previous for interpolation
-    for (entity, (transform,)) in world.query::<(&Transform,)>().iter() {
+    // Only process entities with Rigidbody components
+    for (entity, (transform, _rigidbody)) in world.query::<(&Transform, &Rigidbody)>().iter() {
         // Store in a component or temporary storage
         // For now, we'll skip interpolation implementation
         // This would require adding a PreviousTransform component
@@ -484,6 +485,7 @@ fn store_previous_transforms(world: &mut World) {
 /// Interpolate transforms between physics steps for smooth rendering
 fn interpolate_transforms(world: &mut World, alpha: f32) {
     // Interpolate between previous and current transforms
+    // Only process entities with Rigidbody components
     // For now, we'll skip interpolation implementation
     // This would require the PreviousTransform component
     let _ = (world, alpha);

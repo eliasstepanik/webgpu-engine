@@ -4,7 +4,7 @@
     <option name="command" value="run --package game --bin game" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$" />
     <envs>
-      <env name="SCENE" value="physics_debug_test" />
+      <env name="SCENE" value="main_scene" />
     </envs>
     <option name="emulateTerminal" value="true" />
     <option name="channel" value="DEFAULT" />

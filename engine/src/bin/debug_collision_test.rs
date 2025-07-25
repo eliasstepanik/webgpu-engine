@@ -42,7 +42,7 @@ fn main() {
         );
 
         println!("Floor at y={}, Box at y={}", floor_pos.y, box_pos.y);
-        println!("Contact: {:?}\n", contact);
+        println!("Contact: {contact:?}\n");
     }
 
     // Test 2: With the actual scene setup
@@ -97,8 +97,8 @@ fn main() {
         let box_collider = world.get::<Collider>(falling_box).unwrap();
         let (box_scale, box_rot, box_pos) = box_global.matrix.to_scale_rotation_translation();
 
-        println!("Floor: pos={:?}, scale={:?}", floor_pos, floor_scale);
-        println!("Box: pos={:?}, scale={:?}", box_pos, box_scale);
+        println!("Floor: pos={floor_pos:?}, scale={floor_scale:?}");
+        println!("Box: pos={box_pos:?}, scale={box_scale:?}");
 
         // Apply scaling to shapes
         let floor_scaled = match &floor_collider.shape {
@@ -140,7 +140,7 @@ fn main() {
             falling_box,
         );
 
-        println!("Contact: {:?}\n", contact);
+        println!("Contact: {contact:?}\n");
 
         // Test AABBs
         let floor_aabb = floor_scaled.world_aabb(floor_pos, floor_rot);
@@ -183,6 +183,6 @@ fn main() {
         ];
 
         let pairs = engine::physics::collision::broad_phase::sweep_and_prune(&entries);
-        println!("Broad phase pairs: {:?}", pairs);
+        println!("Broad phase pairs: {pairs:?}");
     }
 }

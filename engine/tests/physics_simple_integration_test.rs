@@ -45,7 +45,7 @@ fn test_simple_physics_integration() {
         let _vel_before = world.get::<Rigidbody>(cube).unwrap().linear_velocity;
 
         // Run physics
-        simple_physics_update(&mut world, dt);
+        simple_physics_update(&mut world, &engine::physics::PhysicsConfig::default(), dt);
 
         // Get position after update
         let pos_after = world.get::<Transform>(cube).unwrap().position;

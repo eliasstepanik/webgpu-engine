@@ -17,9 +17,11 @@ fn test_avbd_solver_gravity() {
         .try_init();
 
     let mut world = World::new();
-    let mut config = PhysicsConfig::default();
-    config.gravity = Vec3::new(0.0, -10.0, 0.0);
-    config.fixed_timestep = 1.0 / 60.0;
+    let config = PhysicsConfig {
+        gravity: Vec3::new(0.0, -10.0, 0.0),
+        fixed_timestep: 1.0 / 60.0,
+        ..Default::default()
+    };
 
     let mut solver = create_physics_solver(&config);
 
