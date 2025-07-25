@@ -404,6 +404,22 @@ impl EditorState {
                     );
                     return true;
                 }
+
+                // Check for Delete key to delete selected entity
+                if let PhysicalKey::Code(KeyCode::Delete) = key_event.physical_key {
+                    if self.ui_mode {
+                        if let Some(entity) = self.shared_state.selected_entity() {
+                            self.shared_state.with_world_write(|world| {
+                                if world.despawn(entity).is_ok() {
+                                    info!("Deleted entity {:?} via Delete key", entity);
+                                    self.shared_state.set_selected_entity(None);
+                                    self.shared_state.mark_scene_modified();
+                                }
+                            });
+                            return true;
+                        }
+                    }
+                }
             }
         }
 

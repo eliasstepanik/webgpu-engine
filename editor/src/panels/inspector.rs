@@ -707,21 +707,6 @@ pub fn render_inspector_panel(
                     }
                 }
 
-                // Entity controls section
-                ui.separator();
-                ui.text("Entity Actions:");
-
-                // Delete entity button
-                if ui.button("Delete Entity") {
-                    shared_state.with_world_write(|world| {
-                        if world.despawn(entity).is_ok() {
-                            debug!(entity = ?entity, "Deleted entity");
-                            shared_state.set_selected_entity(None);
-                            shared_state.mark_scene_modified();
-                        }
-                    });
-                }
-
                 // Note: Duplicate entity feature temporarily disabled due to lifetime issues
                 // TODO: Fix entity duplication to properly handle component lifetimes
             } else {
