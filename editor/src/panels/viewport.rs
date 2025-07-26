@@ -6,7 +6,17 @@ use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
 use imgui::*;
 use std::collections::VecDeque;
+use std::path::PathBuf;
 use std::time::Instant;
+
+/// Actions that can be triggered from the viewport panel
+#[derive(Debug, Clone)]
+pub enum ViewportAction {
+    /// Request to resize the viewport
+    Resize(u32, u32),
+    /// Request to load a scene file
+    LoadScene(PathBuf),
+}
 
 /// Performance metrics tracker
 pub struct PerformanceMetrics {
@@ -85,7 +95,7 @@ impl PerformanceMetrics {
 }
 
 /// Render the viewport panel with texture
-/// Returns the desired viewport size if it has changed
+/// Returns a ViewportAction if an action is requested
 pub fn render_viewport_panel(
     ui: &imgui::Ui,
     texture_id: imgui::TextureId,
@@ -94,7 +104,7 @@ pub fn render_viewport_panel(
     panel_manager: &mut PanelManager,
     _window_size: (f32, f32),
     performance_metrics: &mut PerformanceMetrics,
-) -> Option<(u32, u32)> {
+) -> Option<ViewportAction> {
     let panel_id = PanelId("viewport".to_string());
 
     // Get panel info
@@ -110,7 +120,7 @@ pub fn render_viewport_panel(
     }
 
     let window_name = format!("{}##{}", panel_title, panel_id.0);
-    let mut resize_needed = None;
+    let mut resize_needed: Option<ViewportAction> = None;
 
     ui.window(&window_name)
         .size([800.0, 600.0], Condition::FirstUseEver)
@@ -131,11 +141,38 @@ pub fn render_viewport_panel(
                 render_target.size,
                 new_size
             );
-            resize_needed = Some(new_size);
+            resize_needed = Some(ViewportAction::Resize(new_size.0, new_size.1));
         }
 
         // Display the game render target with proper aspect ratio
         imgui::Image::new(texture_id, available_size).build(ui);
+
+        // Add drag-drop target for scene files
+        if let Some(target) = ui.drag_drop_target() {
+            // Visual feedback when hovering
+            if ui.is_item_hovered() {
+                ui.get_window_draw_list()
+                    .add_rect(
+                        ui.item_rect_min(),
+                        ui.item_rect_max(),
+                        [0.0, 1.0, 0.0, 0.5],
+                    )
+                    .build();
+            }
+
+            if target.accept_payload_empty("ASSET_FILE", DragDropFlags::empty()).is_some() {
+                // Get dragged file from asset browser state
+                if let Some(file_path) = crate::panels::assets::AssetBrowserState::take_dragged_file() {
+                    if crate::panels::assets::is_scene_file(&PathBuf::from(&file_path)) {
+                        tracing::debug!("Accepted scene drop: {}", file_path);
+                        resize_needed = Some(ViewportAction::LoadScene(PathBuf::from(format!("game/assets/{file_path}"))));
+                    } else {
+                        tracing::warn!("Dropped file is not a scene: {}", file_path);
+                    }
+                }
+            }
+            target.pop();
+        }
         // Render performance overlay if enabled
         if performance_metrics.show_overlay {
             // Update metrics

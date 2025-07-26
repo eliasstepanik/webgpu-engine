@@ -37,8 +37,10 @@ impl GameApp {
         );
 
         // Create custom physics config with reduced gravity for better demos
-        let mut physics_config = engine::physics::PhysicsConfig::default();
-        physics_config.gravity = Vec3::new(0.0, -2.0, 0.0); // Reduced from -9.81 to -2.0
+        let physics_config = engine::physics::PhysicsConfig {
+            gravity: Vec3::new(0.0, -2.0, 0.0), // Reduced from -9.81 to -2.0
+            ..Default::default()
+        };
 
         // Create engine configuration
         let engine_config = EngineBuilder::new()
@@ -422,7 +424,7 @@ impl ApplicationHandler for GameApp {
                     editor_state.shared_state.with_world_write(|world| {
                         update_hierarchy_system(world);
                     });
-                    
+
                     // Then handle scripting with the world
                     if let Some(script_engine) = &mut self.engine.script_engine {
                         editor_state.shared_state.with_world_write(|world| {
@@ -441,7 +443,7 @@ impl ApplicationHandler for GameApp {
 
                     // Then handle physics - need to update on the editor's world
                     let steps = self.engine.physics_accumulator().accumulate(delta_time);
-                    
+
                     for _ in 0..steps {
                         let physics_solver = &mut self.engine.physics_solver;
                         let physics_config = &self.engine.physics_config;
@@ -454,13 +456,13 @@ impl ApplicationHandler for GameApp {
                             );
                         });
                     }
-                    
+
                     // Interpolate transforms for smooth rendering
                     let alpha = self.engine.physics_accumulator().get_interpolation_alpha();
                     editor_state.shared_state.with_world_write(|world| {
                         engine::physics::systems::interpolate_transforms(world, alpha);
                     });
-                    
+
                     // Update hierarchy again after physics to propagate physics changes
                     editor_state.shared_state.with_world_write(|world| {
                         update_hierarchy_system(world);

@@ -59,9 +59,105 @@ pub fn render_inspector_panel(
         .position([1000.0, 50.0], Condition::FirstUseEver)
         .resizable(true)
         .build(|| {
-            if let Some(entity) = shared_state.selected_entity() {
-                ui.text(format!("Entity: {entity:?}"));
-                ui.separator();
+            // Create a child window that fills the entire inspector and acts as a drop target
+            let available_size = ui.content_region_avail();
+            
+            // First, create a background child that handles drops
+            ui.child_window("##inspector_drop_bg")
+                .size(available_size)
+                .flags(WindowFlags::NO_SCROLLBAR | WindowFlags::NO_SCROLL_WITH_MOUSE | WindowFlags::NO_INPUTS)
+                .build(|| {
+                    // Make the entire child window a drop target
+                    ui.invisible_button("##drop_area", ui.content_region_avail());
+                    
+                    if let Some(target) = ui.drag_drop_target() {
+                        // Visual feedback when hovering
+                        if ui.is_item_hovered() {
+                            ui.get_window_draw_list()
+                                .add_rect(
+                                    [ui.window_pos()[0], ui.window_pos()[1]],
+                                    [ui.window_pos()[0] + ui.window_size()[0], ui.window_pos()[1] + ui.window_size()[1]],
+                                    [0.0, 1.0, 0.0, 0.2],
+                                )
+                                .filled(true)
+                                .build();
+                        }
+
+                        if target.accept_payload_empty("ASSET_FILE", DragDropFlags::empty()).is_some() {
+                            if let Some(entity) = shared_state.selected_entity() {
+                                    // Get dragged file from asset browser state
+                                    if let Some(file_path) = crate::panels::assets::AssetBrowserState::take_dragged_file() {
+                                        if file_path.ends_with(".rhai") {
+                                            // Handle script drop
+                                            if let Some(name) = std::path::Path::new(&file_path)
+                                                .file_stem()
+                                                .and_then(|n| n.to_str()) {
+                                                
+                                                // Check if entity already has a script
+                                                let has_script = shared_state.with_world_read(|world| {
+                                                    world.get::<ScriptRef>(entity).is_ok()
+                                                }).unwrap_or(false);
+                                                
+                                                if has_script {
+                                                    // Update existing script
+                                                    shared_state.with_world_write(|world| {
+                                                        if let Ok(mut script) = world.inner_mut().remove_one::<ScriptRef>(entity) {
+                                                            script.name = name.to_string();
+                                                            debug!(entity = ?entity, script = %name, "Updated script via inspector drop");
+                                                            let _ = world.insert_one(entity, script);
+                                                        }
+                                                    });
+                                                } else {
+                                                    // Add new script component
+                                                    shared_state.with_world_write(|world| {
+                                                        let _ = world.insert_one(entity, ScriptRef::new(name));
+                                                        debug!(entity = ?entity, script = %name, "Added script via inspector drop");
+                                                    });
+                                                }
+                                                shared_state.mark_scene_modified();
+                                            }
+                                        } else if file_path.ends_with(".obj") {
+                                            // Handle mesh drop
+                                            let mesh_path = format!("game/assets/{file_path}");
+                                            
+                                            // Check if entity already has a mesh
+                                            let has_mesh = shared_state.with_world_read(|world| {
+                                                world.get::<MeshId>(entity).is_ok()
+                                            }).unwrap_or(false);
+                                            
+                                            if has_mesh {
+                                                // Update existing mesh
+                                                shared_state.with_world_write(|world| {
+                                                    if let Ok(mut mesh) = world.inner_mut().remove_one::<MeshId>(entity) {
+                                                        mesh.0 = mesh_path.clone();
+                                                        debug!(entity = ?entity, mesh = %mesh_path, "Updated mesh via inspector drop");
+                                                        let _ = world.insert_one(entity, mesh);
+                                                    }
+                                                });
+                                            } else {
+                                                // Add new mesh component
+                                                shared_state.with_world_write(|world| {
+                                                    let _ = world.insert_one(entity, MeshId(mesh_path.clone()));
+                                                    debug!(entity = ?entity, mesh = %mesh_path, "Added mesh via inspector drop");
+                                                });
+                                            }
+                                            shared_state.mark_scene_modified();
+                                        }
+                                }
+                            }
+                        }
+                        target.pop();
+                    }
+                });
+            
+            // Now render the actual content on top in a separate child
+            ui.set_cursor_pos([0.0, 0.0]); // Reset position to overlap
+            ui.child_window("##inspector_content")
+                .size(available_size)
+                .build(|| {
+                    if let Some(entity) = shared_state.selected_entity() {
+                        ui.text(format!("Entity: {entity:?}"));
+                        ui.separator();
 
                 // Check which components exist first
                 let (has_name, has_transform, has_camera, has_material, has_mesh, has_script, _has_script_properties, has_rigidbody, has_collider, has_physics_material) = shared_state.with_world_read(|world| {
@@ -658,31 +754,30 @@ pub fn render_inspector_panel(
                     });
                 }
 
-                // Note: Duplicate entity feature temporarily disabled due to lifetime issues
-                // TODO: Fix entity duplication to properly handle component lifetimes
-            } else {
-                ui.text("No entity selected");
-                ui.text("Select an entity from the hierarchy to inspect its components.");
+                        // Note: Duplicate entity feature temporarily disabled due to lifetime issues
+                        // TODO: Fix entity duplication to properly handle component lifetimes
+                    } else {
+                        ui.text("No entity selected");
+                        ui.text("Select an entity from the hierarchy to inspect its components.");
 
-                ui.separator();
+                        ui.separator();
 
-                // Create new entity button
-                if ui.button("Create New Entity") {
-                    shared_state.with_world_write(|world| {
-                        let new_entity = world.spawn((
-                            Name::new("New Entity"),
-                            Transform::default(),
-                            engine::prelude::GlobalTransform::default(),
-                        ));
+                        // Create new entity button
+                        if ui.button("Create New Entity") {
+                            shared_state.with_world_write(|world| {
+                                let new_entity = world.spawn((
+                                    Name::new("New Entity"),
+                                    Transform::default(),
+                                    engine::prelude::GlobalTransform::default(),
+                                ));
 
-                        debug!(entity = ?new_entity, "Created new entity");
-                        shared_state.set_selected_entity(Some(new_entity));
-                        shared_state.mark_scene_modified();
-                    });
-                }
-            }
-
-            // Panel position and size are now managed by ImGui's docking system
+                                debug!(entity = ?new_entity, "Created new entity");
+                                shared_state.set_selected_entity(Some(new_entity));
+                                shared_state.mark_scene_modified();
+                            });
+                        }
+                    }
+                }); // End of inspector_content child window
         });
 }
 

@@ -253,7 +253,7 @@ fn render_file_tree(ui: &imgui::Ui, node: &FileNode, state: &mut AssetBrowserSta
                 state.dragged_file = Some(relative_path.clone());
                 ui.text(format!("📄 {}", node.name));
                 debug!("Started dragging file: {}", relative_path);
-                
+
                 _source.end();
             }
         }
