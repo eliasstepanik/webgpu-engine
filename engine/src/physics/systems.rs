@@ -1,6 +1,6 @@
 //! Physics system integration for the engine
 
-use crate::core::entity::{Transform, World};
+use crate::core::entity::{PreviousTransform, Transform, World};
 use crate::physics::{
     avbd_solver::{AVBDConfig, AVBDSolver, RigidbodyData},
     collision::{
@@ -17,37 +17,21 @@ use hecs::Entity;
 use std::collections::HashMap;
 use tracing::{debug, info, trace};
 
-/// Physics accumulator for fixed timestep
-static mut PHYSICS_ACCUMULATOR: f32 = 0.0;
-
 /// Main physics update system with fixed timestep
+/// This version doesn't handle accumulation - that's done by the app
 pub fn update_physics_system(
     world: &mut World,
     solver: &mut AVBDSolver,
-    config: &PhysicsConfig,
+    _config: &PhysicsConfig,
     delta_time: f32,
 ) {
     trace!("Starting physics update with dt={}", delta_time);
 
-    // Use fixed timestep with interpolation for stability
-    unsafe {
-        PHYSICS_ACCUMULATOR += delta_time;
+    // Store previous transforms before physics update
+    store_previous_transforms(world);
 
-        // Run physics in fixed timesteps
-        while PHYSICS_ACCUMULATOR >= config.fixed_timestep {
-            // Store previous transforms for interpolation
-            store_previous_transforms(world);
-
-            // Run the actual AVBD physics
-            update_physics_system_avbd(world, solver, config.fixed_timestep);
-
-            PHYSICS_ACCUMULATOR -= config.fixed_timestep;
-        }
-
-        // Interpolate positions for smooth rendering
-        let alpha = PHYSICS_ACCUMULATOR / config.fixed_timestep;
-        interpolate_transforms(world, alpha);
-    }
+    // Run the actual AVBD physics
+    update_physics_system_avbd(world, solver, delta_time);
 }
 
 /// AVBD physics update system (currently broken, needs fixes)
@@ -471,36 +455,54 @@ fn update_transforms(world: &mut World, bodies: &[RigidbodyData]) {
 }
 
 /// Store previous transforms for interpolation
-fn store_previous_transforms(world: &mut World) {
-    // Store current positions as previous for interpolation
-    // Only process entities with Rigidbody components
+pub fn store_previous_transforms(world: &mut World) {
+    // Only process entities with Rigidbody components for physics interpolation
+    let mut entities_to_update = Vec::new();
+
     for (entity, (transform, _rigidbody)) in world.query::<(&Transform, &Rigidbody)>().iter() {
-        // Store in a component or temporary storage
-        // For now, we'll skip interpolation implementation
-        // This would require adding a PreviousTransform component
-        let _ = (entity, transform);
+        entities_to_update.push((entity, PreviousTransform::from_transform(transform)));
+    }
+
+    // Add or update PreviousTransform components
+    for (entity, prev_transform) in entities_to_update {
+        if world.get::<PreviousTransform>(entity).is_ok() {
+            // Update existing
+            if let Ok((prev,)) = world.query_one_mut::<(&mut PreviousTransform,)>(entity) {
+                *prev = prev_transform;
+            }
+        } else {
+            // Add new
+            let _ = world.insert_one(entity, prev_transform);
+        }
     }
 }
 
 /// Interpolate transforms between physics steps for smooth rendering
-fn interpolate_transforms(world: &mut World, alpha: f32) {
-    // Interpolate between previous and current transforms
-    // Only process entities with Rigidbody components
-    // For now, we'll skip interpolation implementation
-    // This would require the PreviousTransform component
-    let _ = (world, alpha);
+pub fn interpolate_transforms(world: &mut World, alpha: f32) {
+    // Interpolate only entities with both Transform and PreviousTransform
+    for (_, (transform, prev_transform)) in
+        world.query::<(&mut Transform, &PreviousTransform)>().iter()
+    {
+        // Interpolate position
+        transform.position = prev_transform.position.lerp(transform.position, alpha);
+
+        // Interpolate rotation (slerp for smooth rotation)
+        transform.rotation = prev_transform.rotation.slerp(transform.rotation, alpha);
+
+        // Scale typically doesn't need interpolation in physics
+        // but we'll interpolate it for completeness
+        transform.scale = prev_transform.scale.lerp(transform.scale, alpha);
+    }
 }
 
 /// Create a physics solver with configuration
 pub fn create_physics_solver(config: &PhysicsConfig) -> AVBDSolver {
     let avbd_config = AVBDConfig {
         iterations: config.velocity_iterations,
-        beta: 10.0,      // Stiffness ramping speed
-        alpha: 0.98,     // Error correction factor
-        gamma: 0.99,     // Warmstart decay
-        k_start: 5000.0, // Initial stiffness
         gravity: config.gravity,
+        ..Default::default()
     };
+
     AVBDSolver::with_physics_config(avbd_config, config)
 }
 

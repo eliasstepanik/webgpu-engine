@@ -8,7 +8,7 @@ pub mod hierarchy;
 pub mod world;
 
 // Re-export commonly used types
-pub use components::{GlobalTransform, Name, Parent, Transform};
+pub use components::{GlobalTransform, Name, Parent, PreviousTransform, Transform};
 pub use hierarchy::update_hierarchy_system;
 pub use world::World;
 

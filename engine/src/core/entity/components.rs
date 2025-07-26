@@ -100,6 +100,45 @@ impl Transform {
     }
 }
 
+/// Previous transform component for interpolation between physics updates
+/// This stores the transform from the last physics frame and is used for smooth rendering
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component)]
+#[component(name = "PreviousTransform")]
+pub struct PreviousTransform {
+    /// Position from the previous physics update
+    pub position: Vec3,
+    /// Rotation from the previous physics update  
+    pub rotation: Quat,
+    /// Scale from the previous physics update
+    pub scale: Vec3,
+}
+
+impl Default for PreviousTransform {
+    fn default() -> Self {
+        Self {
+            position: Vec3::ZERO,
+            rotation: Quat::IDENTITY,
+            scale: Vec3::ONE,
+        }
+    }
+}
+
+impl PreviousTransform {
+    /// Create from a Transform component
+    pub fn from_transform(transform: &Transform) -> Self {
+        Self {
+            position: transform.position,
+            rotation: transform.rotation,
+            scale: transform.scale,
+        }
+    }
+
+    /// Convert to transformation matrix
+    pub fn to_matrix(&self) -> Mat4 {
+        Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.position)
+    }
+}
+
 /// Global transform component representing the world-space transformation matrix
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI,

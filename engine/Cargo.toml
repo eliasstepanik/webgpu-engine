@@ -29,18 +29,6 @@ tempfile = "3.0"
 name = "validate_physics_scene"
 path = "src/bin/validate_physics_scene.rs"
 
-[[bin]]
-name = "test_physics_debug" 
-path = "src/bin/test_physics_debug.rs"
-
-[[bin]]
-name = "test_avbd_solver"
-path = "src/bin/test_avbd_solver.rs"
-
-[[bin]]
-name = "test_reduced_gravity"
-path = "src/bin/test_reduced_gravity.rs"
-
 [[example]]
 name = "scene_demo"
 path = "../examples/scene_demo.rs"

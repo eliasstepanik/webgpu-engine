@@ -6,8 +6,10 @@ use crate::core::entity::{update_hierarchy_system, World};
 use crate::graphics::{RenderContext, Renderer};
 use crate::input::InputState;
 use crate::physics::{
-    avbd_solver::AVBDSolver, debug_visualization::PhysicsDebugVisualization,
-    systems::update_physics_system, PhysicsConfig,
+    avbd_solver::AVBDSolver,
+    debug_visualization::PhysicsDebugVisualization,
+    systems::{interpolate_transforms, update_physics_system},
+    PhysicsAccumulator, PhysicsConfig,
 };
 use crate::scripting::ScriptEngine;
 use crate::windowing::WindowManager;
@@ -82,7 +84,7 @@ pub struct EngineApp {
     config: EngineConfig,
     instance: Option<Arc<wgpu::Instance>>,
     last_time: std::time::Instant,
-    physics_accumulator: f32,
+    physics_accumulator: PhysicsAccumulator,
     focus_tracker: HashMap<WindowId, bool>,
     last_focused_window: Option<WindowId>,
     initialized: bool,
@@ -120,7 +122,7 @@ impl EngineApp {
             config,
             instance: None,
             last_time: std::time::Instant::now(),
-            physics_accumulator: 0.0,
+            physics_accumulator: PhysicsAccumulator::new(PHYSICS_TIMESTEP),
             focus_tracker: HashMap::new(),
             last_focused_window: None,
             initialized: false,
@@ -272,21 +274,24 @@ impl EngineApp {
 
     /// Update physics simulation with fixed timestep
     pub fn update_physics_with_fixed_timestep(&mut self, delta_time: f32) {
-        self.physics_accumulator += delta_time;
-        while self.physics_accumulator >= PHYSICS_TIMESTEP {
+        let steps = self.physics_accumulator.accumulate(delta_time);
+        for _ in 0..steps {
             update_physics_system(
                 &mut self.world,
                 &mut self.physics_solver,
                 &self.physics_config,
                 PHYSICS_TIMESTEP,
             );
-            self.physics_accumulator -= PHYSICS_TIMESTEP;
         }
+
+        // Interpolate transforms for smooth rendering
+        let alpha = self.physics_accumulator.get_interpolation_alpha();
+        interpolate_transforms(&mut self.world, alpha);
     }
 
-    /// Get mutable access to the physics accumulator
-    pub fn physics_accumulator_mut(&mut self) -> &mut f32 {
-        &mut self.physics_accumulator
+    /// Get access to the physics accumulator
+    pub fn physics_accumulator(&self) -> &PhysicsAccumulator {
+        &self.physics_accumulator
     }
 
     fn handle_resize(&mut self, window_id: WindowId, new_size: winit::dpi::PhysicalSize<u32>) {

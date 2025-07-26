@@ -362,6 +362,10 @@ impl Scene {
                             if let Err(e) = world.insert_one(entity, transform) {
                                 error!(error = ?e, entity = ?entity, "Failed to insert Transform");
                             }
+                            // Always add GlobalTransform when Transform is added
+                            if let Err(e) = world.insert_one(entity, GlobalTransform::default()) {
+                                error!(error = ?e, entity = ?entity, "Failed to insert GlobalTransform");
+                            }
                         }
                         Err(e) => {
                             error!(error = %e, "Failed to deserialize Transform");
@@ -748,6 +752,10 @@ impl Scene {
                         Ok(transform) => {
                             if let Err(e) = world.insert_one(entity, transform) {
                                 error!(error = ?e, entity = ?entity, "Failed to insert Transform");
+                            }
+                            // Always add GlobalTransform when Transform is added
+                            if let Err(e) = world.insert_one(entity, GlobalTransform::default()) {
+                                error!(error = ?e, entity = ?entity, "Failed to insert GlobalTransform");
                             }
                         }
                         Err(e) => {

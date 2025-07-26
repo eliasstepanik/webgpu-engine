@@ -3,6 +3,7 @@
 //! This module implements rigidbody physics using the Augmented Vertex Block Descent (AVBD) algorithm,
 //! providing stable dynamics, collision detection, and constraint solving for real-time applications.
 
+pub mod accumulator;
 pub mod avbd_solver;
 pub mod collision;
 pub mod components;
@@ -16,6 +17,7 @@ use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
 // Re-export main types
+pub use accumulator::PhysicsAccumulator;
 pub use components::{Collider, CollisionShape, PhysicsMaterial, Rigidbody};
 pub use systems::update_physics_system;
 

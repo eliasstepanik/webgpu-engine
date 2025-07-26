@@ -235,25 +235,27 @@ fn render_file_tree(ui: &imgui::Ui, node: &FileNode, state: &mut AssetBrowserSta
         }
 
         // Make draggable if it's a supported file type
-        if is_draggable_file(&node.path)
-            && ui
+        if is_draggable_file(&node.path) {
+            if let Some(_source) = ui
                 .drag_drop_source_config("ASSET_FILE")
                 .condition(Condition::Once)
                 .begin()
-                .is_some()
-        {
-            // Calculate relative path from asset root
-            let relative_path = node
-                .path
-                .strip_prefix(&state.asset_root)
-                .unwrap_or(&node.path)
-                .to_string_lossy()
-                .to_string()
-                .replace('\\', "/"); // Normalize path separators
+            {
+                // Calculate relative path from asset root
+                let relative_path = node
+                    .path
+                    .strip_prefix(&state.asset_root)
+                    .unwrap_or(&node.path)
+                    .to_string_lossy()
+                    .to_string()
+                    .replace('\\', "/"); // Normalize path separators
 
-            state.dragged_file = Some(relative_path.clone());
-            ui.text(format!("📄 {}", node.name));
-            debug!("Started dragging file: {}", relative_path);
+                state.dragged_file = Some(relative_path.clone());
+                ui.text(format!("📄 {}", node.name));
+                debug!("Started dragging file: {}", relative_path);
+                
+                _source.end();
+            }
         }
     }
 }

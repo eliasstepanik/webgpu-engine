@@ -101,7 +101,7 @@ impl ComponentRegistry {
         use crate::core::camera::{Camera, CameraWorldPosition};
         use crate::core::coordinates::WorldTransform;
         use crate::core::entity::components::{
-            GlobalTransform, GlobalWorldTransform, Name, ParentData, Transform,
+            GlobalTransform, GlobalWorldTransform, Name, ParentData, PreviousTransform, Transform,
         };
         use crate::graphics::{Material, MeshId};
         use crate::physics::{Collider, PhysicsMaterial, Rigidbody};
@@ -111,6 +111,7 @@ impl ComponentRegistry {
 
         // Register core components using the new Component trait
         Transform::register(&mut registry);
+        PreviousTransform::register(&mut registry);
         GlobalTransform::register(&mut registry);
         GlobalWorldTransform::register(&mut registry);
         WorldTransform::register(&mut registry);

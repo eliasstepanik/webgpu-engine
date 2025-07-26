@@ -37,10 +37,8 @@ impl GameApp {
         );
 
         // Create custom physics config with reduced gravity for better demos
-        let physics_config = engine::physics::PhysicsConfig {
-            gravity: Vec3::new(0.0, -2.0, 0.0), // Reduced from -9.81 to -2.0
-            ..Default::default()
-        };
+        let mut physics_config = engine::physics::PhysicsConfig::default();
+        physics_config.gravity = Vec3::new(0.0, -2.0, 0.0); // Reduced from -9.81 to -2.0
 
         // Create engine configuration
         let engine_config = EngineBuilder::new()
@@ -259,7 +257,7 @@ impl ApplicationHandler for GameApp {
             if let Ok(scene_name) = std::env::var("SCENE") {
                 info!("Loading scene from environment variable: {}", scene_name);
 
-                if let Some(_renderer) = &mut self.engine.renderer {
+                if let Some(renderer) = &mut self.engine.renderer {
                     // Build the scene path
                     let scene_path = if scene_name.ends_with(".json") {
                         PathBuf::from("game/assets/scenes").join(&scene_name)
@@ -315,7 +313,7 @@ impl ApplicationHandler for GameApp {
                                 Err(e) => {
                                     tracing::error!("Failed to instantiate scene: {}", e);
                                     info!("Falling back to demo scene");
-                                    //create_demo_scene(&mut self.engine.world, renderer);
+                                    create_demo_scene(&mut self.engine.world, renderer);
                                 }
                             }
                         }
@@ -326,7 +324,7 @@ impl ApplicationHandler for GameApp {
                                 e
                             );
                             info!("Falling back to demo scene");
-                            //create_demo_scene(&mut self.engine.world, renderer);
+                            create_demo_scene(&mut self.engine.world, renderer);
                         }
                     }
                 } else {
@@ -334,8 +332,8 @@ impl ApplicationHandler for GameApp {
                 }
             } else {
                 // Create demo scene if no environment variable is set
-                if let Some(_renderer) = &mut self.engine.renderer {
-                    //create_demo_scene(&mut self.engine.world, renderer);
+                if let Some(renderer) = &mut self.engine.renderer {
+                    create_demo_scene(&mut self.engine.world, renderer);
                 }
             }
         }
@@ -420,7 +418,12 @@ impl ApplicationHandler for GameApp {
                     // Get references we need
                     let editor_state = self.editor_state.as_ref().unwrap();
 
-                    // First handle scripting with the world
+                    // First update hierarchy to ensure GlobalTransform components exist
+                    editor_state.shared_state.with_world_write(|world| {
+                        update_hierarchy_system(world);
+                    });
+                    
+                    // Then handle scripting with the world
                     if let Some(script_engine) = &mut self.engine.script_engine {
                         editor_state.shared_state.with_world_write(|world| {
                             // Initialize script properties for new scripts
@@ -436,17 +439,10 @@ impl ApplicationHandler for GameApp {
                         });
                     }
 
-                    // Then handle physics separately
-                    // Update accumulator
-                    *self.engine.physics_accumulator_mut() += delta_time;
-
-                    // Process physics steps
-                    loop {
-                        let accumulator_value = *self.engine.physics_accumulator_mut();
-                        if accumulator_value < engine::app::PHYSICS_TIMESTEP {
-                            break;
-                        }
-
+                    // Then handle physics - need to update on the editor's world
+                    let steps = self.engine.physics_accumulator().accumulate(delta_time);
+                    
+                    for _ in 0..steps {
                         let physics_solver = &mut self.engine.physics_solver;
                         let physics_config = &self.engine.physics_config;
                         editor_state.shared_state.with_world_write(|world| {
@@ -457,11 +453,15 @@ impl ApplicationHandler for GameApp {
                                 engine::app::PHYSICS_TIMESTEP,
                             );
                         });
-
-                        *self.engine.physics_accumulator_mut() -= engine::app::PHYSICS_TIMESTEP;
                     }
-
-                    // Update hierarchy
+                    
+                    // Interpolate transforms for smooth rendering
+                    let alpha = self.engine.physics_accumulator().get_interpolation_alpha();
+                    editor_state.shared_state.with_world_write(|world| {
+                        engine::physics::systems::interpolate_transforms(world, alpha);
+                    });
+                    
+                    // Update hierarchy again after physics to propagate physics changes
                     editor_state.shared_state.with_world_write(|world| {
                         update_hierarchy_system(world);
                     });
@@ -527,7 +527,6 @@ fn main() {
 }
 
 /// Create a demo scene with a rotating cube
-#[allow(dead_code)]
 fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
     info!("Creating demo scene");
 

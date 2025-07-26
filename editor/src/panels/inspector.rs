@@ -10,8 +10,7 @@ use engine::prelude::{Camera, Material, MeshId, Name, Parent, ScriptProperties, 
 use engine::scripting::property_types::PropertyValue;
 use engine::scripting::ScriptRef;
 use imgui::*;
-use std::path::PathBuf;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 /// State for tracking euler angles per entity to avoid recalculation
 static mut INSPECTOR_STATE: Option<InspectorState> = None;
@@ -488,68 +487,6 @@ pub fn render_inspector_panel(
                 }
 
 
-                // Add Components via drag-drop
-                ui.separator();
-                ui.text("Drop Assets to Add:");
-
-                // Create a drop zone
-                let drop_zone_size = [ui.content_region_avail()[0], 40.0];
-                ui.invisible_button("##drop_zone", drop_zone_size);
-
-                if let Some(target) = ui.drag_drop_target() {
-                    // Visual feedback
-                    if ui.is_item_hovered() {
-                        ui.get_window_draw_list()
-                            .add_rect(
-                                ui.item_rect_min(),
-                                ui.item_rect_max(),
-                                [0.0, 1.0, 0.0, 0.5],
-                            )
-                            .filled(true)
-                            .build();
-                    }
-
-                    if target.accept_payload_empty("ASSET_FILE", DragDropFlags::empty()).is_some() {
-                        if let Some(file_path) = crate::panels::assets::AssetBrowserState::take_dragged_file() {
-                            if crate::panels::assets::validate_asset_path(&file_path) {
-                                let full_path = PathBuf::from("game/assets").join(&file_path);
-
-                                // Handle based on file type
-                                if file_path.ends_with(".obj") {
-                                    // Add MeshId component
-                                    shared_state.with_world_write(|world| {
-                                        let mesh_path = format!("game/assets/{file_path}");
-                                        let _ = world.insert_one(entity, MeshId(mesh_path));
-                                        debug!(entity = ?entity, "Added MeshId component via drag-drop");
-                                    });
-                                    shared_state.mark_scene_modified();
-                                } else if crate::panels::assets::is_scene_file(&full_path) {
-                                    // Load scene as children
-                                    shared_state.with_world_write(|world| {
-                                        match world.load_scene_additive(&full_path) {
-                                            Ok(mapper) => {
-                                                // Set parent for all loaded entities
-                                                let loaded_count = mapper.len();
-                                                for (_old_id, new_entity) in mapper.iter() {
-                                                    let _ = world.insert_one(new_entity, Parent(entity));
-                                                }
-                                                // Update hierarchy to calculate transforms
-                                                engine::core::entity::hierarchy::update_hierarchy_system(world);
-                                                info!(entity = ?entity, count = loaded_count, "Added {} entities as children", loaded_count);
-                                            }
-                                            Err(e) => {
-                                                warn!(entity = ?entity, error = %e, "Failed to load scene as children");
-                                            }
-                                        }
-                                    });
-                                    shared_state.mark_scene_modified();
-                                }
-                            }
-                        }
-                    }
-                    target.pop();
-                }
-
                 // Add component button
                 ui.separator();
                 let state = get_inspector_state();
@@ -704,6 +641,21 @@ pub fn render_inspector_panel(
                         state.show_add_component_popup = false;
                         ui.close_current_popup();
                     }
+                }
+
+                // Entity controls section
+                ui.separator();
+                ui.text("Entity Actions:");
+
+                // Delete entity button
+                if ui.button("Delete Entity") {
+                    shared_state.with_world_write(|world| {
+                        if world.despawn(entity).is_ok() {
+                            debug!(entity = ?entity, "Deleted entity");
+                            shared_state.set_selected_entity(None);
+                            shared_state.mark_scene_modified();
+                        }
+                    });
                 }
 
                 // Note: Duplicate entity feature temporarily disabled due to lifetime issues
