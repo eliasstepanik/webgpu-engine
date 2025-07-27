@@ -5,6 +5,7 @@ use crate::core::coordinates::LargeWorldConfig;
 use crate::core::entity::{update_hierarchy_system, World};
 use crate::graphics::{RenderContext, Renderer};
 use crate::input::InputState;
+use crate::physics::world::PhysicsWorld;
 use crate::scripting::ScriptEngine;
 use crate::windowing::WindowManager;
 use std::collections::HashMap;
@@ -61,12 +62,8 @@ pub struct EngineApp {
     pub script_engine: Option<ScriptEngine>,
     /// Input state
     pub input_state: InputState,
-    // /// Physics solver
-    // pub physics_solver: AVBDSolver,
-    // /// Physics configuration
-    // pub physics_config: PhysicsConfig,
-    // /// Physics debug visualization
-    // pub physics_debug: PhysicsDebugVisualization,
+    /// Physics world
+    pub physics_world: Option<PhysicsWorld>,
 
     // Private fields
     config: EngineConfig,
@@ -101,13 +98,10 @@ impl EngineApp {
             world: World::new(),
             script_engine: None,
             input_state: InputState::new(),
-            // physics_solver,
-            // physics_config,
-            // physics_debug: PhysicsDebugVisualization::default(),
+            physics_world: None,
             config,
             instance: None,
             last_time: std::time::Instant::now(),
-            // physics_accumulator: PhysicsAccumulator::new(PHYSICS_TIMESTEP),
             focus_tracker: HashMap::new(),
             last_focused_window: None,
             initialized: false,
@@ -207,12 +201,16 @@ impl EngineApp {
             None
         };
 
+        // Initialize physics world
+        let physics_world = PhysicsWorld::new();
+
         // Store initialized components
         self.instance = Some(instance);
         self.window_manager = Some(window_manager);
         self.render_context = Some(render_context);
         self.renderer = Some(renderer);
         self.script_engine = script_engine;
+        self.physics_world = Some(physics_world);
         self.initialized = true;
     }
 
@@ -240,6 +238,15 @@ impl EngineApp {
             if let Some(renderer) = &mut self.renderer {
                 crate::scripting::process_script_mesh_uploads(script_engine, renderer);
             }
+        }
+
+        // Update physics simulation
+        if let Some(physics_world) = &mut self.physics_world {
+            crate::physics::system::physics_update_system(
+                &mut self.world,
+                physics_world,
+                delta_time,
+            );
         }
 
         // Update transform hierarchy to maintain GlobalTransform

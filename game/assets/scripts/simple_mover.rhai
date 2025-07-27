@@ -7,11 +7,11 @@
 //! @property oscillate_amplitude: float = 2.0 @range(0.0, 5.0) @step(0.1) @tooltip("Oscillation distance")
 //! @property oscillate_frequency: float = 1.0 @range(0.1, 5.0) @step(0.1) @tooltip("Oscillation speed")
 
-fn on_start(entity) {
+fn on_start() {
     print("Simple mover script started for entity " + entity);
 }
 
-fn on_update(entity, delta_time) {
+fn on_update(delta_time) {
     
     // Get parameters from properties
     let speed = properties["move_speed"];
@@ -39,6 +39,6 @@ fn on_update(entity, delta_time) {
     }
 }
 
-fn on_destroy(entity) {
+fn on_destroy() {
     print("Simple mover script stopped for entity " + entity);
 }

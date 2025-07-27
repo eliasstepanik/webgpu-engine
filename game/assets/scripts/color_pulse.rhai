@@ -7,11 +7,11 @@
 //! @property pulse_intensity: float = 0.5 @range(0.0, 1.0) @step(0.05) @tooltip("How much to blend the pulse color (0=no pulse, 1=full pulse)")
 //! @property time_accumulator: float = 0.0 @hidden @tooltip("Internal time accumulator")
 
-fn on_start(entity) {
+fn on_start() {
     print("Color pulse script started for entity " + entity);
 }
 
-fn on_update(entity, delta_time) {
+fn on_update(delta_time) {
     // Get properties
     let base_color = properties["base_color"];
     let pulse_color = properties["pulse_color"];
@@ -50,6 +50,6 @@ fn on_update(entity, delta_time) {
     }
 }
 
-fn on_destroy(entity) {
+fn on_destroy() {
     print("Color pulse script stopped for entity " + entity);
 }

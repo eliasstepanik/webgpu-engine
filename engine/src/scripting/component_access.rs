@@ -2,6 +2,7 @@ use crate::core::entity::components::Transform;
 use crate::core::entity::{Entity, Name};
 use crate::graphics::material::Material;
 use crate::graphics::renderer::MeshId;
+use crate::physics::{Collider, PhysicsVelocity, RigidBody};
 use crate::scripting::commands::ComponentCache;
 use hecs::World;
 use tracing::{debug, error, trace};
@@ -59,6 +60,35 @@ pub fn query_component(
                 Err(format!("Entity {entity_id} missing MeshId component"))
             }
         }
+        "RigidBody" => {
+            if let Ok(rigid_body) = world.get::<&RigidBody>(entity) {
+                cache.rigid_bodies.insert(entity_id, (*rigid_body).clone());
+                trace!(entity = entity_id, "Cached RigidBody component");
+                Ok(())
+            } else {
+                Err(format!("Entity {entity_id} missing RigidBody component"))
+            }
+        }
+        "Collider" => {
+            if let Ok(collider) = world.get::<&Collider>(entity) {
+                cache.colliders.insert(entity_id, (*collider).clone());
+                trace!(entity = entity_id, "Cached Collider component");
+                Ok(())
+            } else {
+                Err(format!("Entity {entity_id} missing Collider component"))
+            }
+        }
+        "PhysicsVelocity" => {
+            if let Ok(velocity) = world.get::<&PhysicsVelocity>(entity) {
+                cache.velocities.insert(entity_id, *velocity);
+                trace!(entity = entity_id, "Cached PhysicsVelocity component");
+                Ok(())
+            } else {
+                Err(format!(
+                    "Entity {entity_id} missing PhysicsVelocity component"
+                ))
+            }
+        }
         _ => Err(format!("Unknown component type: {component_type}")),
     }
 }
@@ -104,6 +134,33 @@ pub fn query_entities_with_component(
             }
             debug!(count = entities.len(), "Queried entities with MeshId");
         }
+        "RigidBody" => {
+            for (entity, rigid_body) in world.query::<&RigidBody>().iter() {
+                let entity_id = entity.to_bits().get();
+                cache.rigid_bodies.insert(entity_id, (*rigid_body).clone());
+                entities.push(entity_id);
+            }
+            debug!(count = entities.len(), "Queried entities with RigidBody");
+        }
+        "Collider" => {
+            for (entity, collider) in world.query::<&Collider>().iter() {
+                let entity_id = entity.to_bits().get();
+                cache.colliders.insert(entity_id, (*collider).clone());
+                entities.push(entity_id);
+            }
+            debug!(count = entities.len(), "Queried entities with Collider");
+        }
+        "PhysicsVelocity" => {
+            for (entity, velocity) in world.query::<&PhysicsVelocity>().iter() {
+                let entity_id = entity.to_bits().get();
+                cache.velocities.insert(entity_id, *velocity);
+                entities.push(entity_id);
+            }
+            debug!(
+                count = entities.len(),
+                "Queried entities with PhysicsVelocity"
+            );
+        }
         _ => {
             error!(component_type, "Unknown component type in query");
         }
@@ -147,11 +204,41 @@ pub fn populate_cache_for_scripts(world: &World, cache: &mut ComponentCache) {
         }
     }
 
+    // Query all entities with physics components
+    for (entity, (rigid_body, collider, velocity)) in world
+        .query::<(
+            Option<&RigidBody>,
+            Option<&Collider>,
+            Option<&PhysicsVelocity>,
+        )>()
+        .iter()
+    {
+        let entity_id = entity.to_bits().get();
+
+        // Cache rigid body if present
+        if let Some(rb) = rigid_body {
+            cache.rigid_bodies.insert(entity_id, (*rb).clone());
+        }
+
+        // Cache collider if present
+        if let Some(col) = collider {
+            cache.colliders.insert(entity_id, (*col).clone());
+        }
+
+        // Cache velocity if present
+        if let Some(vel) = velocity {
+            cache.velocities.insert(entity_id, *vel);
+        }
+    }
+
     debug!(
         transforms = cache.transforms.len(),
         materials = cache.materials.len(),
         names = cache.names.len(),
         mesh_ids = cache.mesh_ids.len(),
+        rigid_bodies = cache.rigid_bodies.len(),
+        colliders = cache.colliders.len(),
+        velocities = cache.velocities.len(),
         "Populated component cache for scripts"
     );
 }

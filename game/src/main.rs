@@ -252,7 +252,7 @@ impl ApplicationHandler for GameApp {
             if let Ok(scene_name) = std::env::var("SCENE") {
                 info!("Loading scene from environment variable: {}", scene_name);
 
-                if let Some(renderer) = &mut self.engine.renderer {
+                if let Some(_renderer) = &mut self.engine.renderer {
                     // Build the scene path
                     let scene_path = if scene_name.ends_with(".json") {
                         PathBuf::from("game/assets/scenes").join(&scene_name)
@@ -275,8 +275,8 @@ impl ApplicationHandler for GameApp {
                                 }
                                 Err(e) => {
                                     tracing::error!("Failed to instantiate scene: {}", e);
-                                    info!("Falling back to demo scene");
-                                    create_demo_scene(&mut self.engine.world, renderer);
+                                    //info!("Falling back to demo scene");
+                                    //create_demo_scene(&mut self.engine.world, renderer);
                                 }
                             }
                         }
@@ -286,8 +286,8 @@ impl ApplicationHandler for GameApp {
                                 scene_path.display(),
                                 e
                             );
-                            info!("Falling back to demo scene");
-                            create_demo_scene(&mut self.engine.world, renderer);
+                            //info!("Falling back to demo scene");
+                            //create_demo_scene(&mut self.engine.world, renderer);
                         }
                     }
                 } else {
@@ -295,8 +295,8 @@ impl ApplicationHandler for GameApp {
                 }
             } else {
                 // Create demo scene if no environment variable is set
-                if let Some(renderer) = &mut self.engine.renderer {
-                    create_demo_scene(&mut self.engine.world, renderer);
+                if let Some(_renderer) = &mut self.engine.renderer {
+                    //create_demo_scene(&mut self.engine.world, renderer);
                 }
             }
         }
@@ -402,6 +402,17 @@ impl ApplicationHandler for GameApp {
                         });
                     }
 
+                    // Update physics simulation
+                    if let Some(physics_world) = &mut self.engine.physics_world {
+                        editor_state.shared_state.with_world_write(|world| {
+                            engine::physics::system::physics_update_system(
+                                world,
+                                physics_world,
+                                delta_time,
+                            );
+                        });
+                    }
+
                     // Update hierarchy system to maintain transform propagation
                     editor_state.shared_state.with_world_write(|world| {
                         update_hierarchy_system(world);
@@ -452,7 +463,7 @@ fn main() {
     event_loop.run_app(&mut app).expect("Failed to run app");
 }
 
-/// Create a demo scene with a rotating cube
+/*/// Create a demo scene with a rotating cube
 fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
     info!("Creating demo scene");
 
@@ -518,3 +529,4 @@ fn create_demo_scene(world: &mut World, renderer: &mut Renderer) {
         ));
     }
 }
+*/

@@ -136,12 +136,16 @@ pub fn script_execution_system(
         let mesh_module =
             create_mesh_module(script_engine.mesh_registry.clone(), command_queue.clone());
 
+        // Create physics module
+        let physics_module = crate::scripting::modules::physics::create_physics_module();
+
         // Register modules in the engine temporarily
         // We need mutable access to the engine to register modules
         if let Some(engine) = script_engine.engine_mut() {
             engine.register_static_module("world", world_module.into());
             engine.register_static_module("input", input_module.into());
             engine.register_static_module("Mesh", mesh_module.into());
+            engine.register_static_module("physics", physics_module.into());
         } else {
             // If we can't get mutable access, skip this entity
             warn!(entity = ?entity, "Cannot get mutable access to script engine");

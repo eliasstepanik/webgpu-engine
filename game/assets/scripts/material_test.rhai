@@ -4,11 +4,11 @@
 //! @property time_accumulator: float = 0.0 @hidden @tooltip("Time accumulator")
 //! @property last_print_time: float = 0.0 @hidden @tooltip("Last debug print time")
 
-fn on_start(entity) {
+fn on_start() {
     print("Material test script started for entity " + entity);
 }
 
-fn on_update(entity, delta_time) {
+fn on_update(delta_time) {
     // Update time accumulator
     let time = properties["time_accumulator"];
     time += delta_time;
@@ -45,6 +45,6 @@ fn on_update(entity, delta_time) {
     }
 }
 
-fn on_destroy(entity) {
+fn on_destroy() {
     print("Material test script stopped for entity " + entity);
 }

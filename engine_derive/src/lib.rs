@@ -43,6 +43,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         "MeshId",
         "GlobalTransform",
         "GlobalWorldTransform",
+        "WorldTransform",
+        "RigidBody",
+        "Collider",
+        "PhysicsVelocity",
+        "PhysicsMass",
     ];
     let has_editor_ui = components_with_ui.contains(&component_name.as_str());
 
