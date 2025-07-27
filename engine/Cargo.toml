@@ -21,6 +21,7 @@ lazy_static = "1.4"
 tobj = { version = "4.0", features = ["async"] }
 thiserror = "1.0"
 rayon = "1.10"
+rapier3d-f64 = "0.17"
 
 [dev-dependencies]
 tempfile = "3.0"

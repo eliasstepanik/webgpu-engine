@@ -3,6 +3,7 @@ use crate::core::entity::{Entity, Name};
 use crate::graphics::material::Material;
 use crate::graphics::mesh::Mesh;
 use crate::graphics::renderer::MeshId;
+use crate::physics::{Collider, PhysicsVelocity, RigidBody};
 use crate::scripting::property_types::ScriptProperties;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -55,6 +56,9 @@ pub struct ComponentCache {
     pub materials: HashMap<u64, Material>,
     pub names: HashMap<u64, String>,
     pub mesh_ids: HashMap<u64, MeshId>,
+    pub rigid_bodies: HashMap<u64, RigidBody>,
+    pub colliders: HashMap<u64, Collider>,
+    pub velocities: HashMap<u64, PhysicsVelocity>,
 }
 
 pub type SharedComponentCache = Arc<RwLock<ComponentCache>>;
@@ -69,6 +73,9 @@ impl ComponentCache {
         self.materials.clear();
         self.names.clear();
         self.mesh_ids.clear();
+        self.rigid_bodies.clear();
+        self.colliders.clear();
+        self.velocities.clear();
     }
 }
 
