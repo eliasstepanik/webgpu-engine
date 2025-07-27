@@ -43,6 +43,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         "MeshId",
         "GlobalTransform",
         "GlobalWorldTransform",
+        "WorldTransform",
         "RigidBody",
         "Collider",
         "PhysicsVelocity",

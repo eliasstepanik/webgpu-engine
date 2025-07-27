@@ -5,13 +5,13 @@
 //! @property toggle: bool = false @tooltip("Boolean that toggles each frame")
 //! @property message: string = "Initial" @tooltip("Message that changes after 10 frames")
 
-fn on_start(entity) {
+fn on_start() {
     print("Property persistence test script started for entity " + entity);
     print("Initial counter: " + properties["counter"]);
     print("Initial toggle: " + properties["toggle"]);
 }
 
-fn on_update(entity, delta_time) {
+fn on_update(delta_time) {
     // Increment counter
     let current_counter = properties["counter"];
     properties["counter"] = current_counter + 1;
@@ -32,7 +32,7 @@ fn on_update(entity, delta_time) {
     }
 }
 
-fn on_destroy(entity) {
+fn on_destroy() {
     print("Property persistence test script stopped");
     print("Final counter: " + properties["counter"]);
 }

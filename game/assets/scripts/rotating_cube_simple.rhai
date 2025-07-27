@@ -3,11 +3,11 @@
 //
 //! @property rotation_speed: float = 1.0 @range(-5.0, 5.0) @step(0.1) @tooltip("Rotation speed in radians per second")
 
-fn on_start(entity) {
+fn on_start() {
     print("Simple rotating cube script started for entity " + entity);
 }
 
-fn on_update(entity, delta_time) {
+fn on_update(delta_time) {
     // Get rotation speed from properties
     let speed = properties["rotation_speed"];
     
@@ -23,6 +23,6 @@ fn on_update(entity, delta_time) {
     }
 }
 
-fn on_destroy(entity) {
+fn on_destroy() {
     print("Simple rotating cube script stopped for entity " + entity);
 }

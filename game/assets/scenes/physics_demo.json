@@ -12,7 +12,8 @@
           "aspect_ratio": 1.777778,
           "z_near": 0.1,
           "z_far": 1000.0,
-          "projection_mode": "Perspective"
+          "projection_mode": "Perspective",
+          "use_logarithmic_depth": false
         },
         "Name": "Main Camera"
       }
@@ -26,9 +27,7 @@
         },
         "MeshId": "Cube",
         "Material": {
-          "albedo": [0.3, 0.5, 0.3, 1.0],
-          "metallic": 0.0,
-          "roughness": 0.8
+          "color": [0.3, 0.5, 0.3, 1.0]
         },
         "RigidBody": {
           "body_type": "Fixed",
@@ -56,9 +55,7 @@
         },
         "MeshId": "Cube",
         "Material": {
-          "albedo": [0.8, 0.2, 0.2, 1.0],
-          "metallic": 0.0,
-          "roughness": 0.5
+          "color": [0.8, 0.2, 0.2, 1.0]
         },
         "RigidBody": {
           "body_type": "Dynamic",
@@ -90,14 +87,12 @@
         },
         "MeshId": "Sphere",
         "Material": {
-          "albedo": [0.2, 0.2, 0.8, 1.0],
-          "metallic": 0.2,
-          "roughness": 0.3
+          "color": [0.2, 0.2, 0.8, 1.0]
         },
         "RigidBody": {
           "body_type": "Dynamic",
           "linear_damping": 0.3,
-          "angular_damping": 0.3
+          "angular_damping": 0.5
         },
         "Collider": {
           "shape": {
@@ -124,9 +119,7 @@
         },
         "MeshId": "Cube",
         "Material": {
-          "albedo": [0.8, 0.8, 0.2, 1.0],
-          "metallic": 0.0,
-          "roughness": 0.6
+          "color": [0.8, 0.8, 0.2, 1.0]
         },
         "RigidBody": {
           "body_type": "Dynamic",
@@ -158,9 +151,7 @@
         },
         "MeshId": "Cube",
         "Material": {
-          "albedo": [0.6, 0.2, 0.8, 1.0],
-          "metallic": 0.0,
-          "roughness": 0.7
+          "color": [0.6, 0.2, 0.8, 1.0]
         },
         "RigidBody": {
           "body_type": "Dynamic",
@@ -177,7 +168,7 @@
           "is_sensor": false
         },
         "ScriptRef": {
-          "name": "physics_control.rhai"
+          "name": "physics_control"
         },
         "Name": "Scripted Physics Cube"
       }
@@ -191,9 +182,7 @@
         },
         "MeshId": "Cube",
         "Material": {
-          "albedo": [0.5, 0.5, 0.5, 1.0],
-          "metallic": 0.0,
-          "roughness": 1.0
+          "color": [0.5, 0.5, 0.5, 1.0]
         },
         "RigidBody": {
           "body_type": "Fixed",

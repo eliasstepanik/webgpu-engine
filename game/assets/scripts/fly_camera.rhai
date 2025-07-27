@@ -4,11 +4,11 @@
 // NOTE: Component modifications are queued and applied after all scripts finish executing.
 // This ensures thread safety and prevents race conditions between scripts.
 
-fn on_start(entity) {
+fn on_start() {
     print("Fly camera initialized for entity " + entity);
 }
 
-fn on_update(entity, delta_time) {
+fn on_update(delta_time) {
     // Movement parameters
     let move_speed = 5.0;
     let look_speed = 0.005;
@@ -31,17 +31,15 @@ fn on_update(entity, delta_time) {
     };
     
     // Apply movement in local space
-    if move_delta.length() > 0.0 {
-        let normalized_delta = move_delta.normalize() * current_speed * delta_time;
-        
+    if move_x != 0.0 || move_y != 0.0 || move_z != 0.0 {
         // Transform to local space and apply
         let forward = transform.rotate_vector(Vec3::create(0.0, 0.0, -1.0));
         let right = transform.rotate_vector(Vec3::create(1.0, 0.0, 0.0));
         let up = Vec3::create(0.0, 1.0, 0.0); // Keep world up
         
-        transform.position = transform.position + right * normalized_delta.x;
-        transform.position = transform.position + up * normalized_delta.y;
-        transform.position = transform.position + forward * normalized_delta.z;
+        // Apply movement directly without normalizing (input is already -1, 0, or 1)
+        let movement = right * move_x + up * move_y + forward * move_z;
+        transform.position = transform.position + movement * current_speed * delta_time;
     }
     
     // Mouse look - only if right mouse button is held
@@ -67,6 +65,6 @@ fn on_update(entity, delta_time) {
     world::set_component(entity, "Transform", transform);
 }
 
-fn on_destroy(entity) {
+fn on_destroy() {
     print("Fly camera destroyed for entity " + entity);
 }

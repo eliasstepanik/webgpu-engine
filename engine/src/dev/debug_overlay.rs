@@ -2,9 +2,21 @@
 
 use crate::core::entity::World;
 use crate::graphics::{AssetValidationReport, Material, MeshId};
+use glam::{Vec3, Vec4};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tracing::{debug, info};
+
+/// Debug line data for rendering
+#[derive(Debug, Clone)]
+pub struct DebugLineData {
+    /// Starting point of the line
+    pub start: Vec3,
+    /// Ending point of the line
+    pub end: Vec3,
+    /// Color of the line (RGBA)
+    pub color: Vec4,
+}
 
 /// Debug overlay for displaying scene information
 pub struct DebugOverlay {

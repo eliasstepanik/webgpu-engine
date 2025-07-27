@@ -162,14 +162,14 @@ impl ScriptEngine {
     pub fn call_on_start(
         &self,
         script_name: &str,
-        entity_id: u64,
+        _entity_id: u64,
         scope: &mut Scope,
     ) -> Result<(), Box<EvalAltResult>> {
         let cache = self.cache.read().unwrap();
         if let Some(cached) = cache.get(script_name) {
             if cached.has_on_start {
                 self.engine
-                    .call_fn::<()>(scope, &cached.ast, "on_start", (entity_id as i64,))
+                    .call_fn::<()>(scope, &cached.ast, "on_start", ())
                     .map_err(|e| -> Box<EvalAltResult> {
                         debug!("Script error calling on_start for {}: {:?}", script_name, e);
                         let position = e.position();
@@ -193,7 +193,7 @@ impl ScriptEngine {
     pub fn call_on_update(
         &self,
         script_name: &str,
-        entity_id: u64,
+        _entity_id: u64,
         scope: &mut Scope,
         delta_time: f32,
     ) -> Result<(), Box<EvalAltResult>> {
@@ -201,12 +201,7 @@ impl ScriptEngine {
         if let Some(cached) = cache.get(script_name) {
             if cached.has_on_update {
                 self.engine
-                    .call_fn::<()>(
-                        scope,
-                        &cached.ast,
-                        "on_update",
-                        (entity_id as i64, delta_time as f64),
-                    )
+                    .call_fn::<()>(scope, &cached.ast, "on_update", (delta_time as f64,))
                     .map_err(|e| -> Box<EvalAltResult> {
                         let position = e.position();
                         Box::new(
@@ -229,14 +224,14 @@ impl ScriptEngine {
     pub fn call_on_destroy(
         &self,
         script_name: &str,
-        entity_id: u64,
+        _entity_id: u64,
         scope: &mut Scope,
     ) -> Result<(), Box<EvalAltResult>> {
         let cache = self.cache.read().unwrap();
         if let Some(cached) = cache.get(script_name) {
             if cached.has_on_destroy {
                 self.engine
-                    .call_fn::<()>(scope, &cached.ast, "on_destroy", (entity_id as i64,))
+                    .call_fn::<()>(scope, &cached.ast, "on_destroy", ())
                     .map_err(|e| -> Box<EvalAltResult> {
                         let position = e.position();
                         Box::new(

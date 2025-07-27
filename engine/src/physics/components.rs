@@ -148,7 +148,10 @@ impl Collider {
     /// Create a capsule collider with the given half-height and radius
     pub fn capsule(half_height: f32, radius: f32) -> Self {
         Self {
-            shape: ColliderShape::Capsule { half_height, radius },
+            shape: ColliderShape::Capsule {
+                half_height,
+                radius,
+            },
             ..Default::default()
         }
     }
@@ -156,7 +159,10 @@ impl Collider {
     /// Create a cylinder collider with the given half-height and radius
     pub fn cylinder(half_height: f32, radius: f32) -> Self {
         Self {
-            shape: ColliderShape::Cylinder { half_height, radius },
+            shape: ColliderShape::Cylinder {
+                half_height,
+                radius,
+            },
             ..Default::default()
         }
     }
@@ -201,13 +207,7 @@ impl PhysicsVelocity {
 
 /// Physics mass properties component
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    engine_derive::Component,
-    engine_derive::EditorUI,
+    Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI,
 )]
 #[component(name = "PhysicsMass")]
 pub struct PhysicsMass {
@@ -216,7 +216,10 @@ pub struct PhysicsMass {
     pub mass: f32,
 
     /// Center of mass offset from the entity's transform position
-    #[ui(speed = 0.01, tooltip = "Center of mass offset from transform position")]
+    #[ui(
+        speed = 0.01,
+        tooltip = "Center of mass offset from transform position"
+    )]
     pub center_of_mass: Vec3,
 }
 

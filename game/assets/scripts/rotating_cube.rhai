@@ -9,11 +9,11 @@
 //! @property scale_factor: float = 1.0 @range(0.1, 3.0) @step(0.1) @tooltip("Scale multiplier")
 //! @property tint_color: color = [1.0, 1.0, 1.0, 1.0] @tooltip("Tint color for the material")
 
-fn on_start(entity) {
+fn on_start() {
     print("Rotating cube script started for entity " + entity);
 }
 
-fn on_update(entity, delta_time) {
+fn on_update(delta_time) {
     // Get animation parameters from properties
     let rotation_speed = properties["rotation_speed"];
     let rotation_axis = properties["rotation_axis"];
@@ -83,6 +83,6 @@ fn on_update(entity, delta_time) {
     }
 }
 
-fn on_destroy(entity) {
+fn on_destroy() {
     print("Rotating cube script stopped for entity " + entity);
 }

@@ -158,53 +158,89 @@ pub fn render_inspector_panel(
                         ui.text(format!("Entity: {entity:?}"));
                         ui.separator();
 
-                // Check which components exist first
-                let (has_name, has_transform, has_camera, has_material, has_mesh, has_script, _has_script_properties) = shared_state.with_world_read(|world| {
-                    let components = (
-                        world.get::<Name>(entity).is_ok(),
-                        world.get::<Transform>(entity).is_ok(),
-                        world.get::<Camera>(entity).is_ok(),
-                        world.get::<Material>(entity).is_ok(),
-                        world.get::<MeshId>(entity).is_ok(),
-                        world.get::<ScriptRef>(entity).is_ok(),
-                        world.get::<ScriptProperties>(entity).is_ok(),
-                    );
-                    debug!(entity = ?entity, has_name = components.0, has_transform = components.1, has_camera = components.2, has_material = components.3, has_mesh = components.4, has_script = components.5, has_script_properties = components.6, "Entity components");
-                    components
-                }).unwrap_or_else(|| {
-                    warn!(entity = ?entity, "Failed to access world for entity");
-                    (false, false, false, false, false, false, false)
-                });
+                // Get all component types on this entity
+                let component_types = shared_state.with_world_read(|world| {
+                    world.inner().entity(entity)
+                        .ok()
+                        .map(|e| e.component_types().collect::<Vec<_>>())
+                        .unwrap_or_default()
+                }).unwrap_or_default();
 
+                debug!(entity = ?entity, component_count = component_types.len(), "Entity components");
 
-
-                // Render components using metadata where available
+                // Render components dynamically using metadata
                 let registry = shared_state.component_registry.clone();
 
-                // Name component
-                if has_name {
-                    debug!("Rendering Name component");
-                    render_component_with_metadata::<Name>(
-                        ui,
-                        entity,
-                        "Name",
-                        shared_state,
-                        &registry,
-                    );
+                // Sort components by name for consistent ordering
+                let mut components_with_metadata: Vec<_> = component_types.iter()
+                    .filter_map(|&type_id| {
+                        registry.get_metadata(type_id)
+                            .map(|metadata| (type_id, metadata))
+                    })
+                    .collect();
+                components_with_metadata.sort_by_key(|(_, metadata)| metadata.name);
+
+                // Render each component that has metadata
+                for (type_id, metadata) in components_with_metadata {
+                    use std::any::TypeId;
+
+                    // Skip certain internal components
+                    if matches!(metadata.name,
+                        "GlobalTransform" | "GlobalWorldTransform" |
+                        "PreviousTransform" | "ParentData" | "CameraWorldPosition"
+                    ) {
+                        continue;
+                    }
+
+                    // Use type-specific rendering for components with custom UI
+                    match type_id {
+                        t if t == TypeId::of::<Name>() => {
+                            render_component_with_metadata::<Name>(
+                                ui, entity, "Name", shared_state, &registry
+                            );
+                        }
+                        t if t == TypeId::of::<Transform>() => {
+                            render_component_with_metadata::<Transform>(
+                                ui, entity, "Transform", shared_state, &registry
+                            );
+                        }
+                        t if t == TypeId::of::<Camera>() => {
+                            render_component_with_metadata::<Camera>(
+                                ui, entity, "Camera", shared_state, &registry
+                            );
+                        }
+                        t if t == TypeId::of::<Material>() => {
+                            render_component_with_metadata::<Material>(
+                                ui, entity, "Material", shared_state, &registry
+                            );
+                        }
+                        t if t == TypeId::of::<engine::physics::components::RigidBody>() => {
+                            render_component_with_metadata::<engine::physics::components::RigidBody>(
+                                ui, entity, "RigidBody", shared_state, &registry
+                            );
+                        }
+                        t if t == TypeId::of::<engine::physics::components::Collider>() => {
+                            render_component_with_metadata::<engine::physics::components::Collider>(
+                                ui, entity, "Collider", shared_state, &registry
+                            );
+                        }
+                        t if t == TypeId::of::<engine::physics::components::PhysicsVelocity>() => {
+                            render_component_with_metadata::<engine::physics::components::PhysicsVelocity>(
+                                ui, entity, "PhysicsVelocity", shared_state, &registry
+                            );
+                        }
+                        t if t == TypeId::of::<engine::physics::components::PhysicsMass>() => {
+                            render_component_with_metadata::<engine::physics::components::PhysicsMass>(
+                                ui, entity, "PhysicsMass", shared_state, &registry
+                            );
+                        }
+                        _ => {
+                            // Skip components without UI metadata
+                        }
+                    }
                 }
 
-                // Transform component
-                if has_transform {
-                    render_component_with_metadata::<Transform>(
-                        ui,
-                        entity,
-                        "Transform",
-                        shared_state,
-                        &registry,
-                    );
-                }
-
-                // Parent component (read-only)
+                // Special handling for Parent component (read-only)
                 if let Some(parent_entity) = shared_state.with_world_read(|world| {
                     world.get::<Parent>(entity).map(|p| p.0).ok()
                 }).flatten() {
@@ -213,29 +249,8 @@ pub fn render_inspector_panel(
                     ui.text(format!("{parent_entity:?}"));
                 }
 
-                // Camera component
-                if has_camera {
-                    render_component_with_metadata::<Camera>(
-                        ui,
-                        entity,
-                        "Camera",
-                        shared_state,
-                        &registry,
-                    );
-                }
-
-                // Material component
-                if has_material {
-                    render_component_with_metadata::<Material>(
-                        ui,
-                        entity,
-                        "Material",
-                        shared_state,
-                        &registry,
-                    );
-                }
-
-                // MeshId componen
+                // MeshId component - special handling for drag/drop
+                let has_mesh = shared_state.with_world_read(|world| world.get::<MeshId>(entity).is_ok()).unwrap_or(false);
                 if has_mesh
                     && ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
                         let mut remove_component = false;
@@ -298,7 +313,8 @@ pub fn render_inspector_panel(
                         }
                     }
 
-                // Script component
+                // Script component - special handling for drag/drop and properties
+                let has_script = shared_state.with_world_read(|world| world.get::<ScriptRef>(entity).is_ok()).unwrap_or(false);
                 if has_script
                     && ui.collapsing_header("Script", TreeNodeFlags::DEFAULT_OPEN) {
                         let mut remove_component = false;
@@ -536,84 +552,63 @@ pub fn render_inspector_panel(
 
                     ui.separator();
 
-                    // Component lis
+                    // Component list - dynamic from registry
                     let filter = state.component_filter.to_lowercase();
                     let mut component_added = false;
 
-                    // Check which components the entity already has
-                    let has_transform = shared_state.with_world_read(|world| world.get::<Transform>(entity).is_ok()).unwrap_or(false);
-                    let has_camera = shared_state.with_world_read(|world| world.get::<Camera>(entity).is_ok()).unwrap_or(false);
-                    let has_material = shared_state.with_world_read(|world| world.get::<Material>(entity).is_ok()).unwrap_or(false);
-                    let has_mesh = shared_state.with_world_read(|world| world.get::<MeshId>(entity).is_ok()).unwrap_or(false);
-                    let has_name = shared_state.with_world_read(|world| world.get::<Name>(entity).is_ok()).unwrap_or(false);
-                    let has_script = shared_state.with_world_read(|world| world.get::<ScriptRef>(entity).is_ok()).unwrap_or(false);
+                    // Get existing component types for this entity
+                    let existing_types = shared_state.with_world_read(|world| {
+                        world.inner().entity(entity)
+                            .ok()
+                            .map(|e| e.component_types().collect::<Vec<_>>())
+                            .unwrap_or_default()
+                    }).unwrap_or_default();
 
-                    // Transform
-                    if !has_transform && "transform".contains(&filter)
-                        && ui.selectable("Transform") {
-                            shared_state.with_world_write(|world| {
-                                let _ = world.insert_one(entity, Transform::default());
-                                let _ = world.insert_one(entity, engine::prelude::GlobalTransform::default());
-                            });
-                            shared_state.mark_scene_modified();
-                            component_added = true;
-                            debug!(entity = ?entity, "Added Transform component");
-                        }
+                    // Get all registered components from the registry
+                    let registry = shared_state.component_registry.clone();
+                    let mut available_components: Vec<_> = registry.iter_metadata()
+                        .filter(|metadata| {
+                            // Filter by search term
+                            metadata.name.to_lowercase().contains(&filter)
+                                // Don't show components that are already on the entity
+                                && !existing_types.contains(&metadata.type_id)
+                                // Don't show internal components that shouldn't be manually added
+                                && !matches!(metadata.name,
+                                    "GlobalTransform" | "GlobalWorldTransform" |
+                                    "PreviousTransform" | "Parent" | "ParentData" |
+                                    "ScriptProperties" | "CameraWorldPosition"
+                                )
+                        })
+                        .collect();
 
-                    // Camera
-                    if !has_camera && "camera".contains(&filter)
-                        && ui.selectable("Camera") {
-                            shared_state.with_world_write(|world| {
-                                let _ = world.insert_one(entity, Camera::default());
-                            });
-                            shared_state.mark_scene_modified();
-                            component_added = true;
-                            debug!(entity = ?entity, "Added Camera component");
-                        }
+                    // Sort components alphabetically for better UX
+                    available_components.sort_by_key(|m| m.name);
 
-                    // Material
-                    if !has_material && "material".contains(&filter)
-                        && ui.selectable("Material") {
+                    // Display each available component
+                    for metadata in available_components {
+                        if ui.selectable(metadata.name) {
                             shared_state.with_world_write(|world| {
-                                let _ = world.insert_one(entity, Material::default());
-                            });
-                            shared_state.mark_scene_modified();
-                            component_added = true;
-                            debug!(entity = ?entity, "Added Material component");
-                        }
+                                // Use the add_default function from metadata
+                                match (metadata.add_default)(world, entity) {
+                                    Ok(_) => {
+                                        debug!(entity = ?entity, component = metadata.name, "Added component via dynamic registry");
 
-                    // MeshId
-                    if !has_mesh && "mesh".contains(&filter)
-                        && ui.selectable("Mesh (Cube)") {
-                            shared_state.with_world_write(|world| {
-                                let _ = world.insert_one(entity, MeshId("cube".to_string()));
-                            });
-                            shared_state.mark_scene_modified();
-                            component_added = true;
-                            debug!(entity = ?entity, "Added MeshId component");
-                        }
+                                        // Special handling for Transform - also add GlobalTransform
+                                        if metadata.name == "Transform" {
+                                            let _ = world.insert_one(entity, engine::prelude::GlobalTransform::default());
+                                        }
 
-                    // Name
-                    if !has_name && "name".contains(&filter)
-                        && ui.selectable("Name") {
-                            shared_state.with_world_write(|world| {
-                                let _ = world.insert_one(entity, Name::new("New Entity"));
+                                        shared_state.mark_scene_modified();
+                                        component_added = true;
+                                    }
+                                    Err(e) => {
+                                        warn!(entity = ?entity, component = metadata.name, error = %e, "Failed to add component");
+                                    }
+                                }
                             });
-                            shared_state.mark_scene_modified();
-                            component_added = true;
-                            debug!(entity = ?entity, "Added Name component");
+                            break; // Close popup after adding
                         }
-
-                    // Script
-                    if !has_script && "script".contains(&filter)
-                        && ui.selectable("Script") {
-                            shared_state.with_world_write(|world| {
-                                let _ = world.insert_one(entity, ScriptRef::new("new_script"));
-                            });
-                            shared_state.mark_scene_modified();
-                            component_added = true;
-                            debug!(entity = ?entity, "Added Script component");
-                        }
+                    }
 
                     ui.separator();
 

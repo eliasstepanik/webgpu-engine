@@ -114,7 +114,7 @@ impl SafeImGuiRenderer {
                     if scaled_x + scaled_w > target_info.width
                         || scaled_y + scaled_h > target_info.height
                     {
-                        warn!(
+                        debug!(
                             "Potential scissor rect overflow detected: ({}, {}, {}, {}) in {}x{} target",
                             scaled_x, scaled_y, scaled_w, scaled_h,
                             target_info.width, target_info.height

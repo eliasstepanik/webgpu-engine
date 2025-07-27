@@ -11,6 +11,7 @@ use crate::core::{
     },
 };
 use crate::graphics::{AssetManager, AssetValidationReport, Material, MeshId};
+use crate::physics::{Collider, PhysicsMass, PhysicsVelocity, RigidBody};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -499,10 +500,48 @@ impl Scene {
                             }
                         }
                     }
-                    "Rigidbody" | "Collider" | "PhysicsMaterial" => {
-                        debug!("Skipping removed physics component: {}", component_type);
-                        continue; // Skip without error
+                    "RigidBody" => match serde_json::from_value::<RigidBody>(value.clone()) {
+                        Ok(rigid_body) => {
+                            if let Err(e) = world.insert_one(entity, rigid_body) {
+                                error!(error = ?e, entity = ?entity, "Failed to insert RigidBody");
+                            }
+                        }
+                        Err(e) => {
+                            error!(error = %e, "Failed to deserialize RigidBody");
+                        }
+                    },
+                    "Collider" => match serde_json::from_value::<Collider>(value.clone()) {
+                        Ok(collider) => {
+                            if let Err(e) = world.insert_one(entity, collider) {
+                                error!(error = ?e, entity = ?entity, "Failed to insert Collider");
+                            }
+                        }
+                        Err(e) => {
+                            error!(error = %e, "Failed to deserialize Collider");
+                        }
+                    },
+                    "PhysicsVelocity" => {
+                        match serde_json::from_value::<PhysicsVelocity>(value.clone()) {
+                            Ok(velocity) => {
+                                if let Err(e) = world.insert_one(entity, velocity) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert PhysicsVelocity");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize PhysicsVelocity");
+                            }
+                        }
                     }
+                    "PhysicsMass" => match serde_json::from_value::<PhysicsMass>(value.clone()) {
+                        Ok(mass) => {
+                            if let Err(e) = world.insert_one(entity, mass) {
+                                error!(error = ?e, entity = ?entity, "Failed to insert PhysicsMass");
+                            }
+                        }
+                        Err(e) => {
+                            error!(error = %e, "Failed to deserialize PhysicsMass");
+                        }
+                    },
                     unknown => {
                         warn!(
                             component_type = unknown,
@@ -879,10 +918,48 @@ impl Scene {
                             }
                         }
                     }
-                    "Rigidbody" | "Collider" | "PhysicsMaterial" => {
-                        debug!("Skipping removed physics component: {}", component_type);
-                        continue; // Skip without error
+                    "RigidBody" => match serde_json::from_value::<RigidBody>(value.clone()) {
+                        Ok(rigid_body) => {
+                            if let Err(e) = world.insert_one(entity, rigid_body) {
+                                error!(error = ?e, entity = ?entity, "Failed to insert RigidBody");
+                            }
+                        }
+                        Err(e) => {
+                            error!(error = %e, "Failed to deserialize RigidBody");
+                        }
+                    },
+                    "Collider" => match serde_json::from_value::<Collider>(value.clone()) {
+                        Ok(collider) => {
+                            if let Err(e) = world.insert_one(entity, collider) {
+                                error!(error = ?e, entity = ?entity, "Failed to insert Collider");
+                            }
+                        }
+                        Err(e) => {
+                            error!(error = %e, "Failed to deserialize Collider");
+                        }
+                    },
+                    "PhysicsVelocity" => {
+                        match serde_json::from_value::<PhysicsVelocity>(value.clone()) {
+                            Ok(velocity) => {
+                                if let Err(e) = world.insert_one(entity, velocity) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert PhysicsVelocity");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize PhysicsVelocity");
+                            }
+                        }
                     }
+                    "PhysicsMass" => match serde_json::from_value::<PhysicsMass>(value.clone()) {
+                        Ok(mass) => {
+                            if let Err(e) = world.insert_one(entity, mass) {
+                                error!(error = ?e, entity = ?entity, "Failed to insert PhysicsMass");
+                            }
+                        }
+                        Err(e) => {
+                            error!(error = %e, "Failed to deserialize PhysicsMass");
+                        }
+                    },
                     unknown => {
                         warn!(
                             component_type = unknown,

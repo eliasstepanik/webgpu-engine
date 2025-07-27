@@ -62,7 +62,7 @@ pub fn query_component(
         }
         "RigidBody" => {
             if let Ok(rigid_body) = world.get::<&RigidBody>(entity) {
-                cache.rigid_bodies.insert(entity_id, rigid_body.clone());
+                cache.rigid_bodies.insert(entity_id, (*rigid_body).clone());
                 trace!(entity = entity_id, "Cached RigidBody component");
                 Ok(())
             } else {
@@ -71,7 +71,7 @@ pub fn query_component(
         }
         "Collider" => {
             if let Ok(collider) = world.get::<&Collider>(entity) {
-                cache.colliders.insert(entity_id, collider.clone());
+                cache.colliders.insert(entity_id, (*collider).clone());
                 trace!(entity = entity_id, "Cached Collider component");
                 Ok(())
             } else {
@@ -84,7 +84,9 @@ pub fn query_component(
                 trace!(entity = entity_id, "Cached PhysicsVelocity component");
                 Ok(())
             } else {
-                Err(format!("Entity {entity_id} missing PhysicsVelocity component"))
+                Err(format!(
+                    "Entity {entity_id} missing PhysicsVelocity component"
+                ))
             }
         }
         _ => Err(format!("Unknown component type: {component_type}")),
@@ -135,7 +137,7 @@ pub fn query_entities_with_component(
         "RigidBody" => {
             for (entity, rigid_body) in world.query::<&RigidBody>().iter() {
                 let entity_id = entity.to_bits().get();
-                cache.rigid_bodies.insert(entity_id, rigid_body.clone());
+                cache.rigid_bodies.insert(entity_id, (*rigid_body).clone());
                 entities.push(entity_id);
             }
             debug!(count = entities.len(), "Queried entities with RigidBody");
@@ -143,7 +145,7 @@ pub fn query_entities_with_component(
         "Collider" => {
             for (entity, collider) in world.query::<&Collider>().iter() {
                 let entity_id = entity.to_bits().get();
-                cache.colliders.insert(entity_id, collider.clone());
+                cache.colliders.insert(entity_id, (*collider).clone());
                 entities.push(entity_id);
             }
             debug!(count = entities.len(), "Queried entities with Collider");
@@ -154,7 +156,10 @@ pub fn query_entities_with_component(
                 cache.velocities.insert(entity_id, *velocity);
                 entities.push(entity_id);
             }
-            debug!(count = entities.len(), "Queried entities with PhysicsVelocity");
+            debug!(
+                count = entities.len(),
+                "Queried entities with PhysicsVelocity"
+            );
         }
         _ => {
             error!(component_type, "Unknown component type in query");
@@ -212,12 +217,12 @@ pub fn populate_cache_for_scripts(world: &World, cache: &mut ComponentCache) {
 
         // Cache rigid body if present
         if let Some(rb) = rigid_body {
-            cache.rigid_bodies.insert(entity_id, rb.clone());
+            cache.rigid_bodies.insert(entity_id, (*rb).clone());
         }
 
         // Cache collider if present
         if let Some(col) = collider {
-            cache.colliders.insert(entity_id, col.clone());
+            cache.colliders.insert(entity_id, (*col).clone());
         }
 
         // Cache velocity if present

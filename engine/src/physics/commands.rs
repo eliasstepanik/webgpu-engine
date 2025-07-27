@@ -16,7 +16,7 @@ pub enum PhysicsCommand {
         /// Force vector in world space
         force: Vec3,
     },
-    
+
     /// Apply an impulse to a rigid body
     ApplyImpulse {
         /// Entity ID to apply impulse to
@@ -24,7 +24,7 @@ pub enum PhysicsCommand {
         /// Impulse vector in world space
         impulse: Vec3,
     },
-    
+
     /// Apply a torque to a rigid body
     ApplyTorque {
         /// Entity ID to apply torque to
@@ -32,7 +32,7 @@ pub enum PhysicsCommand {
         /// Torque vector in world space
         torque: Vec3,
     },
-    
+
     /// Set the velocity of a rigid body
     SetVelocity {
         /// Entity ID to set velocity for
