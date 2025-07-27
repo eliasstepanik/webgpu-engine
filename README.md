@@ -1,10 +1,10 @@
 # WebGPU Engine 🎮
 
-<!-- TODO: Add badges when CI/CD is set up
-[![Build Status](https://img.shields.io/github/workflow/status/eliasstepanik/webgpu-engine/CI)](https://github.com/eliasstepanik/webgpu-engine/actions)
+[![CI](https://github.com/eliasstepanik/webgpu-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/eliasstepanik/webgpu-engine/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](LICENSE)
+<!-- Future badges when published:
 [![Crates.io](https://img.shields.io/crates/v/webgpu-engine)](https://crates.io/crates/webgpu-engine)
 [![Documentation](https://docs.rs/webgpu-engine/badge.svg)](https://docs.rs/webgpu-engine)
-[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](LICENSE)
 -->
 
 > A modern, modular 3D game engine built with Rust and WebGPU, featuring an ImGui-based editor with automatic UI generation and Rhai scripting.
