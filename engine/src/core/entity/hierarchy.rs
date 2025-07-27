@@ -6,7 +6,6 @@ use crate::core::camera::{Camera, CameraWorldPosition};
 // hecs::Entity is re-exported from world module
 use glam::DVec3;
 use std::collections::HashSet;
-use std::ops::Mul;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tracing::{error, trace};
 
@@ -17,6 +16,13 @@ static CURRENT_FRAME: AtomicU64 = AtomicU64::new(0);
 /// Advance to the next frame. Should be called once per frame by the main loop.
 pub fn advance_frame() {
     CURRENT_FRAME.fetch_add(1, Ordering::SeqCst);
+}
+
+/// Reset frame counters - only for testing
+#[cfg(test)]
+pub fn reset_frame_counters() {
+    CURRENT_FRAME.store(0, Ordering::SeqCst);
+    LAST_HIERARCHY_UPDATE_FRAME.store(0, Ordering::SeqCst);
 }
 
 /// Update the hierarchy system, calculating global transforms from local transforms
@@ -118,7 +124,7 @@ fn update_regular_hierarchy(world: &mut World) {
                     let child_world_matrix =
                         if let Ok(child_transform) = inner.get::<&Transform>(child_entity) {
                             let local_matrix = child_transform.to_matrix();
-                            parent_world_matrix.mul(local_matrix)
+                            parent_world_matrix * local_matrix
                         } else {
                             parent_world_matrix
                         };
@@ -325,6 +331,7 @@ mod tests {
 
     #[test]
     fn test_basic_hierarchy() {
+        reset_frame_counters();
         let mut world = World::new();
 
         // Create parent at position (1, 0, 0)
@@ -355,6 +362,7 @@ mod tests {
 
     #[test]
     fn test_multi_level_hierarchy() {
+        reset_frame_counters();
         let mut world = World::new();
 
         // Create grandparent at (1, 0, 0)
@@ -394,6 +402,7 @@ mod tests {
 
     #[test]
     fn test_scale_propagation() {
+        reset_frame_counters();
         let mut world = World::new();
 
         // Create parent with 2x scale
@@ -424,6 +433,7 @@ mod tests {
 
     #[test]
     fn test_cycle_detection() {
+        reset_frame_counters();
         let mut world = World::new();
 
         // Create two entities
@@ -444,6 +454,7 @@ mod tests {
 
     #[test]
     fn test_missing_transform_auto_add() {
+        reset_frame_counters();
         let mut world = World::new();
 
         // Create parent
@@ -462,6 +473,7 @@ mod tests {
 
     #[test]
     fn test_camera_parenting_no_drift() {
+        reset_frame_counters();
         let mut world = World::new();
 
         // Create camera with specific position and rotation
@@ -541,6 +553,7 @@ mod tests {
 
     #[test]
     fn test_multiple_hierarchy_updates_no_accumulation() {
+        reset_frame_counters();
         let mut world = World::new();
 
         // Create camera
@@ -586,6 +599,7 @@ mod tests {
 
     #[test]
     fn test_camera_hierarchy_precision() {
+        reset_frame_counters();
         let mut world = World::new();
 
         // Test with precise fractional positions
@@ -629,6 +643,7 @@ mod tests {
 
     #[test]
     fn test_camera_parenting_drift_at_large_distances() {
+        reset_frame_counters();
         let mut world = World::new();
 
         // Create a cube at origin
@@ -705,6 +720,7 @@ mod tests {
 
     #[test]
     fn test_parented_transforms_maintain_relative_positions() {
+        reset_frame_counters();
         let mut world = World::new();
 
         // Create parent and child entities
@@ -759,6 +775,7 @@ mod tests {
 
     #[test]
     fn test_frame_tracking_prevents_multiple_updates() {
+        reset_frame_counters();
         let mut world = World::new();
 
         // Create a simple entity

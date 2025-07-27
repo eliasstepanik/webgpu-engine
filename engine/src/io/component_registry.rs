@@ -104,7 +104,6 @@ impl ComponentRegistry {
             GlobalTransform, GlobalWorldTransform, Name, ParentData, PreviousTransform, Transform,
         };
         use crate::graphics::{Material, MeshId};
-        use crate::physics::{Collider, PhysicsMaterial, Rigidbody};
         use crate::scripting::{ScriptProperties, ScriptRef};
 
         let mut registry = Self::new();
@@ -127,11 +126,6 @@ impl ComponentRegistry {
         // Register scripting components
         ScriptRef::register(&mut registry);
         ScriptProperties::register(&mut registry);
-
-        // Register physics components
-        Rigidbody::register(&mut registry);
-        Collider::register(&mut registry);
-        PhysicsMaterial::register(&mut registry);
 
         debug!(
             component_count = registry.len(),

@@ -100,16 +100,16 @@ impl Transform {
     }
 }
 
-/// Previous transform component for interpolation between physics updates
-/// This stores the transform from the last physics frame and is used for smooth rendering
+/// Previous transform component for interpolation between frames
+/// This stores the transform from the last frame and is used for smooth rendering
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component)]
 #[component(name = "PreviousTransform")]
 pub struct PreviousTransform {
-    /// Position from the previous physics update
+    /// Position from the previous frame
     pub position: Vec3,
-    /// Rotation from the previous physics update  
+    /// Rotation from the previous frame  
     pub rotation: Quat,
-    /// Scale from the previous physics update
+    /// Scale from the previous frame
     pub scale: Vec3,
 }
 

@@ -5,7 +5,7 @@
 
 use engine::core::entity::World;
 use engine::io::component_registry::ComponentRegistry;
-use std::sync::{atomic::AtomicBool, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 use tracing::{debug, warn};
 
 /// Shared editor state that needs to be synchronized between windows
@@ -173,8 +173,6 @@ pub struct EditorSharedState {
     pub world: SharedWorldHandle,
     /// Component registry for reflection and serialization
     pub component_registry: Arc<ComponentRegistry>,
-    /// Whether physics debug visualization is enabled
-    pub physics_debug_enabled: Arc<AtomicBool>,
 }
 
 impl EditorSharedState {
@@ -184,7 +182,6 @@ impl EditorSharedState {
             editor_state: create_shared_state(),
             world: create_shared_world(world),
             component_registry: Arc::new(component_registry),
-            physics_debug_enabled: Arc::new(AtomicBool::new(false)),
         }
     }
 

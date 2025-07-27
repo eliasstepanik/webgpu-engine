@@ -36,18 +36,11 @@ impl GameApp {
             "scenes".to_string(),
         );
 
-        // Create custom physics config with reduced gravity for better demos
-        let physics_config = engine::physics::PhysicsConfig {
-            gravity: Vec3::new(0.0, -2.0, 0.0), // Reduced from -9.81 to -2.0
-            ..Default::default()
-        };
-
         // Create engine configuration
         let engine_config = EngineBuilder::new()
             .title("WebGPU Game Engine Demo")
             .asset_config(asset_config)
             .with_scripting(true)
-            .physics_config(physics_config)
             .build();
 
         Self {
@@ -270,43 +263,11 @@ impl ApplicationHandler for GameApp {
                     // Try to load the scene
                     match engine::io::Scene::load_from_file(&scene_path) {
                         Ok(scene) => {
-                            // Validate physics scene configuration in debug builds
-                            #[cfg(debug_assertions)]
-                            {
-                                let validation_result =
-                                    engine::physics::validate_physics_scene(&scene);
-                                if !validation_result.is_valid {
-                                    tracing::warn!(
-                                        "Physics validation warnings for scene '{}':",
-                                        scene_path.display()
-                                    );
-                                    for error in &validation_result.errors {
-                                        tracing::warn!(
-                                            "  - {}: {}",
-                                            error.entity_name,
-                                            error.details
-                                        );
-                                    }
-                                    for warning in &validation_result.warnings {
-                                        tracing::warn!(
-                                            "  - {}: {}",
-                                            warning.entity,
-                                            warning.warning
-                                        );
-                                    }
-                                } else {
-                                    tracing::debug!(
-                                        "Physics scene validation passed for '{}'",
-                                        scene_path.display()
-                                    );
-                                }
-                            }
-
                             match scene.instantiate(&mut self.engine.world) {
                                 Ok(_) => {
                                     info!("Successfully loaded scene: {}", scene_path.display());
                                     // Advance frame counter and run hierarchy system once to ensure GlobalTransform
-                                    // components are created. This is needed for physics entities to be properly detected.
+                                    // components are created.
                                     engine::core::entity::hierarchy::advance_frame();
                                     engine::core::entity::update_hierarchy_system(
                                         &mut self.engine.world,
@@ -441,47 +402,10 @@ impl ApplicationHandler for GameApp {
                         });
                     }
 
-                    // Then handle physics - need to update on the editor's world
-                    let steps = self.engine.physics_accumulator().accumulate(delta_time);
-
-                    for _ in 0..steps {
-                        let physics_solver = &mut self.engine.physics_solver;
-                        let physics_config = &self.engine.physics_config;
-                        editor_state.shared_state.with_world_write(|world| {
-                            engine::physics::systems::update_physics_system(
-                                world,
-                                physics_solver,
-                                physics_config,
-                                engine::app::PHYSICS_TIMESTEP,
-                            );
-                        });
-                    }
-
-                    // Interpolate transforms for smooth rendering
-                    let alpha = self.engine.physics_accumulator().get_interpolation_alpha();
-                    editor_state.shared_state.with_world_write(|world| {
-                        engine::physics::systems::interpolate_transforms(world, alpha);
-                    });
-
-                    // Update hierarchy again after physics to propagate physics changes
+                    // Update hierarchy system to maintain transform propagation
                     editor_state.shared_state.with_world_write(|world| {
                         update_hierarchy_system(world);
                     });
-
-                    // Update physics debug visualization based on editor state
-                    if let Some(renderer) = &mut self.engine.renderer {
-                        let physics_debug_enabled = editor_state
-                            .shared_state
-                            .physics_debug_enabled
-                            .load(std::sync::atomic::Ordering::Relaxed);
-                        self.engine.physics_debug.enabled = physics_debug_enabled;
-
-                        editor_state.shared_state.with_world_read(|world| {
-                            self.engine
-                                .physics_debug
-                                .update_debug_lines(world, renderer);
-                        });
-                    }
 
                     // Process mesh uploads from scripts
                     if let (Some(script_engine), Some(renderer)) =

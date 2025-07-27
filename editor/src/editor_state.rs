@@ -737,25 +737,6 @@ impl EditorState {
                         action_reset_layout = true;
                     }
                 });
-                ui.menu("Debug", || {
-                    let mut physics_debug_enabled = self
-                        .shared_state
-                        .physics_debug_enabled
-                        .load(std::sync::atomic::Ordering::Relaxed);
-                    if ui.checkbox("Show Physics Colliders", &mut physics_debug_enabled) {
-                        self.shared_state
-                            .physics_debug_enabled
-                            .store(physics_debug_enabled, std::sync::atomic::Ordering::Relaxed);
-                        info!(
-                            "Physics debug visualization: {}",
-                            if physics_debug_enabled {
-                                "enabled"
-                            } else {
-                                "disabled"
-                            }
-                        );
-                    }
-                });
                 ui.menu("Help", || {
                     if ui.menu_item("About") {
                         info!("About requested");

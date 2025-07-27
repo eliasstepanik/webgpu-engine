@@ -8,7 +8,7 @@ fn main() {
     let scene_path = if args.len() > 1 {
         &args[1]
     } else {
-        "game/assets/scenes/physics_debug_test.json"
+        "game/assets/scenes/test_scene.json"
     };
 
     let path = Path::new(scene_path);
@@ -25,22 +25,19 @@ fn main() {
                     println!("✓ Scene instantiated successfully!");
 
                     // Count components
-                    let rigid_bodies = world
-                        .query::<&engine::physics::components::Rigidbody>()
-                        .iter()
-                        .count();
-                    let colliders = world
-                        .query::<&engine::physics::components::Collider>()
+                    let transforms = world
+                        .query::<&engine::core::entity::Transform>()
                         .iter()
                         .count();
                     let cameras = world
                         .query::<&engine::core::camera::Camera>()
                         .iter()
                         .count();
+                    let meshes = world.query::<&engine::graphics::MeshId>().iter().count();
 
-                    println!("  Rigidbodies: {rigid_bodies}");
-                    println!("  Colliders: {colliders}");
+                    println!("  Transforms: {transforms}");
                     println!("  Cameras: {cameras}");
+                    println!("  Meshes: {meshes}");
                 }
                 Err(e) => {
                     eprintln!("✗ Failed to instantiate scene: {e}");

@@ -158,7 +158,7 @@ impl World {
         scene.instantiate(self)?;
 
         // Advance frame counter and run hierarchy system once to ensure GlobalTransform
-        // components are created. This is needed for physics entities to be properly detected.
+        // components are created and up to date.
         super::hierarchy::advance_frame();
         update_hierarchy_system(self);
 
@@ -181,7 +181,7 @@ impl World {
         let mapper = scene.instantiate(self)?;
 
         // Advance frame counter and run hierarchy system once to ensure GlobalTransform
-        // components are created. This is needed for physics entities to be properly detected.
+        // components are created and up to date.
         super::hierarchy::advance_frame();
         update_hierarchy_system(self);
 

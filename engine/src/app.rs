@@ -5,12 +5,6 @@ use crate::core::coordinates::LargeWorldConfig;
 use crate::core::entity::{update_hierarchy_system, World};
 use crate::graphics::{RenderContext, Renderer};
 use crate::input::InputState;
-use crate::physics::{
-    avbd_solver::AVBDSolver,
-    debug_visualization::PhysicsDebugVisualization,
-    systems::{interpolate_transforms, update_physics_system},
-    PhysicsAccumulator, PhysicsConfig,
-};
 use crate::scripting::ScriptEngine;
 use crate::windowing::WindowManager;
 use std::collections::HashMap;
@@ -38,8 +32,6 @@ pub struct EngineConfig {
     pub log_filter: Option<String>,
     /// Large world coordinate system configuration
     pub large_world: LargeWorldConfig,
-    /// Custom physics configuration (None = use default)
-    pub physics_config: Option<crate::physics::PhysicsConfig>,
 }
 
 impl Default for EngineConfig {
@@ -51,13 +43,9 @@ impl Default for EngineConfig {
             enable_scripting: true,
             log_filter: None,
             large_world: LargeWorldConfig::default(),
-            physics_config: None,
         }
     }
 }
-
-/// Fixed physics timestep (30 Hz for better performance)
-pub const PHYSICS_TIMESTEP: f32 = 1.0 / 30.0;
 
 /// Main engine application struct that implements ApplicationHandler
 pub struct EngineApp {
@@ -73,18 +61,18 @@ pub struct EngineApp {
     pub script_engine: Option<ScriptEngine>,
     /// Input state
     pub input_state: InputState,
-    /// Physics solver
-    pub physics_solver: AVBDSolver,
-    /// Physics configuration
-    pub physics_config: PhysicsConfig,
-    /// Physics debug visualization
-    pub physics_debug: PhysicsDebugVisualization,
+    // /// Physics solver
+    // pub physics_solver: AVBDSolver,
+    // /// Physics configuration
+    // pub physics_config: PhysicsConfig,
+    // /// Physics debug visualization
+    // pub physics_debug: PhysicsDebugVisualization,
 
     // Private fields
     config: EngineConfig,
     instance: Option<Arc<wgpu::Instance>>,
     last_time: std::time::Instant,
-    physics_accumulator: PhysicsAccumulator,
+    // physics_accumulator: PhysicsAccumulator,
     focus_tracker: HashMap<WindowId, bool>,
     last_focused_window: Option<WindowId>,
     initialized: bool,
@@ -106,9 +94,6 @@ impl EngineApp {
 
         info!("Creating EngineApp with config: {:?}", config);
 
-        let physics_config = config.physics_config.clone().unwrap_or_default();
-        let physics_solver = crate::physics::systems::create_physics_solver(&physics_config);
-
         Self {
             window_manager: None,
             render_context: None,
@@ -116,13 +101,13 @@ impl EngineApp {
             world: World::new(),
             script_engine: None,
             input_state: InputState::new(),
-            physics_solver,
-            physics_config,
-            physics_debug: PhysicsDebugVisualization::default(),
+            // physics_solver,
+            // physics_config,
+            // physics_debug: PhysicsDebugVisualization::default(),
             config,
             instance: None,
             last_time: std::time::Instant::now(),
-            physics_accumulator: PhysicsAccumulator::new(PHYSICS_TIMESTEP),
+            // physics_accumulator: PhysicsAccumulator::new(PHYSICS_TIMESTEP),
             focus_tracker: HashMap::new(),
             last_focused_window: None,
             initialized: false,
@@ -257,41 +242,8 @@ impl EngineApp {
             }
         }
 
-        // Update transform hierarchy FIRST so GlobalTransform exists for physics
+        // Update transform hierarchy to maintain GlobalTransform
         update_hierarchy_system(&mut self.world);
-
-        // Update physics simulation with fixed timestep
-        self.update_physics_with_fixed_timestep(delta_time);
-
-        // Update hierarchy again after physics to propagate physics changes
-        update_hierarchy_system(&mut self.world);
-
-        // Update physics debug visualization with fresh GlobalTransform data
-        if let Some(renderer) = &mut self.renderer {
-            self.physics_debug.update_debug_lines(&self.world, renderer);
-        }
-    }
-
-    /// Update physics simulation with fixed timestep
-    pub fn update_physics_with_fixed_timestep(&mut self, delta_time: f32) {
-        let steps = self.physics_accumulator.accumulate(delta_time);
-        for _ in 0..steps {
-            update_physics_system(
-                &mut self.world,
-                &mut self.physics_solver,
-                &self.physics_config,
-                PHYSICS_TIMESTEP,
-            );
-        }
-
-        // Interpolate transforms for smooth rendering
-        let alpha = self.physics_accumulator.get_interpolation_alpha();
-        interpolate_transforms(&mut self.world, alpha);
-    }
-
-    /// Get access to the physics accumulator
-    pub fn physics_accumulator(&self) -> &PhysicsAccumulator {
-        &self.physics_accumulator
     }
 
     fn handle_resize(&mut self, window_id: WindowId, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -543,12 +495,6 @@ impl EngineBuilder {
     /// Set a custom log filter
     pub fn log_filter(mut self, filter: impl Into<String>) -> Self {
         self.config.log_filter = Some(filter.into());
-        self
-    }
-
-    /// Set custom physics configuration
-    pub fn physics_config(mut self, config: crate::physics::PhysicsConfig) -> Self {
-        self.config.physics_config = Some(config);
         self
     }
 
