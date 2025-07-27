@@ -21,6 +21,7 @@
 - 🏗️ **Modular Architecture** - Clean separation of engine, editor, game, and derive macros
 - 🌍 **Large World Support** - Dual transform system for galaxy-scale coordinates
 - 🎨 **Component UI System** - Automatic inspector UI via derive macros with rich metadata
+- ⚡ **Physics System** - Integrated Rapier3D physics with f64 precision for large worlds
 
 ## 🚀 Quick Start
 
@@ -168,6 +169,39 @@ world.spawn((
     Name("Distant Star".to_string()),
 ));
 ```
+
+### Physics System
+
+The engine includes a fully integrated physics system powered by Rapier3D with f64 precision:
+
+```rust
+// Create a physics-enabled entity
+world.spawn((
+    Transform::from_position(Vec3::new(0.0, 5.0, 0.0)),
+    RigidBody::Dynamic,
+    Collider::cuboid(1.0, 1.0, 1.0),
+    PhysicsVelocity::default(),
+    PhysicsMass::new(1.0),
+));
+
+// Script-based physics control
+// physics_control.rhai
+fn on_update(delta_time) {
+    // Apply forces and impulses
+    physics::apply_force(Vec3::create(0.0, 10.0, 0.0));
+    
+    if input::is_key_pressed("Space") {
+        physics::apply_impulse(Vec3::create(0.0, 5.0, 0.0));
+    }
+}
+```
+
+Physics features:
+- **High Precision**: f64 coordinates for large world support
+- **Component-Based**: RigidBody, Collider, PhysicsVelocity, PhysicsMass components
+- **Script Integration**: Full physics API available in Rhai scripts
+- **Editor Support**: Physics components appear automatically in the inspector
+- **Debug Visualization**: Optional physics debug rendering
 
 ## 🛠️ Development
 
