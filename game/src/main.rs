@@ -239,6 +239,10 @@ impl GameApp {
             .queue
             .submit(std::iter::once(encoder.finish()));
         surface_texture.present();
+
+        // Mark frame boundary for Tracy
+        #[cfg(feature = "tracy")]
+        engine::profiling::tracy::mark_frame();
     }
 }
 

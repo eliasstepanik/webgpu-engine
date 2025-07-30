@@ -6,6 +6,7 @@ edition = "2021"
 [features]
 default = ["editor"]
 editor = ["dep:editor"]
+tracy = ["engine/tracy"]
 
 [dependencies]
 engine = { path = "../engine" }

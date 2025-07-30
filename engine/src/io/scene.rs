@@ -19,6 +19,9 @@ use std::io;
 use std::path::Path;
 use tracing::{debug, error, info, warn};
 
+// Import profiling macro
+use crate::profile_zone;
+
 use super::component_registry::ComponentRegistry;
 use super::entity_mapper::EntityMapper;
 use crate::component_system::ComponentRegistryExt;
@@ -307,6 +310,8 @@ impl Scene {
 
     /// Instantiate this scene into a world, returning an entity mapper for ID lookups
     pub fn instantiate(&self, world: &mut World) -> Result<EntityMapper, SceneError> {
+        profile_zone!("Scene::instantiate");
+
         let mut mapper = EntityMapper::new();
         let mut entities_to_build = Vec::new();
 
@@ -621,6 +626,8 @@ impl Scene {
 
     /// Load a scene from a JSON file
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, SceneError> {
+        profile_zone!("Scene::load");
+
         let path = path.as_ref();
         info!(path = ?path, "Loading scene from file");
 

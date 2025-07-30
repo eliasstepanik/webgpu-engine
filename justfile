@@ -21,6 +21,14 @@ build-editor:
 run-editor:
     cargo run -p game --features editor
 
+# Build with tracy profiler enabled
+build-tracy:
+    cargo build -p game --features "editor tracy"
+
+# Run with tracy profiler enabled
+run-tracy:
+    cargo run -p game --features "editor tracy"
+
 # Build without editor (production build)
 build-prod:
     cargo build -p game --release --no-default-features

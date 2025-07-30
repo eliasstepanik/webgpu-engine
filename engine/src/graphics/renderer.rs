@@ -23,6 +23,9 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 use wgpu::util::DeviceExt;
 
+// Import profiling macro
+use crate::profile_zone;
+
 /// GPU resources for a mesh
 struct MeshGpuData {
     vertex_buffer: wgpu::Buffer,
@@ -220,6 +223,8 @@ impl Renderer {
         surface: &wgpu::Surface,
         selected_entity: Option<hecs::Entity>,
     ) -> Result<(), wgpu::SurfaceError> {
+        profile_zone!("Renderer::render");
+
         // Get the current surface texture
         let output = surface.get_current_texture()?;
         let view = output
@@ -233,55 +238,63 @@ impl Renderer {
         let mut camera_view_proj = None;
         let mut camera_world_position = DVec3::ZERO;
 
-        // First try to find a camera with WorldTransform (large world camera)
-        let mut world_camera_query =
-            world.query::<(&Camera, &GlobalWorldTransform, Option<&CameraWorldPosition>)>();
-        if let Some((_, (camera, world_transform, world_pos))) = world_camera_query.iter().next() {
-            // Use world position if available, otherwise derive from transform
-            camera_world_position = if let Some(pos) = world_pos {
-                pos.position
-            } else {
-                world_transform.position()
-            };
+        {
+            profile_zone!("Update camera uniforms");
 
-            // Calculate view-projection using camera-relative coordinates
-            let view_proj =
-                camera.view_projection_matrix_world(world_transform, camera_world_position);
-            camera_view_proj = Some(view_proj);
-        } else {
-            // Fall back to regular camera with GlobalTransform
-            let mut regular_camera_query =
-                world.query::<(&Camera, &GlobalTransform, Option<&CameraWorldPosition>)>();
-            if let Some((_, (camera, transform, cam_world_pos))) =
-                regular_camera_query.iter().next()
+            // First try to find a camera with WorldTransform (large world camera)
+            let mut world_camera_query =
+                world.query::<(&Camera, &GlobalWorldTransform, Option<&CameraWorldPosition>)>();
+            if let Some((_, (camera, world_transform, world_pos))) =
+                world_camera_query.iter().next()
             {
-                let view_proj = camera.view_projection_matrix(transform);
-                camera_view_proj = Some(view_proj);
-
-                // Use CameraWorldPosition if available for exact position, otherwise extract from transform
-                camera_world_position = if let Some(world_pos) = cam_world_pos {
-                    world_pos.position
+                // Use world position if available, otherwise derive from transform
+                camera_world_position = if let Some(pos) = world_pos {
+                    pos.position
                 } else {
-                    // Fallback to extracting from transform (less precise for parented cameras)
-                    DVec3::new(
-                        transform.position().x as f64,
-                        transform.position().y as f64,
-                        transform.position().z as f64,
-                    )
+                    world_transform.position()
                 };
-            }
-        }
 
-        if let Some(view_proj) = camera_view_proj {
-            // Update camera uniform
-            let camera_uniform = CameraUniform::new(view_proj);
-            camera_uniform.update_buffer(&self.context.queue, &self.camera_uniform_buffer);
-        }
+                // Calculate view-projection using camera-relative coordinates
+                let view_proj =
+                    camera.view_projection_matrix_world(world_transform, camera_world_position);
+                camera_view_proj = Some(view_proj);
+            } else {
+                // Fall back to regular camera with GlobalTransform
+                let mut regular_camera_query =
+                    world.query::<(&Camera, &GlobalTransform, Option<&CameraWorldPosition>)>();
+                if let Some((_, (camera, transform, cam_world_pos))) =
+                    regular_camera_query.iter().next()
+                {
+                    let view_proj = camera.view_projection_matrix(transform);
+                    camera_view_proj = Some(view_proj);
+
+                    // Use CameraWorldPosition if available for exact position, otherwise extract from transform
+                    camera_world_position = if let Some(world_pos) = cam_world_pos {
+                        world_pos.position
+                    } else {
+                        // Fallback to extracting from transform (less precise for parented cameras)
+                        DVec3::new(
+                            transform.position().x as f64,
+                            transform.position().y as f64,
+                            transform.position().z as f64,
+                        )
+                    };
+                }
+            }
+
+            if let Some(view_proj) = camera_view_proj {
+                // Update camera uniform
+                let camera_uniform = CameraUniform::new(view_proj);
+                camera_uniform.update_buffer(&self.context.queue, &self.camera_uniform_buffer);
+            }
+        } // End of camera uniform update zone
 
         // Create command encoder
         let mut encoder = self.context.create_command_encoder(Some("Render Encoder"));
 
         {
+            profile_zone!("Main render pass");
+
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -313,55 +326,59 @@ impl Renderer {
             // Handle both regular and world transforms
             let mut entities_to_render = Vec::new();
 
-            // Collect entities with regular GlobalTransform
-            let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
-            for (entity, (mesh_id, material, transform)) in regular_query.iter() {
-                // Get object position in f64 for precision
-                let object_pos = transform.position();
-                let object_pos_f64 = DVec3::new(
-                    object_pos.x as f64,
-                    object_pos.y as f64,
-                    object_pos.z as f64,
-                );
+            {
+                profile_zone!("Collect entities");
 
-                // Calculate camera-relative position with f64 precision
-                let relative_pos_f64 = object_pos_f64 - camera_world_position;
+                // Collect entities with regular GlobalTransform
+                let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
+                for (entity, (mesh_id, material, transform)) in regular_query.iter() {
+                    // Get object position in f64 for precision
+                    let object_pos = transform.position();
+                    let object_pos_f64 = DVec3::new(
+                        object_pos.x as f64,
+                        object_pos.y as f64,
+                        object_pos.z as f64,
+                    );
 
-                // Convert back to f32 for rendering
-                let camera_relative_pos = Vec3::new(
-                    relative_pos_f64.x as f32,
-                    relative_pos_f64.y as f32,
-                    relative_pos_f64.z as f32,
-                );
+                    // Calculate camera-relative position with f64 precision
+                    let relative_pos_f64 = object_pos_f64 - camera_world_position;
 
-                // Decompose to get rotation and scale (these don't need adjustment)
-                let (scale, rotation, _) = transform.matrix.to_scale_rotation_translation();
+                    // Convert back to f32 for rendering
+                    let camera_relative_pos = Vec3::new(
+                        relative_pos_f64.x as f32,
+                        relative_pos_f64.y as f32,
+                        relative_pos_f64.z as f32,
+                    );
 
-                // Reconstruct matrix with camera-relative position
-                let camera_relative_matrix =
-                    Mat4::from_scale_rotation_translation(scale, rotation, camera_relative_pos);
+                    // Decompose to get rotation and scale (these don't need adjustment)
+                    let (scale, rotation, _) = transform.matrix.to_scale_rotation_translation();
 
-                entities_to_render.push((
-                    entity,
-                    mesh_id.clone(),
-                    *material,
-                    camera_relative_matrix,
-                ));
-            }
+                    // Reconstruct matrix with camera-relative position
+                    let camera_relative_matrix =
+                        Mat4::from_scale_rotation_translation(scale, rotation, camera_relative_pos);
 
-            // Collect entities with WorldTransform and convert to camera-relative
-            let mut world_query = world.query::<(&MeshId, &Material, &GlobalWorldTransform)>();
-            for (entity, (mesh_id, material, world_transform)) in world_query.iter() {
-                // Convert world transform to camera-relative transform for rendering
-                let camera_relative_transform =
-                    world_transform.to_camera_relative(camera_world_position);
-                entities_to_render.push((
-                    entity,
-                    mesh_id.clone(),
-                    *material,
-                    camera_relative_transform.matrix,
-                ));
-            }
+                    entities_to_render.push((
+                        entity,
+                        mesh_id.clone(),
+                        *material,
+                        camera_relative_matrix,
+                    ));
+                }
+
+                // Collect entities with WorldTransform and convert to camera-relative
+                let mut world_query = world.query::<(&MeshId, &Material, &GlobalWorldTransform)>();
+                for (entity, (mesh_id, material, world_transform)) in world_query.iter() {
+                    // Convert world transform to camera-relative transform for rendering
+                    let camera_relative_transform =
+                        world_transform.to_camera_relative(camera_world_position);
+                    entities_to_render.push((
+                        entity,
+                        mesh_id.clone(),
+                        *material,
+                        camera_relative_transform.matrix,
+                    ));
+                }
+            } // End of entity collection
 
             // First pass: Render outline for selected entity
             if let Some(selected) = selected_entity {
@@ -402,34 +419,40 @@ impl Renderer {
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
             // Second pass: Render all entities normally
-            for (entity, mesh_id, material, transform_matrix) in entities_to_render {
-                debug!(entity = ?entity, "Rendering entity");
+            {
+                profile_zone!("Draw calls");
 
-                // Ensure mesh is loaded (may borrow self mutably)
-                let _ = self.get_or_create_mesh(&mesh_id);
+                for (entity, mesh_id, material, transform_matrix) in entities_to_render {
+                    debug!(entity = ?entity, "Rendering entity");
 
-                // Now access mesh data (no mut borrow)
-                let mesh_data = &self.mesh_cache[&mesh_id.0];
+                    // Ensure mesh is loaded (may borrow self mutably)
+                    let _ = self.get_or_create_mesh(&mesh_id);
 
-                // Create object uniform
-                let object_uniform = ObjectUniform::new(transform_matrix, material.color);
-                let object_buffer =
-                    object_uniform.create_buffer(&self.context.device, Some("Object Uniform"));
-                let object_bind_group = self
-                    .basic_pipeline
-                    .create_object_bind_group(&self.context.device, &object_buffer);
+                    // Now access mesh data (no mut borrow)
+                    let mesh_data = &self.mesh_cache[&mesh_id.0];
 
-                // Set object bind group
-                render_pass.set_bind_group(1, &object_bind_group, &[]);
+                    // Create object uniform
+                    let object_uniform = ObjectUniform::new(transform_matrix, material.color);
+                    let object_buffer =
+                        object_uniform.create_buffer(&self.context.device, Some("Object Uniform"));
+                    let object_bind_group = self
+                        .basic_pipeline
+                        .create_object_bind_group(&self.context.device, &object_buffer);
 
-                // Set vertex and index buffers
-                render_pass.set_vertex_buffer(0, mesh_data.vertex_buffer.slice(..));
-                render_pass
-                    .set_index_buffer(mesh_data.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    // Set object bind group
+                    render_pass.set_bind_group(1, &object_bind_group, &[]);
 
-                // Draw
-                render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
-            }
+                    // Set vertex and index buffers
+                    render_pass.set_vertex_buffer(0, mesh_data.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(
+                        mesh_data.index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
+
+                    // Draw
+                    render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
+                }
+            } // End of draw calls
 
             // Render debug lines after all entities
             self.render_debug_lines(&mut render_pass);
@@ -591,84 +614,90 @@ impl Renderer {
             // Handle both regular and world transforms
             let mut entities_to_render = Vec::new();
 
-            // Collect entities with regular GlobalTransform
-            let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
-            for (entity, (mesh_id, material, transform)) in regular_query.iter() {
-                // Get object position in f64 for precision
-                let object_pos = transform.position();
-                let object_pos_f64 = DVec3::new(
-                    object_pos.x as f64,
-                    object_pos.y as f64,
-                    object_pos.z as f64,
-                );
+            {
+                profile_zone!("Collect entities");
 
-                // Calculate camera-relative position with f64 precision
-                let relative_pos_f64 = object_pos_f64 - camera_world_position;
+                // Collect entities with regular GlobalTransform
+                let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
+                for (entity, (mesh_id, material, transform)) in regular_query.iter() {
+                    // Get object position in f64 for precision
+                    let object_pos = transform.position();
+                    let object_pos_f64 = DVec3::new(
+                        object_pos.x as f64,
+                        object_pos.y as f64,
+                        object_pos.z as f64,
+                    );
 
-                // Convert back to f32 for rendering
-                let camera_relative_pos = Vec3::new(
-                    relative_pos_f64.x as f32,
-                    relative_pos_f64.y as f32,
-                    relative_pos_f64.z as f32,
-                );
+                    // Calculate camera-relative position with f64 precision
+                    let relative_pos_f64 = object_pos_f64 - camera_world_position;
 
-                // Decompose to get rotation and scale (these don't need adjustment)
-                let (scale, rotation, _) = transform.matrix.to_scale_rotation_translation();
+                    // Convert back to f32 for rendering
+                    let camera_relative_pos = Vec3::new(
+                        relative_pos_f64.x as f32,
+                        relative_pos_f64.y as f32,
+                        relative_pos_f64.z as f32,
+                    );
 
-                // Reconstruct matrix with camera-relative position
-                let camera_relative_matrix =
-                    Mat4::from_scale_rotation_translation(scale, rotation, camera_relative_pos);
+                    // Decompose to get rotation and scale (these don't need adjustment)
+                    let (scale, rotation, _) = transform.matrix.to_scale_rotation_translation();
 
-                entities_to_render.push((
-                    entity,
-                    mesh_id.clone(),
-                    *material,
-                    camera_relative_matrix,
-                ));
-            }
+                    // Reconstruct matrix with camera-relative position
+                    let camera_relative_matrix =
+                        Mat4::from_scale_rotation_translation(scale, rotation, camera_relative_pos);
 
-            // Collect entities with WorldTransform and convert to camera-relative
-            let mut world_query = world.query::<(&MeshId, &Material, &GlobalWorldTransform)>();
-            for (entity, (mesh_id, material, world_transform)) in world_query.iter() {
-                // Convert world transform to camera-relative transform for rendering
-                let camera_relative_transform =
-                    world_transform.to_camera_relative(camera_world_position);
-                entities_to_render.push((
-                    entity,
-                    mesh_id.clone(),
-                    *material,
-                    camera_relative_transform.matrix,
-                ));
-            }
+                    entities_to_render.push((
+                        entity,
+                        mesh_id.clone(),
+                        *material,
+                        camera_relative_matrix,
+                    ));
+                }
 
-            for (entity, mesh_id, material, transform_matrix) in entities_to_render {
-                debug!(entity = ?entity, mesh_id = %mesh_id.0, "Rendering entity from world");
+                // Collect entities with WorldTransform and convert to camera-relative
+                let mut world_query = world.query::<(&MeshId, &Material, &GlobalWorldTransform)>();
+                for (entity, (mesh_id, material, world_transform)) in world_query.iter() {
+                    // Convert world transform to camera-relative transform for rendering
+                    let camera_relative_transform =
+                        world_transform.to_camera_relative(camera_world_position);
+                    entities_to_render.push((
+                        entity,
+                        mesh_id.clone(),
+                        *material,
+                        camera_relative_transform.matrix,
+                    ));
+                }
 
-                // Ensure mesh is loaded (may borrow self mutably)
-                let _ = self.get_or_create_mesh(&mesh_id);
+                for (entity, mesh_id, material, transform_matrix) in entities_to_render {
+                    debug!(entity = ?entity, mesh_id = %mesh_id.0, "Rendering entity from world");
 
-                // Now access mesh data (no mut borrow)
-                let mesh_data = &self.mesh_cache[&mesh_id.0];
+                    // Ensure mesh is loaded (may borrow self mutably)
+                    let _ = self.get_or_create_mesh(&mesh_id);
 
-                // Create object uniform
-                let object_uniform = ObjectUniform::new(transform_matrix, material.color);
-                let object_buffer =
-                    object_uniform.create_buffer(&self.context.device, Some("Object Uniform"));
-                let object_bind_group = self
-                    .basic_pipeline
-                    .create_object_bind_group(&self.context.device, &object_buffer);
+                    // Now access mesh data (no mut borrow)
+                    let mesh_data = &self.mesh_cache[&mesh_id.0];
 
-                // Set object bind group
-                render_pass.set_bind_group(1, &object_bind_group, &[]);
+                    // Create object uniform
+                    let object_uniform = ObjectUniform::new(transform_matrix, material.color);
+                    let object_buffer =
+                        object_uniform.create_buffer(&self.context.device, Some("Object Uniform"));
+                    let object_bind_group = self
+                        .basic_pipeline
+                        .create_object_bind_group(&self.context.device, &object_buffer);
 
-                // Set vertex and index buffers
-                render_pass.set_vertex_buffer(0, mesh_data.vertex_buffer.slice(..));
-                render_pass
-                    .set_index_buffer(mesh_data.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    // Set object bind group
+                    render_pass.set_bind_group(1, &object_bind_group, &[]);
 
-                // Draw
-                render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
-            }
+                    // Set vertex and index buffers
+                    render_pass.set_vertex_buffer(0, mesh_data.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(
+                        mesh_data.index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
+
+                    // Draw
+                    render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
+                }
+            } // End of draw calls
 
             // Render debug lines after all entities
             self.render_debug_lines(&mut render_pass);
@@ -781,55 +810,59 @@ impl Renderer {
             // Handle both regular and world transforms
             let mut entities_to_render = Vec::new();
 
-            // Collect entities with regular GlobalTransform
-            let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
-            for (entity, (mesh_id, material, transform)) in regular_query.iter() {
-                // Get object position in f64 for precision
-                let object_pos = transform.position();
-                let object_pos_f64 = DVec3::new(
-                    object_pos.x as f64,
-                    object_pos.y as f64,
-                    object_pos.z as f64,
-                );
+            {
+                profile_zone!("Collect entities");
 
-                // Calculate camera-relative position with f64 precision
-                let relative_pos_f64 = object_pos_f64 - camera_world_position;
+                // Collect entities with regular GlobalTransform
+                let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
+                for (entity, (mesh_id, material, transform)) in regular_query.iter() {
+                    // Get object position in f64 for precision
+                    let object_pos = transform.position();
+                    let object_pos_f64 = DVec3::new(
+                        object_pos.x as f64,
+                        object_pos.y as f64,
+                        object_pos.z as f64,
+                    );
 
-                // Convert back to f32 for rendering
-                let camera_relative_pos = Vec3::new(
-                    relative_pos_f64.x as f32,
-                    relative_pos_f64.y as f32,
-                    relative_pos_f64.z as f32,
-                );
+                    // Calculate camera-relative position with f64 precision
+                    let relative_pos_f64 = object_pos_f64 - camera_world_position;
 
-                // Decompose to get rotation and scale (these don't need adjustment)
-                let (scale, rotation, _) = transform.matrix.to_scale_rotation_translation();
+                    // Convert back to f32 for rendering
+                    let camera_relative_pos = Vec3::new(
+                        relative_pos_f64.x as f32,
+                        relative_pos_f64.y as f32,
+                        relative_pos_f64.z as f32,
+                    );
 
-                // Reconstruct matrix with camera-relative position
-                let camera_relative_matrix =
-                    Mat4::from_scale_rotation_translation(scale, rotation, camera_relative_pos);
+                    // Decompose to get rotation and scale (these don't need adjustment)
+                    let (scale, rotation, _) = transform.matrix.to_scale_rotation_translation();
 
-                entities_to_render.push((
-                    entity,
-                    mesh_id.clone(),
-                    *material,
-                    camera_relative_matrix,
-                ));
-            }
+                    // Reconstruct matrix with camera-relative position
+                    let camera_relative_matrix =
+                        Mat4::from_scale_rotation_translation(scale, rotation, camera_relative_pos);
 
-            // Collect entities with WorldTransform and convert to camera-relative
-            let mut world_query = world.query::<(&MeshId, &Material, &GlobalWorldTransform)>();
-            for (entity, (mesh_id, material, world_transform)) in world_query.iter() {
-                // Convert world transform to camera-relative transform for rendering
-                let camera_relative_transform =
-                    world_transform.to_camera_relative(camera_world_position);
-                entities_to_render.push((
-                    entity,
-                    mesh_id.clone(),
-                    *material,
-                    camera_relative_transform.matrix,
-                ));
-            }
+                    entities_to_render.push((
+                        entity,
+                        mesh_id.clone(),
+                        *material,
+                        camera_relative_matrix,
+                    ));
+                }
+
+                // Collect entities with WorldTransform and convert to camera-relative
+                let mut world_query = world.query::<(&MeshId, &Material, &GlobalWorldTransform)>();
+                for (entity, (mesh_id, material, world_transform)) in world_query.iter() {
+                    // Convert world transform to camera-relative transform for rendering
+                    let camera_relative_transform =
+                        world_transform.to_camera_relative(camera_world_position);
+                    entities_to_render.push((
+                        entity,
+                        mesh_id.clone(),
+                        *material,
+                        camera_relative_transform.matrix,
+                    ));
+                }
+            } // End of entity collection
 
             // First pass: Render outline for selected entity
             if let Some(selected) = selected_entity {
@@ -870,34 +903,40 @@ impl Renderer {
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
             // Second pass: Render all entities normally
-            for (entity, mesh_id, material, transform_matrix) in entities_to_render {
-                debug!(entity = ?entity, "Rendering entity to target");
+            {
+                profile_zone!("Draw calls");
 
-                // Ensure mesh is loaded (may borrow self mutably)
-                let _ = self.get_or_create_mesh(&mesh_id);
+                for (entity, mesh_id, material, transform_matrix) in entities_to_render {
+                    debug!(entity = ?entity, "Rendering entity to target");
 
-                // Now access mesh data (no mut borrow)
-                let mesh_data = &self.mesh_cache[&mesh_id.0];
+                    // Ensure mesh is loaded (may borrow self mutably)
+                    let _ = self.get_or_create_mesh(&mesh_id);
 
-                // Create object uniform
-                let object_uniform = ObjectUniform::new(transform_matrix, material.color);
-                let object_buffer =
-                    object_uniform.create_buffer(&self.context.device, Some("Object Uniform"));
-                let object_bind_group = self
-                    .basic_pipeline
-                    .create_object_bind_group(&self.context.device, &object_buffer);
+                    // Now access mesh data (no mut borrow)
+                    let mesh_data = &self.mesh_cache[&mesh_id.0];
 
-                // Set object bind group
-                render_pass.set_bind_group(1, &object_bind_group, &[]);
+                    // Create object uniform
+                    let object_uniform = ObjectUniform::new(transform_matrix, material.color);
+                    let object_buffer =
+                        object_uniform.create_buffer(&self.context.device, Some("Object Uniform"));
+                    let object_bind_group = self
+                        .basic_pipeline
+                        .create_object_bind_group(&self.context.device, &object_buffer);
 
-                // Set vertex and index buffers
-                render_pass.set_vertex_buffer(0, mesh_data.vertex_buffer.slice(..));
-                render_pass
-                    .set_index_buffer(mesh_data.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    // Set object bind group
+                    render_pass.set_bind_group(1, &object_bind_group, &[]);
 
-                // Draw
-                render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
-            }
+                    // Set vertex and index buffers
+                    render_pass.set_vertex_buffer(0, mesh_data.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(
+                        mesh_data.index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
+
+                    // Draw
+                    render_pass.draw_indexed(0..mesh_data.num_indices, 0, 0..1);
+                }
+            } // End of draw calls
 
             // Render debug lines after all entities
             self.render_debug_lines(&mut render_pass);

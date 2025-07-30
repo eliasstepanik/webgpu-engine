@@ -11,6 +11,9 @@ use crate::scripting::{ScriptEngine, ScriptInputState, ScriptRef};
 use rhai::{Dynamic, Module, Scope};
 use tracing::{debug, error, trace, warn};
 
+// Import profiling macro
+use crate::profile_zone;
+
 /// System to execute scripts on entities
 pub fn script_execution_system(
     world: &mut World,
@@ -18,6 +21,7 @@ pub fn script_execution_system(
     input_state: &ScriptInputState,
     delta_time: f32,
 ) {
+    profile_zone!("ScriptSystem::update");
     // Use thread-local storage for command queue and cache
     thread_local! {
         static COMMAND_QUEUE: CommandQueue = CommandQueue::default();
@@ -169,23 +173,29 @@ pub fn script_execution_system(
                 );
             }
 
-            match script_engine.call_on_start(&script_ref.name, entity.to_bits().get(), &mut scope)
             {
-                Ok(_) => match get_tracker().lock() {
-                    Ok(mut tracker) => {
-                        tracker.mark_started(entity);
-                        debug!(
-                            "✅ Marked entity {:?} as started. Total started: {}",
-                            entity,
-                            tracker.started_count()
-                        );
-                    }
+                profile_zone!("Script::on_start");
+                match script_engine.call_on_start(
+                    &script_ref.name,
+                    entity.to_bits().get(),
+                    &mut scope,
+                ) {
+                    Ok(_) => match get_tracker().lock() {
+                        Ok(mut tracker) => {
+                            tracker.mark_started(entity);
+                            debug!(
+                                "✅ Marked entity {:?} as started. Total started: {}",
+                                entity,
+                                tracker.started_count()
+                            );
+                        }
+                        Err(e) => {
+                            error!("Failed to lock tracker mutex: {}", e);
+                        }
+                    },
                     Err(e) => {
-                        error!("Failed to lock tracker mutex: {}", e);
+                        warn!(entity = ?entity, script = script_ref.name, error = %e, "Script on_start failed");
                     }
-                },
-                Err(e) => {
-                    warn!(entity = ?entity, script = script_ref.name, error = %e, "Script on_start failed");
                 }
             }
         }
@@ -193,13 +203,16 @@ pub fn script_execution_system(
         // Call on_update
         trace!(entity = ?entity, script = script_ref.name, delta_time = delta_time, "Calling on_update");
 
-        if let Err(e) = script_engine.call_on_update(
-            &script_ref.name,
-            entity.to_bits().get(),
-            &mut scope,
-            delta_time,
-        ) {
-            warn!(entity = ?entity, script = script_ref.name, error = %e, "Script on_update failed");
+        {
+            profile_zone!("Script::on_update");
+            if let Err(e) = script_engine.call_on_update(
+                &script_ref.name,
+                entity.to_bits().get(),
+                &mut scope,
+                delta_time,
+            ) {
+                warn!(entity = ?entity, script = script_ref.name, error = %e, "Script on_update failed");
+            }
         }
 
         // Check if properties were modified and persist changes

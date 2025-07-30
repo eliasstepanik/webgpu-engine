@@ -12,6 +12,7 @@ pub mod graphics;
 pub mod input;
 pub mod io;
 pub mod physics;
+pub mod profiling;
 pub mod scripting;
 pub mod shaders;
 pub mod utils;
