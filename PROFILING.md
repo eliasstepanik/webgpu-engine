@@ -114,6 +114,13 @@ If GPU profiling is available, you'll see GPU timing information in Tracy's GPU 
 - Try updating graphics drivers
 - Use native build instead of web target
 
+### Tracy Version Conflicts
+If you encounter linking errors with tracy-client-sys (multiple symbol definitions), this is usually due to version conflicts. To resolve:
+1. Ensure tracy-client version matches what wgpu-profiler expects (currently 0.18.x)
+2. Clean the build: `cargo clean`
+3. Update dependencies: `cargo update -p tracy-client`
+4. Rebuild: `cargo build -p game --features tracy`
+
 ## Best Practices
 
 1. **Profile Release Builds**: Debug builds have different performance characteristics
