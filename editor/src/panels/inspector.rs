@@ -6,6 +6,7 @@ use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
 use engine::component_system::ComponentRegistryExt;
 use engine::prelude::{Camera, Material, MeshId, Name, Parent, ScriptProperties, Transform};
+use engine::profile_zone;
 use engine::scripting::property_types::PropertyValue;
 use engine::scripting::ScriptRef;
 use imgui::*;
@@ -37,6 +38,8 @@ pub fn render_inspector_panel(
     panel_manager: &mut PanelManager,
     _window_size: (f32, f32),
 ) {
+    profile_zone!("render_inspector_panel");
+
     let panel_id = PanelId("inspector".to_string());
 
     // Get panel info
@@ -633,8 +636,23 @@ pub fn render_inspector_panel(
                     });
                 }
 
-                        // Note: Duplicate entity feature temporarily disabled due to lifetime issues
-                        // TODO: Fix entity duplication to properly handle component lifetimes
+                ui.same_line();
+
+                // Duplicate entity button
+                if ui.button("Duplicate Entity") {
+                    shared_state.with_world_write(|world| {
+                        match duplicate_entity(world, entity, &registry) {
+                            Ok(new_entity) => {
+                                debug!(original = ?entity, new = ?new_entity, "Duplicated entity");
+                                shared_state.set_selected_entity(Some(new_entity));
+                                shared_state.mark_scene_modified();
+                            }
+                            Err(e) => {
+                                warn!(entity = ?entity, error = %e, "Failed to duplicate entity");
+                            }
+                        }
+                    });
+                }
                     } else {
                         ui.text("No entity selected");
                         ui.text("Select an entity from the hierarchy to inspect its components.");
@@ -747,4 +765,216 @@ fn render_component_with_metadata<
     }
 
     component_modified
+}
+
+/// Duplicate an entity with all its components
+fn duplicate_entity(
+    world: &mut engine::core::entity::World,
+    entity: hecs::Entity,
+    _registry: &engine::io::component_registry::ComponentRegistry,
+) -> Result<hecs::Entity, String> {
+    use engine::prelude::*;
+    use serde_json;
+
+    // Create a temporary scene with just this entity
+    let mut entity_components = std::collections::HashMap::new();
+
+    // Manually serialize each component type we know about
+    // This is a workaround until we have better type-erased component access
+
+    // Transform components
+    if let Ok(transform) = world.get::<Transform>(entity) {
+        entity_components.insert(
+            "Transform".to_string(),
+            serde_json::to_value(*transform).map_err(|e| e.to_string())?,
+        );
+    }
+
+    if let Ok(global_transform) = world.get::<GlobalTransform>(entity) {
+        entity_components.insert(
+            "GlobalTransform".to_string(),
+            serde_json::to_value(*global_transform).map_err(|e| e.to_string())?,
+        );
+    }
+
+    // Name component
+    if let Ok(name) = world.get::<Name>(entity) {
+        let new_name = Name::new(format!("{} (Copy)", name.0));
+        entity_components.insert(
+            "Name".to_string(),
+            serde_json::to_value(&new_name).map_err(|e| e.to_string())?,
+        );
+    }
+
+    // Graphics components
+    if let Ok(mesh_id) = world.get::<engine::graphics::MeshId>(entity) {
+        entity_components.insert(
+            "MeshId".to_string(),
+            serde_json::to_value((*mesh_id).clone()).map_err(|e| e.to_string())?,
+        );
+    }
+
+    if let Ok(material) = world.get::<engine::graphics::Material>(entity) {
+        entity_components.insert(
+            "Material".to_string(),
+            serde_json::to_value(*material).map_err(|e| e.to_string())?,
+        );
+    }
+
+    // Camera
+    if let Ok(camera) = world.get::<engine::core::camera::Camera>(entity) {
+        entity_components.insert(
+            "Camera".to_string(),
+            serde_json::to_value(*camera).map_err(|e| e.to_string())?,
+        );
+    }
+
+    // Physics components
+    if let Ok(rigid_body) = world.get::<engine::physics::RigidBody>(entity) {
+        entity_components.insert(
+            "RigidBody".to_string(),
+            serde_json::to_value((*rigid_body).clone()).map_err(|e| e.to_string())?,
+        );
+    }
+
+    if let Ok(collider) = world.get::<engine::physics::Collider>(entity) {
+        entity_components.insert(
+            "Collider".to_string(),
+            serde_json::to_value((*collider).clone()).map_err(|e| e.to_string())?,
+        );
+    }
+
+    if let Ok(velocity) = world.get::<engine::physics::PhysicsVelocity>(entity) {
+        entity_components.insert(
+            "PhysicsVelocity".to_string(),
+            serde_json::to_value(*velocity).map_err(|e| e.to_string())?,
+        );
+    }
+
+    if let Ok(mass) = world.get::<engine::physics::PhysicsMass>(entity) {
+        entity_components.insert(
+            "PhysicsMass".to_string(),
+            serde_json::to_value(*mass).map_err(|e| e.to_string())?,
+        );
+    }
+
+    // Scripting components
+    if let Ok(script_ref) = world.get::<engine::scripting::ScriptRef>(entity) {
+        entity_components.insert(
+            "ScriptRef".to_string(),
+            serde_json::to_value((*script_ref).clone()).map_err(|e| e.to_string())?,
+        );
+    }
+
+    if let Ok(script_props) = world.get::<engine::scripting::ScriptProperties>(entity) {
+        entity_components.insert(
+            "ScriptProperties".to_string(),
+            serde_json::to_value((*script_props).clone()).map_err(|e| e.to_string())?,
+        );
+    }
+
+    // Now create a new entity and deserialize the components onto it
+    let new_entity = world.spawn(());
+
+    // Use the instantiate logic from Scene
+    for (component_type, value) in entity_components {
+        match component_type.as_str() {
+            "Transform" => {
+                let transform: Transform = serde_json::from_value(value)
+                    .map_err(|e| format!("Failed to deserialize Transform: {e}"))?;
+                world
+                    .insert_one(new_entity, transform)
+                    .map_err(|e| format!("Failed to insert Transform: {e:?}"))?;
+            }
+            "GlobalTransform" => {
+                let global_transform: GlobalTransform = serde_json::from_value(value)
+                    .map_err(|e| format!("Failed to deserialize GlobalTransform: {e}"))?;
+                world
+                    .insert_one(new_entity, global_transform)
+                    .map_err(|e| format!("Failed to insert GlobalTransform: {e:?}"))?;
+            }
+            "Name" => {
+                let name: Name = serde_json::from_value(value)
+                    .map_err(|e| format!("Failed to deserialize Name: {e}"))?;
+                world
+                    .insert_one(new_entity, name)
+                    .map_err(|e| format!("Failed to insert Name: {e:?}"))?;
+            }
+            "MeshId" => {
+                let mesh_id: engine::graphics::MeshId = serde_json::from_value(value)
+                    .map_err(|e| format!("Failed to deserialize MeshId: {e}"))?;
+                world
+                    .insert_one(new_entity, mesh_id)
+                    .map_err(|e| format!("Failed to insert MeshId: {e:?}"))?;
+            }
+            "Material" => {
+                let material: engine::graphics::Material = serde_json::from_value(value)
+                    .map_err(|e| format!("Failed to deserialize Material: {e}"))?;
+                world
+                    .insert_one(new_entity, material)
+                    .map_err(|e| format!("Failed to insert Material: {e:?}"))?;
+            }
+            "Camera" => {
+                let camera: engine::core::camera::Camera = serde_json::from_value(value)
+                    .map_err(|e| format!("Failed to deserialize Camera: {e}"))?;
+                world
+                    .insert_one(new_entity, camera)
+                    .map_err(|e| format!("Failed to insert Camera: {e:?}"))?;
+            }
+            "RigidBody" => {
+                let rigid_body: engine::physics::RigidBody = serde_json::from_value(value)
+                    .map_err(|e| format!("Failed to deserialize RigidBody: {e}"))?;
+                world
+                    .insert_one(new_entity, rigid_body)
+                    .map_err(|e| format!("Failed to insert RigidBody: {e:?}"))?;
+            }
+            "Collider" => {
+                let collider: engine::physics::Collider = serde_json::from_value(value)
+                    .map_err(|e| format!("Failed to deserialize Collider: {e}"))?;
+                world
+                    .insert_one(new_entity, collider)
+                    .map_err(|e| format!("Failed to insert Collider: {e:?}"))?;
+            }
+            "PhysicsVelocity" => {
+                let velocity: engine::physics::PhysicsVelocity = serde_json::from_value(value)
+                    .map_err(|e| format!("Failed to deserialize PhysicsVelocity: {e}"))?;
+                world
+                    .insert_one(new_entity, velocity)
+                    .map_err(|e| format!("Failed to insert PhysicsVelocity: {e:?}"))?;
+            }
+            "PhysicsMass" => {
+                let mass: engine::physics::PhysicsMass = serde_json::from_value(value)
+                    .map_err(|e| format!("Failed to deserialize PhysicsMass: {e}"))?;
+                world
+                    .insert_one(new_entity, mass)
+                    .map_err(|e| format!("Failed to insert PhysicsMass: {e:?}"))?;
+            }
+            "ScriptRef" => {
+                let script_ref: engine::scripting::ScriptRef = serde_json::from_value(value)
+                    .map_err(|e| format!("Failed to deserialize ScriptRef: {e}"))?;
+                world
+                    .insert_one(new_entity, script_ref)
+                    .map_err(|e| format!("Failed to insert ScriptRef: {e:?}"))?;
+            }
+            "ScriptProperties" => {
+                let script_props: engine::scripting::ScriptProperties =
+                    serde_json::from_value(value)
+                        .map_err(|e| format!("Failed to deserialize ScriptProperties: {e}"))?;
+                world
+                    .insert_one(new_entity, script_props)
+                    .map_err(|e| format!("Failed to insert ScriptProperties: {e:?}"))?;
+            }
+            _ => {
+                debug!(
+                    component_type = component_type,
+                    "Skipping unknown component type during duplication"
+                );
+            }
+        }
+    }
+
+    // Note: Parent-child relationships are not duplicated to avoid hierarchy issues
+    // The duplicated entity will be a standalone entity
+
+    Ok(new_entity)
 }

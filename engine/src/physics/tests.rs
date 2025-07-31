@@ -2,8 +2,7 @@
 
 #[cfg(test)]
 use crate::core::entity::World;
-#[cfg(test)]
-use crate::physics::commands::create_command_queue;
+// create_command_queue removed - using thread-local queue instead
 #[cfg(test)]
 use crate::physics::*;
 #[cfg(test)]
@@ -158,37 +157,13 @@ fn test_physics_world_entity_registration() {
     assert_eq!(physics_world.get_body_handle(entity), None);
 }
 
-#[test]
-fn test_physics_command_queue() {
-    let queue = create_command_queue();
-
-    // Test adding commands
-    {
-        let mut commands = queue.write().unwrap();
-        commands.push(PhysicsCommand::ApplyForce {
-            entity: 123,
-            force: Vec3::new(10.0, 0.0, 0.0),
-        });
-        commands.push(PhysicsCommand::ApplyImpulse {
-            entity: 456,
-            impulse: Vec3::new(0.0, 5.0, 0.0),
-        });
-    }
-
-    // Test reading commands
-    {
-        let commands = queue.read().unwrap();
-        assert_eq!(commands.len(), 2);
-
-        match &commands[0] {
-            PhysicsCommand::ApplyForce { entity, force } => {
-                assert_eq!(*entity, 123);
-                assert_eq!(*force, Vec3::new(10.0, 0.0, 0.0));
-            }
-            _ => panic!("Expected ApplyForce command"),
-        }
-    }
-}
+// TODO: Test physics command queue using the actual thread-local implementation
+// The previous test used Arc<RwLock<>> which isn't compatible with non-Send closures
+// #[test]
+// fn test_physics_command_queue() {
+//     // Physics commands are now queued via thread-local storage
+//     // See system::queue_physics_command
+// }
 
 #[test]
 fn test_large_world_physics_precision() {

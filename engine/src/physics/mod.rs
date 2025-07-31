@@ -14,7 +14,7 @@ pub mod world;
 mod tests;
 
 // Re-export commonly used types
-pub use commands::{PhysicsCommand, PhysicsCommandQueue};
+pub use commands::PhysicsCommand;
 pub use components::{
     Collider, ColliderShape, PhysicsMass, PhysicsVelocity, RigidBody, RigidBodyType,
 };

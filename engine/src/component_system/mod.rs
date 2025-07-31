@@ -4,6 +4,7 @@ use crate::io::component_registry::ComponentRegistry;
 use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
 use std::sync::Arc;
+use tracing::debug;
 
 pub mod field_access;
 pub mod ui_metadata;
@@ -36,6 +37,24 @@ pub type AddDefaultFn = Arc<
         + Send
         + Sync,
 >;
+
+/// Type alias for checking if entity has component function
+pub type HasComponentFn =
+    Arc<dyn Fn(&crate::core::entity::World, hecs::Entity) -> bool + Send + Sync>;
+
+/// Type alias for removing component from entity function
+pub type RemoveComponentFn = Arc<
+    dyn Fn(
+            &mut crate::core::entity::World,
+            hecs::Entity,
+        ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+        + Send
+        + Sync,
+>;
+
+/// Type alias for getting component as dyn Any
+pub type GetComponentFn =
+    Arc<dyn Fn(&crate::core::entity::World, hecs::Entity) -> Option<Box<dyn Any>> + Send + Sync>;
 
 /// Trait for components that can be automatically registered and managed
 pub trait Component: Any + Send + Sync + 'static {
@@ -94,6 +113,15 @@ pub struct ComponentMetadata {
 
     /// Function to add a default instance of this component to an entity
     pub add_default: AddDefaultFn,
+
+    /// Function to check if an entity has this component
+    pub has_component: HasComponentFn,
+
+    /// Function to remove this component from an entity
+    pub remove_component: RemoveComponentFn,
+
+    /// Function to get component as dyn Any
+    pub get_component: GetComponentFn,
 }
 
 impl ComponentMetadata {
@@ -124,6 +152,24 @@ impl ComponentMetadata {
                     .insert_one(entity, T::default())
                     .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
             }),
+            has_component: Arc::new(|world, entity| world.get::<T>(entity).is_ok()),
+            remove_component: Arc::new(|world, entity| {
+                world
+                    .inner_mut()
+                    .remove_one::<T>(entity)
+                    .map(|_| ()) // Discard the component value
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+            }),
+            get_component: Arc::new(|world, entity| {
+                if let Ok(_component_ref) = world.get::<T>(entity) {
+                    // We need to clone the component to return it as owned Box<dyn Any>
+                    // This requires T: Clone, but we can't add that constraint here
+                    // So we'll return None for now and handle this case differently
+                    None
+                } else {
+                    None
+                }
+            }),
         }
     }
 
@@ -152,7 +198,7 @@ impl ComponentMetadata {
         // Get UI metadata from the component type
         metadata.ui_metadata = T::ui_metadata();
 
-        tracing::debug!(
+        debug!(
             component_name = name,
             has_ui_metadata = metadata.ui_metadata.is_some(),
             ui_field_count = metadata

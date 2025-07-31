@@ -6,8 +6,10 @@
 use crate::core::entity::components::{Transform, WorldTransform};
 use crate::core::entity::{Entity, World};
 use crate::physics::{
-    Collider, ColliderShape, PhysicsMass, PhysicsVelocity, PhysicsWorld, RigidBody, RigidBodyType,
+    commands::RaycastHit, Collider, ColliderShape, PhysicsMass, PhysicsVelocity, PhysicsWorld,
+    RigidBody, RigidBodyType,
 };
+use crate::profiling::profile_zone;
 use glam::{DVec3, Quat, Vec3};
 use rapier3d_f64::na::UnitQuaternion;
 use rapier3d_f64::prelude::*;
@@ -45,29 +47,51 @@ pub fn physics_update_system(
     physics_world: &mut PhysicsWorld,
     _delta_time: f32,
 ) {
+    profile_zone!("physics_update_system");
     trace!("Physics update system starting");
 
     // Step 1: Create new physics bodies and colliders for entities that need them
-    create_physics_bodies(world, physics_world);
+    {
+        profile_zone!("Create physics bodies");
+        create_physics_bodies(world, physics_world);
+    }
 
     // Step 2: Sync ECS transforms to physics positions
-    sync_transforms_to_physics(world, physics_world);
+    {
+        profile_zone!("Sync transforms to physics");
+        sync_transforms_to_physics(world, physics_world);
+    }
 
     // Step 3: Sync velocities from ECS to physics
-    sync_velocities_to_physics(world, physics_world);
+    {
+        profile_zone!("Sync velocities to physics");
+        sync_velocities_to_physics(world, physics_world);
+    }
 
     // Step 4: Process physics commands from scripts
-    process_physics_commands(physics_world);
+    {
+        profile_zone!("Process physics commands");
+        process_physics_commands(physics_world);
+    }
 
     // Step 5: Step the physics simulation
-    physics_world.step();
+    {
+        profile_zone!("Physics simulation step");
+        physics_world.step();
+    }
 
     // Step 6: Write physics results back to ECS
-    sync_physics_to_transforms(world, physics_world);
-    sync_physics_to_velocities(world, physics_world);
+    {
+        profile_zone!("Sync physics to ECS");
+        sync_physics_to_transforms(world, physics_world);
+        sync_physics_to_velocities(world, physics_world);
+    }
 
     // Step 7: Clean up removed entities
-    cleanup_removed_entities(world, physics_world);
+    {
+        profile_zone!("Cleanup removed entities");
+        cleanup_removed_entities(world, physics_world);
+    }
 
     trace!("Physics update system completed");
 }
@@ -346,6 +370,79 @@ fn process_physics_commands(physics_world: &mut PhysicsWorld) {
                             );
                         }
                     }
+                }
+                PhysicsCommand::Raycast {
+                    origin,
+                    direction,
+                    max_distance,
+                    callback,
+                } => {
+                    // Create ray from origin and direction
+                    let ray_origin = point![origin.x as f64, origin.y as f64, origin.z as f64];
+                    let ray_dir =
+                        vector![direction.x as f64, direction.y as f64, direction.z as f64];
+                    let ray = Ray::new(ray_origin, ray_dir);
+
+                    // Perform the raycast
+                    let filter = QueryFilter::default();
+                    let result = physics_world.query_pipeline.cast_ray(
+                        &physics_world.rigid_body_set,
+                        &physics_world.collider_set,
+                        &ray,
+                        max_distance as f64,
+                        true, // solid = true (stop at first hit)
+                        filter,
+                    );
+
+                    // Convert result to RaycastHit
+                    let hit = result.and_then(|(collider_handle, distance)| {
+                        // Get the collider and its parent body
+                        physics_world
+                            .collider_set
+                            .get(collider_handle)
+                            .and_then(|collider| {
+                                collider.parent().and_then(|body_handle| {
+                                    physics_world
+                                        .get_entity_for_body(body_handle)
+                                        .map(|entity| {
+                                            // Calculate hit point and normal
+                                            let hit_point = ray_origin + ray_dir * distance;
+                                            let hit_point_vec3 = Vec3::new(
+                                                hit_point.x as f32,
+                                                hit_point.y as f32,
+                                                hit_point.z as f32,
+                                            );
+
+                                            // Get normal at hit point (approximate)
+                                            let normal = if let Some(body) =
+                                                physics_world.rigid_body_set.get(body_handle)
+                                            {
+                                                let body_pos = body.translation();
+                                                let to_hit = hit_point - body_pos;
+                                                let normal = to_hit.coords.normalize();
+                                                Vec3::new(
+                                                    normal.x as f32,
+                                                    normal.y as f32,
+                                                    normal.z as f32,
+                                                )
+                                            } else {
+                                                // Default normal pointing back along ray
+                                                -direction
+                                            };
+
+                                            RaycastHit {
+                                                entity: entity.to_bits().get(),
+                                                distance: distance as f32,
+                                                point: hit_point_vec3,
+                                                normal,
+                                            }
+                                        })
+                                })
+                            })
+                    });
+
+                    // Execute the callback with the result
+                    let _result = callback(hit);
                 }
             }
         }

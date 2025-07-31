@@ -1,11 +1,14 @@
 //! System for initializing script properties when scripts are assigned to entities
 
 use crate::core::entity::World;
+use crate::profiling::profile_zone;
 use crate::scripting::{ScriptEngine, ScriptProperties, ScriptRef};
 use tracing::{debug, error, warn};
 
 /// System that ensures entities with ScriptRef also have appropriate ScriptProperties
 pub fn script_initialization_system(world: &mut World, script_engine: &mut ScriptEngine) {
+    profile_zone!("script_initialization_system");
+
     // Collect entities that need property initialization
     let mut entities_needing_properties = Vec::new();
 

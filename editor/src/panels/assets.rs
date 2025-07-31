@@ -4,6 +4,7 @@
 
 use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
+use engine::profile_zone;
 use imgui::*;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -285,6 +286,8 @@ pub fn render_assets_panel(
     panel_manager: &mut PanelManager,
     _window_size: (f32, f32),
 ) {
+    profile_zone!("render_assets_panel");
+
     let panel_id = PanelId("assets".to_string());
 
     // Get panel info

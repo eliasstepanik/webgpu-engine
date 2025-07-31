@@ -6,6 +6,7 @@
 use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
 use engine::prelude::{Camera, GlobalTransform, Material, MeshId, Name, Parent, Transform, World};
+use engine::profile_zone;
 use imgui::*;
 use std::collections::{HashMap, HashSet};
 use tracing::{debug, trace, warn};
@@ -73,6 +74,8 @@ pub fn render_hierarchy_panel(
     panel_manager: &mut PanelManager,
     _window_size: (f32, f32),
 ) {
+    profile_zone!("render_hierarchy_panel");
+
     let panel_id = PanelId("hierarchy".to_string());
 
     // Get panel info

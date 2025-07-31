@@ -103,14 +103,21 @@ impl Scene {
         );
 
         // Second pass: serialize components using registry
-        for (_entity, ()) in world.query::<()>().iter() {
+        for (entity, ()) in world.query::<()>().iter() {
             let components = HashMap::new();
 
             // Use registry to serialize all registered component types
-            for _metadata in registry.iter_metadata() {
-                // TODO: Need a way to check if entity has component by TypeId
-                // and get component as dyn Any for serialization
-                // For now, we'll skip registry-based serialization
+            for metadata in registry.iter_metadata() {
+                if world.has_component_by_type_id(entity, metadata.type_id) {
+                    // For now, we'll need to handle serialization through the scene's existing logic
+                    // since get_component returns None (requires Clone constraint)
+                    // This will be addressed in a future iteration
+                    debug!(
+                        component = metadata.name,
+                        entity = ?entity,
+                        "Component detected via TypeId"
+                    );
+                }
             }
 
             // Fall back to manual serialization for now

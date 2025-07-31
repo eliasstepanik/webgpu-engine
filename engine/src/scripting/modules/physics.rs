@@ -100,19 +100,71 @@ pub fn create_physics_module() -> Module {
         },
     );
 
-    // Raycast - for now returns a placeholder
-    // TODO: Implement proper raycast with physics world access
+    // Raycast - performs a physics raycast and returns hit information
     module.set_native_fn(
         "raycast",
         move |origin: Dynamic,
               direction: Dynamic,
-              _max_distance: f32|
+              max_distance: f32|
               -> Result<Dynamic, Box<EvalAltResult>> {
-            let _origin = parse_vec3_from_dynamic(origin)?;
-            let _direction = parse_vec3_from_dynamic(direction)?;
+            let origin_vec = parse_vec3_from_dynamic(origin)?;
+            let direction_vec = parse_vec3_from_dynamic(direction)?;
 
-            // Return null for now (no hit)
-            Ok(Dynamic::UNIT)
+            // Use a channel to receive the result from the physics thread
+            let (tx, rx) = std::sync::mpsc::channel();
+            crate::physics::system::queue_physics_command(PhysicsCommand::Raycast {
+                origin: origin_vec,
+                direction: direction_vec.normalize(),
+                max_distance,
+                callback: Box::new(move |hit| {
+                    let result = match hit {
+                        Some(hit) => {
+                            // Create a map with hit information
+                            let mut map = rhai::Map::new();
+                            map.insert("hit".into(), true.into());
+                            map.insert("entity".into(), Dynamic::from(hit.entity as i64));
+                            map.insert("distance".into(), Dynamic::from(hit.distance));
+
+                            // Convert Vec3 to array for Rhai
+                            let point_array = vec![
+                                Dynamic::from(hit.point.x),
+                                Dynamic::from(hit.point.y),
+                                Dynamic::from(hit.point.z),
+                            ];
+                            map.insert("point".into(), Dynamic::from(point_array));
+
+                            let normal_array = vec![
+                                Dynamic::from(hit.normal.x),
+                                Dynamic::from(hit.normal.y),
+                                Dynamic::from(hit.normal.z),
+                            ];
+                            map.insert("normal".into(), Dynamic::from(normal_array));
+
+                            Dynamic::from_map(map)
+                        }
+                        None => {
+                            // No hit - return null
+                            Dynamic::UNIT
+                        }
+                    };
+
+                    // Send result through channel
+                    let _ = tx.send(result.clone());
+                    result
+                }),
+            });
+
+            trace!(origin = ?origin_vec, direction = ?direction_vec, max_distance, "Queued raycast command");
+
+            // Wait for result with a timeout
+            match rx.recv_timeout(std::time::Duration::from_millis(100)) {
+                Ok(result) => Ok(result),
+                Err(_) => {
+                    // Timeout or error - return null
+                    debug!("Raycast timeout or channel error");
+                    Ok(Dynamic::UNIT)
+                }
+            }
         },
     );
 

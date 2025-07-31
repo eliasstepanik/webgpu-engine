@@ -4,10 +4,10 @@
 //! allowing scripts and other systems to safely interact with the physics world.
 
 use glam::Vec3;
-use std::sync::{Arc, RwLock};
+use rhai::Dynamic;
+// Arc and RwLock removed - using thread-local storage instead
 
 /// Physics command to be executed in the physics system
-#[derive(Debug, Clone)]
 pub enum PhysicsCommand {
     /// Apply a force to a rigid body
     ApplyForce {
@@ -42,12 +42,32 @@ pub enum PhysicsCommand {
         /// Angular velocity in world space
         angular: Vec3,
     },
+
+    /// Perform a raycast query
+    Raycast {
+        /// Ray origin in world space
+        origin: Vec3,
+        /// Ray direction (should be normalized)
+        direction: Vec3,
+        /// Maximum distance for the ray
+        max_distance: f32,
+        /// Callback to execute with the result
+        callback: Box<dyn FnOnce(Option<RaycastHit>) -> Dynamic + Send>,
+    },
 }
 
-/// Thread-safe physics command queue
-pub type PhysicsCommandQueue = Arc<RwLock<Vec<PhysicsCommand>>>;
-
-/// Create a new physics command queue
-pub fn create_command_queue() -> PhysicsCommandQueue {
-    Arc::new(RwLock::new(Vec::new()))
+/// Result of a raycast query
+#[derive(Debug, Clone)]
+pub struct RaycastHit {
+    /// Entity that was hit
+    pub entity: u64,
+    /// Distance to the hit point
+    pub distance: f32,
+    /// Hit point in world space
+    pub point: Vec3,
+    /// Surface normal at the hit point
+    pub normal: Vec3,
 }
+
+// Note: The actual physics command queue is thread-local in system.rs
+// These types are removed because PhysicsCommand contains a closure that isn't Send

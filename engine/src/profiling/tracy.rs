@@ -13,7 +13,7 @@ macro_rules! profile_zone {
 #[macro_export]
 macro_rules! profile_zone {
     ($name:expr) => {
-        let _tracy_zone = tracy_client::span!($name);
+        let _tracy_zone = ::tracy_client::span!($name, 0);
     };
 }
 

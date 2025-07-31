@@ -4,11 +4,14 @@
 //! and uploads them to the renderer.
 
 use crate::graphics::Renderer;
+use crate::profiling::profile_zone;
 use crate::scripting::ScriptEngine;
 use tracing::debug;
 
 /// Process pending mesh uploads from scripts
 pub fn process_script_mesh_uploads(script_engine: &ScriptEngine, renderer: &mut Renderer) {
+    profile_zone!("process_script_mesh_uploads");
+
     let pending_meshes = script_engine.mesh_registry.take_pending_meshes();
 
     if pending_meshes.is_empty() {

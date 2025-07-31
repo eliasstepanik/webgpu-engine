@@ -4,6 +4,7 @@ use super::components::{GlobalTransform, Transform};
 use crate::graphics::{Material, MeshId};
 use crate::io::{ReloadCallback, SceneWatcher, WatcherConfig};
 use hecs::Entity;
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::path::Path;
 use tracing::{debug, info, warn};
@@ -75,6 +76,48 @@ impl World {
     /// Check if an entity exists
     pub fn contains(&self, entity: Entity) -> bool {
         self.inner.contains(entity)
+    }
+
+    /// Check if an entity has a component by TypeId
+    ///
+    /// This method uses the component registry to check if an entity has a component
+    /// when only the TypeId is known. This is useful for dynamic component systems
+    /// where the concrete type isn't available at compile time.
+    pub fn has_component_by_type_id(&self, entity: Entity, type_id: TypeId) -> bool {
+        use crate::component_system::ComponentRegistryExt;
+        use crate::io::component_registry::ComponentRegistry;
+
+        // Get the global component registry
+        // For now, we'll create a new one with defaults, but in practice this should be injected
+        let registry = ComponentRegistry::with_default_components();
+
+        if let Some(metadata) = registry.get_metadata(type_id) {
+            (metadata.has_component)(self, entity)
+        } else {
+            false
+        }
+    }
+
+    /// Remove a component from an entity by TypeId
+    ///
+    /// This method uses the component registry to remove a component from an entity
+    /// when only the TypeId is known.
+    pub fn remove_component_by_type_id(
+        &mut self,
+        entity: Entity,
+        type_id: TypeId,
+    ) -> Result<(), String> {
+        use crate::component_system::ComponentRegistryExt;
+        use crate::io::component_registry::ComponentRegistry;
+
+        // Get the global component registry
+        let registry = ComponentRegistry::with_default_components();
+
+        if let Some(metadata) = registry.get_metadata(type_id) {
+            (metadata.remove_component)(self, entity).map_err(|e| e.to_string())
+        } else {
+            Err(format!("Component type {type_id:?} not found in registry"))
+        }
     }
 
     /// Helper method to spawn an entity with required transform components

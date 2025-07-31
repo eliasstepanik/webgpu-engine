@@ -342,6 +342,86 @@ pub fn create_world_module(
         },
     );
 
+    // Get entity count
+    let cache = component_cache.clone();
+    module.set_native_fn(
+        "get_entity_count",
+        move || -> Result<i64, Box<EvalAltResult>> {
+            let cache_guard = cache.read().unwrap();
+            // Count unique entities across all component types
+            let mut entities = std::collections::HashSet::<u64>::new();
+            entities.extend(cache_guard.transforms.keys());
+            entities.extend(cache_guard.materials.keys());
+            entities.extend(cache_guard.names.keys());
+            let count = entities.len() as i64;
+            trace!(count = count, "Counted entities");
+            Ok(count)
+        },
+    );
+
+    // Get all entities
+    let cache = component_cache.clone();
+    module.set_native_fn(
+        "get_all_entities",
+        move || -> Result<Vec<i64>, Box<EvalAltResult>> {
+            let cache_guard = cache.read().unwrap();
+            // Collect unique entities across all component types
+            let mut entities = std::collections::HashSet::<u64>::new();
+            entities.extend(cache_guard.transforms.keys());
+            entities.extend(cache_guard.materials.keys());
+            entities.extend(cache_guard.names.keys());
+            let mut entity_vec: Vec<i64> = entities.iter().map(|&id| id as i64).collect();
+            entity_vec.sort(); // Sort for consistent ordering
+            trace!(count = entity_vec.len(), "Retrieved all entities");
+            Ok(entity_vec)
+        },
+    );
+
+    // Check if entity exists
+    let cache = component_cache.clone();
+    module.set_native_fn(
+        "entity_exists",
+        move |entity: i64| -> Result<bool, Box<EvalAltResult>> {
+            let entity_id = entity as u64;
+            let cache_guard = cache.read().unwrap();
+            // Check if entity has any components
+            let exists = cache_guard.transforms.contains_key(&entity_id)
+                || cache_guard.materials.contains_key(&entity_id)
+                || cache_guard.names.contains_key(&entity_id);
+            trace!(
+                entity = entity_id,
+                exists = exists,
+                "Checked entity existence"
+            );
+            Ok(exists)
+        },
+    );
+
+    // Has component check
+    let cache = component_cache.clone();
+    module.set_native_fn(
+        "has_component",
+        move |entity: i64, component_type: &str| -> Result<bool, Box<EvalAltResult>> {
+            let entity_id = entity as u64;
+            let cache_guard = cache.read().unwrap();
+
+            let has = match component_type {
+                "Transform" => cache_guard.transforms.contains_key(&entity_id),
+                "Material" => cache_guard.materials.contains_key(&entity_id),
+                "Name" => cache_guard.names.contains_key(&entity_id),
+                _ => false,
+            };
+
+            trace!(
+                entity = entity_id,
+                component_type = component_type,
+                has = has,
+                "Checked component presence"
+            );
+            Ok(has)
+        },
+    );
+
     module
 }
 

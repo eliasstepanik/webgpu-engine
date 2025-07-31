@@ -4,6 +4,7 @@
 
 use crate::panel_state::{PanelId, PanelManager};
 use crate::shared_state::EditorSharedState;
+use engine::profile_zone;
 use imgui::*;
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -105,6 +106,8 @@ pub fn render_viewport_panel(
     _window_size: (f32, f32),
     performance_metrics: &mut PerformanceMetrics,
 ) -> Option<ViewportAction> {
+    profile_zone!("render_viewport_panel");
+
     let panel_id = PanelId("viewport".to_string());
 
     // Get panel info

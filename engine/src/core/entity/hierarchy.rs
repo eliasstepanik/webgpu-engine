@@ -3,6 +3,7 @@
 use super::components::{GlobalTransform, GlobalWorldTransform, Parent, Transform, WorldTransform};
 use super::world::World;
 use crate::core::camera::{Camera, CameraWorldPosition};
+use crate::profiling::profile_zone;
 // hecs::Entity is re-exported from world module
 use glam::DVec3;
 use std::collections::HashSet;
@@ -31,6 +32,8 @@ pub fn reset_frame_counters() {
 /// This system handles both regular Transform and high-precision WorldTransform components,
 /// supporting mixed hierarchies where entities can use different transform types.
 pub fn update_hierarchy_system(world: &mut World) {
+    profile_zone!("update_hierarchy_system");
+
     let current_frame = CURRENT_FRAME.load(Ordering::SeqCst);
     let last_update = LAST_HIERARCHY_UPDATE_FRAME.load(Ordering::SeqCst);
 
@@ -42,12 +45,19 @@ pub fn update_hierarchy_system(world: &mut World) {
     LAST_HIERARCHY_UPDATE_FRAME.store(current_frame, Ordering::SeqCst);
     trace!("Updating hierarchy for frame {}", current_frame);
 
-    update_regular_hierarchy(world);
-    update_world_hierarchy(world);
+    {
+        profile_zone!("Update regular hierarchy");
+        update_regular_hierarchy(world);
+    }
+    {
+        profile_zone!("Update world hierarchy");
+        update_world_hierarchy(world);
+    }
 }
 
 /// Update hierarchy for regular Transform components
 fn update_regular_hierarchy(world: &mut World) {
+    profile_zone!("update_regular_hierarchy");
     // Pre-allocate collections for performance
     let mut queue = Vec::with_capacity(1024);
     let mut visited = HashSet::with_capacity(1024);

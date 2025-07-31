@@ -143,6 +143,9 @@ pub fn script_execution_system(
         // Create physics module
         let physics_module = crate::scripting::modules::physics::create_physics_module();
 
+        // Create profiling module
+        let profiling_module = crate::scripting::modules::profiling::create_profiling_module();
+
         // Register modules in the engine temporarily
         // We need mutable access to the engine to register modules
         if let Some(engine) = script_engine.engine_mut() {
@@ -150,6 +153,7 @@ pub fn script_execution_system(
             engine.register_static_module("input", input_module.into());
             engine.register_static_module("Mesh", mesh_module.into());
             engine.register_static_module("physics", physics_module.into());
+            engine.register_static_module("profiling", profiling_module.into());
         } else {
             // If we can't get mutable access, skip this entity
             warn!(entity = ?entity, "Cannot get mutable access to script engine");
@@ -287,14 +291,46 @@ pub fn script_execution_system(
     // Clear component cache to prevent stale data
     component_cache.write().unwrap().clear();
 
-    // TODO: Implement destruction checking without borrow conflicts
-    // The previous implementation caused false positive removals due to borrow conflicts
-    // when trying to check if entities still have ScriptRef components.
-    // Options:
-    // 1. Track destruction during entity processing above
-    // 2. Implement in a separate system that runs after script execution
-    // 3. Use entity destruction events/callbacks
-    // For now, entities will remain in the tracker until explicitly removed.
+    // Clean up destroyed entities using two-phase approach to avoid borrow conflicts
+    {
+        // Phase 1: Collect entities that need to be checked
+        let mut entities_to_check = Vec::new();
+        {
+            let tracker = get_tracker().lock().unwrap();
+            entities_to_check.extend(tracker.active_entities.clone());
+        }
+
+        // Phase 2: Check which entities no longer have ScriptRef components
+        let mut entities_to_remove = Vec::new();
+        for entity in entities_to_check {
+            // Check if entity still exists and has a ScriptRef component
+            let still_has_script = world.contains(entity) && world.get::<ScriptRef>(entity).is_ok();
+
+            if !still_has_script {
+                entities_to_remove.push(entity);
+                trace!(
+                    entity_id = entity.to_bits().get(),
+                    "Entity no longer has ScriptRef, marking for cleanup"
+                );
+            }
+        }
+
+        // Phase 3: Remove entities from tracker
+        if !entities_to_remove.is_empty() {
+            let mut tracker = get_tracker().lock().unwrap();
+            for entity in &entities_to_remove {
+                tracker.remove_entity(*entity);
+                debug!(
+                    entity_id = entity.to_bits().get(),
+                    "Removed entity from script tracker"
+                );
+            }
+            debug!(
+                count = entities_to_remove.len(),
+                "Cleaned up destroyed script entities"
+            );
+        }
+    }
 
     debug!("Script execution system completed");
 }

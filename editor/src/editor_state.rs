@@ -8,6 +8,7 @@ use crate::safe_imgui_renderer::SafeImGuiRenderer;
 use crate::shared_state::EditorSharedState;
 use engine::core::entity::World;
 use engine::graphics::{context::RenderContext, render_target::RenderTarget, RenderTargetInfo};
+use engine::profile_zone;
 use engine::windowing::WindowManager;
 use imgui::*;
 use imgui_wgpu::RendererConfig;
@@ -536,6 +537,8 @@ impl EditorState {
         renderer: &mut engine::graphics::renderer::Renderer,
         world: &World,
     ) {
+        profile_zone!("EditorState::render_viewport");
+
         debug!(
             "Rendering game to viewport texture, render_target size: {:?}",
             self.render_target.size
@@ -560,6 +563,8 @@ impl EditorState {
         window: &winit::window::Window,
         _window_manager: &WindowManager,
     ) {
+        profile_zone!("EditorState::render_ui_and_draw");
+
         // Always use single-window rendering
         self.render_single_window(render_context, encoder, view, window);
     }
@@ -664,6 +669,8 @@ impl EditorState {
         view: &wgpu::TextureView,
         window: &winit::window::Window,
     ) {
+        profile_zone!("EditorState::render_single_window");
+
         // -------------------------------------------------------------------- sizes
         // Get surface size from window
         let window_size = window.inner_size();
@@ -695,6 +702,7 @@ impl EditorState {
 
         // Build the editor UI inline to avoid borrow issues
         {
+            profile_zone!("Build editor UI");
             // Store actions to take after UI rendering
             let mut action_new_scene = false;
             let mut action_load_scene = false;
@@ -748,35 +756,39 @@ impl EditorState {
             let _dockspace_id = ui.dockspace_over_main_viewport();
 
             // Panels ---------------------------------------------------------------
-            crate::panels::render_hierarchy_panel(
-                ui,
-                &self.shared_state,
-                &mut self.panel_manager,
-                self.window_size,
-            );
-            crate::panels::render_inspector_panel(
-                ui,
-                &self.shared_state,
-                &mut self.panel_manager,
-                self.window_size,
-            );
-            crate::panels::render_assets_panel(
-                ui,
-                &self.shared_state,
-                &mut self.panel_manager,
-                self.window_size,
-            );
+            let viewport_action = {
+                profile_zone!("Render editor panels");
 
-            // Central viewport that displays the 3D scene
-            let viewport_action = crate::panels::render_viewport_panel(
-                ui,
-                self.texture_id,
-                &self.render_target,
-                &self.shared_state,
-                &mut self.panel_manager,
-                self.window_size,
-                &mut self.performance_metrics,
-            );
+                crate::panels::render_hierarchy_panel(
+                    ui,
+                    &self.shared_state,
+                    &mut self.panel_manager,
+                    self.window_size,
+                );
+                crate::panels::render_inspector_panel(
+                    ui,
+                    &self.shared_state,
+                    &mut self.panel_manager,
+                    self.window_size,
+                );
+                crate::panels::render_assets_panel(
+                    ui,
+                    &self.shared_state,
+                    &mut self.panel_manager,
+                    self.window_size,
+                );
+
+                // Central viewport that displays the 3D scene
+                crate::panels::render_viewport_panel(
+                    ui,
+                    self.texture_id,
+                    &self.render_target,
+                    &self.shared_state,
+                    &mut self.panel_manager,
+                    self.window_size,
+                    &mut self.performance_metrics,
+                )
+            };
 
             // Handle viewport actions
             if let Some(action) = viewport_action {
@@ -957,17 +969,21 @@ impl EditorState {
                 occlusion_query_set: None,
             });
 
-            if let Err(e) = self.imgui_renderer.render_with_validation(
-                draw_data,
-                &render_context.queue,
-                &render_context.device,
-                &mut pass,
-                RenderTargetInfo {
-                    width: surface_size.0,
-                    height: surface_size.1,
-                },
-            ) {
-                tracing::error!("ImGui render failed: {e:?}");
+            {
+                profile_zone!("ImGui render");
+
+                if let Err(e) = self.imgui_renderer.render_with_validation(
+                    draw_data,
+                    &render_context.queue,
+                    &render_context.device,
+                    &mut pass,
+                    RenderTargetInfo {
+                        width: surface_size.0,
+                        height: surface_size.1,
+                    },
+                ) {
+                    tracing::error!("ImGui render failed: {e:?}");
+                }
             }
         } // Pass is dropped here
 

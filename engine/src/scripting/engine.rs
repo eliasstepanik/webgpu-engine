@@ -9,6 +9,10 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use tracing::debug;
 
+// Import profiling for dynamic zones
+#[cfg(feature = "tracy")]
+use crate::profiling::tracy;
+
 /// Cached script data
 #[derive(Clone)]
 struct CachedScript {
@@ -168,6 +172,15 @@ impl ScriptEngine {
         let cache = self.cache.read().unwrap();
         if let Some(cached) = cache.get(script_name) {
             if cached.has_on_start {
+                // Create dynamic Tracy zone for this script function
+                #[cfg(feature = "tracy")]
+                let _tracy_zone = {
+                    let zone_name = format!("Script::{script_name}::on_start");
+                    tracy::Client::running()
+                        .expect("client must be running")
+                        .span_alloc(Some(&zone_name), "", file!(), line!(), 0)
+                };
+
                 self.engine
                     .call_fn::<()>(scope, &cached.ast, "on_start", ())
                     .map_err(|e| -> Box<EvalAltResult> {
@@ -200,6 +213,15 @@ impl ScriptEngine {
         let cache = self.cache.read().unwrap();
         if let Some(cached) = cache.get(script_name) {
             if cached.has_on_update {
+                // Create dynamic Tracy zone for this script function
+                #[cfg(feature = "tracy")]
+                let _tracy_zone = {
+                    let zone_name = format!("Script::{script_name}::on_update");
+                    tracy::Client::running()
+                        .expect("client must be running")
+                        .span_alloc(Some(&zone_name), "", file!(), line!(), 0)
+                };
+
                 self.engine
                     .call_fn::<()>(scope, &cached.ast, "on_update", (delta_time as f64,))
                     .map_err(|e| -> Box<EvalAltResult> {
@@ -230,6 +252,15 @@ impl ScriptEngine {
         let cache = self.cache.read().unwrap();
         if let Some(cached) = cache.get(script_name) {
             if cached.has_on_destroy {
+                // Create dynamic Tracy zone for this script function
+                #[cfg(feature = "tracy")]
+                let _tracy_zone = {
+                    let zone_name = format!("Script::{script_name}::on_destroy");
+                    tracy::Client::running()
+                        .expect("client must be running")
+                        .span_alloc(Some(&zone_name), "", file!(), line!(), 0)
+                };
+
                 self.engine
                     .call_fn::<()>(scope, &cached.ast, "on_destroy", ())
                     .map_err(|e| -> Box<EvalAltResult> {
@@ -272,6 +303,45 @@ impl ScriptEngine {
             .unwrap()
             .get(script_name)
             .map(|cached| cached.property_definitions.clone())
+    }
+
+    /// Call any function in a script with Tracy profiling
+    pub fn call_script_function<T: Clone + Send + Sync + 'static>(
+        &self,
+        script_name: &str,
+        function_name: &str,
+        scope: &mut Scope,
+        args: impl rhai::FuncArgs,
+    ) -> Result<T, Box<EvalAltResult>> {
+        let cache = self.cache.read().unwrap();
+        if let Some(cached) = cache.get(script_name) {
+            // Create dynamic Tracy zone for this script function
+            #[cfg(feature = "tracy")]
+            let _tracy_zone = {
+                let zone_name = format!("Script::{script_name}::{function_name}");
+                tracy::Client::running()
+                    .expect("client must be running")
+                    .span_alloc(Some(&zone_name), "", file!(), line!(), 0)
+            };
+
+            self.engine
+                .call_fn::<T>(scope, &cached.ast, function_name, args)
+                .map_err(|e| -> Box<EvalAltResult> {
+                    let position = e.position();
+                    Box::new(
+                        format!(
+                            "{}:{}:{} - {}",
+                            script_name,
+                            position.line().unwrap_or(0),
+                            position.position().unwrap_or(0),
+                            e
+                        )
+                        .into(),
+                    )
+                })
+        } else {
+            Err(format!("Script '{script_name}' not found in cache").into())
+        }
     }
 }
 

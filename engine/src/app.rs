@@ -6,6 +6,7 @@ use crate::core::entity::{update_hierarchy_system, World};
 use crate::graphics::{RenderContext, Renderer};
 use crate::input::InputState;
 use crate::physics::world::PhysicsWorld;
+use crate::profiling::profile_zone;
 use crate::scripting::ScriptEngine;
 use crate::windowing::WindowManager;
 use std::collections::HashMap;
@@ -88,6 +89,15 @@ impl EngineApp {
             std::env::set_var("RUST_LOG", filter);
         }
         crate::init_logging();
+
+        // Initialize Tracy client if feature is enabled
+        #[cfg(feature = "tracy")]
+        {
+            // Tracy client is automatically initialized when the crate is loaded,
+            // but we ensure it's ready by creating a dummy client
+            let _client = tracy_client::Client::start();
+            info!("Tracy profiler client initialized");
+        }
 
         info!("Creating EngineApp with config: {:?}", config);
 
@@ -216,11 +226,17 @@ impl EngineApp {
 
     /// Update the engine state
     pub fn update(&mut self, delta_time: f32) {
+        profile_zone!("EngineApp::update");
+
         // Clear per-frame input data
-        self.input_state.clear_frame_data();
+        {
+            profile_zone!("Clear input frame data");
+            self.input_state.clear_frame_data();
+        }
 
         // Execute scripts
         if let Some(script_engine) = &mut self.script_engine {
+            profile_zone!("Script system update");
             let script_input_state = self.input_state.to_script_input_state();
 
             // Initialize script properties for new scripts
@@ -242,6 +258,7 @@ impl EngineApp {
 
         // Update physics simulation
         if let Some(physics_world) = &mut self.physics_world {
+            profile_zone!("Physics update");
             crate::physics::system::physics_update_system(
                 &mut self.world,
                 physics_world,
@@ -283,6 +300,8 @@ impl EngineApp {
 
     /// Render a frame
     pub fn render_frame(&mut self, window_id: WindowId) {
+        profile_zone!("EngineApp::render_frame");
+
         let Some(window_manager) = &self.window_manager else {
             return;
         };
@@ -332,6 +351,8 @@ impl ApplicationHandler for EngineApp {
         window_id: WindowId,
         event: WindowEvent,
     ) {
+        profile_zone!("EngineApp::window_event");
+
         let Some(window_manager) = &self.window_manager else {
             return;
         };
@@ -388,6 +409,8 @@ impl ApplicationHandler for EngineApp {
                 self.handle_resize(window_id, new_size);
             }
             WindowEvent::RedrawRequested => {
+                profile_zone!("RedrawRequested");
+
                 // Advance to next frame for hierarchy update tracking
                 crate::core::entity::hierarchy::advance_frame();
 
@@ -401,6 +424,10 @@ impl ApplicationHandler for EngineApp {
 
                 // Render frame
                 self.render_frame(window_id);
+
+                // Mark frame boundary for Tracy
+                #[cfg(feature = "tracy")]
+                crate::profiling::tracy::mark_frame();
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 self.input_state.handle_keyboard_event(&event);

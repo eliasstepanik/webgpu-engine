@@ -6,7 +6,7 @@ edition = "2021"
 [features]
 default = ["editor"]
 editor = ["dep:editor"]
-tracy = ["engine/tracy"]
+tracy = ["engine/tracy", "editor?/tracy", "tracy-client"]
 
 [dependencies]
 engine = { path = "../engine" }
@@ -14,3 +14,4 @@ editor = { path = "../editor", optional = true }
 winit = "0.30"
 pollster = "0.3"
 tracing = "0.1"
+tracy-client = { version = "0.18", optional = true }

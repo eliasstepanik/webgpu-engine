@@ -55,6 +55,9 @@ pub mod prelude {
         RigidBodyType,
     };
 
+    // Input types
+    pub use crate::input::InputState;
+
     pub use wgpu;
     pub use winit;
 }

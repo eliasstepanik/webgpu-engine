@@ -1,6 +1,7 @@
 //! Game entry point with WebGPU rendering demonstration
 
 use engine::prelude::*;
+use engine::profiling::profile_zone;
 use std::path::PathBuf;
 use tracing::{debug, info};
 use winit::{
@@ -56,6 +57,8 @@ impl GameApp {
     /// Initialize editor after engine is ready
     #[cfg(feature = "editor")]
     fn init_editor(&mut self) {
+        profile_zone!("GameApp::init_editor");
+
         if self.editor_initialized || self.editor_state.is_some() {
             return;
         }
@@ -93,6 +96,8 @@ impl GameApp {
 
     #[cfg(feature = "editor")]
     fn render_frame(&mut self, window_id: WindowId) {
+        profile_zone!("GameApp::render_frame");
+
         // Render with editor if enabled
         if self.editor_state.is_some() {
             self.render_with_editor(window_id);
@@ -105,6 +110,8 @@ impl GameApp {
 
     #[cfg(feature = "editor")]
     fn render_with_editor(&mut self, window_id: WindowId) {
+        profile_zone!("GameApp::render_with_editor");
+
         let Some(editor_state) = &mut self.editor_state else {
             return;
         };
@@ -239,10 +246,6 @@ impl GameApp {
             .queue
             .submit(std::iter::once(encoder.finish()));
         surface_texture.present();
-
-        // Mark frame boundary for Tracy
-        #[cfg(feature = "tracy")]
-        engine::profiling::tracy::mark_frame();
     }
 }
 

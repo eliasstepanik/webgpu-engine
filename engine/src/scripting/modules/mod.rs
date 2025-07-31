@@ -4,6 +4,7 @@ pub mod input;
 pub mod math;
 pub mod mesh;
 pub mod physics;
+pub mod profiling;
 pub mod world;
 
 use rhai::Engine;
@@ -27,6 +28,9 @@ pub fn register_all_modules(engine: &mut Engine) {
 
     // Register physics API
     physics::register_physics_api(engine);
+
+    // Register profiling API
+    profiling::register_profiling_api(engine);
 
     debug!("All scripting modules registered");
 }
