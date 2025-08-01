@@ -14,6 +14,7 @@ use crate::graphics::{
     pipeline::{DepthTexture, RenderPipeline},
     render_target::RenderTarget,
     uniform::{CameraUniform, ObjectUniform, UniformBuffer},
+    Visibility,
 };
 use crate::io::component_registry::ComponentRegistry;
 use glam::{DVec3, Mat4, Vec3};
@@ -31,6 +32,7 @@ struct MeshGpuData {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
+    aabb: crate::graphics::culling::AABB,
 }
 
 /// Main renderer that manages all rendering operations
@@ -166,6 +168,7 @@ impl Renderer {
             vertex_buffer,
             index_buffer,
             num_indices: mesh.indices.len() as u32,
+            aabb: mesh.calculate_aabb(),
         };
 
         let mesh_id = MeshId(name.to_string());
@@ -173,6 +176,11 @@ impl Renderer {
 
         info!(name = %name, vertices = mesh.vertices.len(), indices = mesh.indices.len(), "Uploaded mesh to GPU");
         mesh_id
+    }
+
+    /// Get the AABB for a mesh by its ID
+    pub fn get_mesh_aabb(&self, mesh_id: &MeshId) -> Option<crate::graphics::culling::AABB> {
+        self.mesh_cache.get(&mesh_id.0).map(|data| data.aabb)
     }
 
     /// Get or create a mesh from the library
@@ -289,6 +297,10 @@ impl Renderer {
             }
         } // End of camera uniform update zone
 
+        // Perform frustum culling if we have a valid camera
+        // Note: We need a mutable reference to world for culling, but we only have immutable
+        // For now, we'll add visibility checks during entity collection
+
         // Create command encoder
         let mut encoder = self.context.create_command_encoder(Some("Render Encoder"));
 
@@ -330,8 +342,15 @@ impl Renderer {
                 profile_zone!("Collect entities");
 
                 // Collect entities with regular GlobalTransform
-                let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
-                for (entity, (mesh_id, material, transform)) in regular_query.iter() {
+                let mut regular_query =
+                    world.query::<(&MeshId, &Material, &GlobalTransform, Option<&Visibility>)>();
+                for (entity, (mesh_id, material, transform, visibility)) in regular_query.iter() {
+                    // Skip culled entities
+                    if let Some(vis) = visibility {
+                        if !vis.is_visible {
+                            continue;
+                        }
+                    }
                     // Get object position in f64 for precision
                     let object_pos = transform.position();
                     let object_pos_f64 = DVec3::new(
@@ -366,8 +385,20 @@ impl Renderer {
                 }
 
                 // Collect entities with WorldTransform and convert to camera-relative
-                let mut world_query = world.query::<(&MeshId, &Material, &GlobalWorldTransform)>();
-                for (entity, (mesh_id, material, world_transform)) in world_query.iter() {
+                let mut world_query = world.query::<(
+                    &MeshId,
+                    &Material,
+                    &GlobalWorldTransform,
+                    Option<&Visibility>,
+                )>();
+                for (entity, (mesh_id, material, world_transform, visibility)) in world_query.iter()
+                {
+                    // Skip culled entities
+                    if let Some(vis) = visibility {
+                        if !vis.is_visible {
+                            continue;
+                        }
+                    }
                     // Convert world transform to camera-relative transform for rendering
                     let camera_relative_transform =
                         world_transform.to_camera_relative(camera_world_position);
@@ -618,8 +649,15 @@ impl Renderer {
                 profile_zone!("Collect entities");
 
                 // Collect entities with regular GlobalTransform
-                let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
-                for (entity, (mesh_id, material, transform)) in regular_query.iter() {
+                let mut regular_query =
+                    world.query::<(&MeshId, &Material, &GlobalTransform, Option<&Visibility>)>();
+                for (entity, (mesh_id, material, transform, visibility)) in regular_query.iter() {
+                    // Skip culled entities
+                    if let Some(vis) = visibility {
+                        if !vis.is_visible {
+                            continue;
+                        }
+                    }
                     // Get object position in f64 for precision
                     let object_pos = transform.position();
                     let object_pos_f64 = DVec3::new(
@@ -654,8 +692,20 @@ impl Renderer {
                 }
 
                 // Collect entities with WorldTransform and convert to camera-relative
-                let mut world_query = world.query::<(&MeshId, &Material, &GlobalWorldTransform)>();
-                for (entity, (mesh_id, material, world_transform)) in world_query.iter() {
+                let mut world_query = world.query::<(
+                    &MeshId,
+                    &Material,
+                    &GlobalWorldTransform,
+                    Option<&Visibility>,
+                )>();
+                for (entity, (mesh_id, material, world_transform, visibility)) in world_query.iter()
+                {
+                    // Skip culled entities
+                    if let Some(vis) = visibility {
+                        if !vis.is_visible {
+                            continue;
+                        }
+                    }
                     // Convert world transform to camera-relative transform for rendering
                     let camera_relative_transform =
                         world_transform.to_camera_relative(camera_world_position);
@@ -814,8 +864,15 @@ impl Renderer {
                 profile_zone!("Collect entities");
 
                 // Collect entities with regular GlobalTransform
-                let mut regular_query = world.query::<(&MeshId, &Material, &GlobalTransform)>();
-                for (entity, (mesh_id, material, transform)) in regular_query.iter() {
+                let mut regular_query =
+                    world.query::<(&MeshId, &Material, &GlobalTransform, Option<&Visibility>)>();
+                for (entity, (mesh_id, material, transform, visibility)) in regular_query.iter() {
+                    // Skip culled entities
+                    if let Some(vis) = visibility {
+                        if !vis.is_visible {
+                            continue;
+                        }
+                    }
                     // Get object position in f64 for precision
                     let object_pos = transform.position();
                     let object_pos_f64 = DVec3::new(
@@ -850,8 +907,20 @@ impl Renderer {
                 }
 
                 // Collect entities with WorldTransform and convert to camera-relative
-                let mut world_query = world.query::<(&MeshId, &Material, &GlobalWorldTransform)>();
-                for (entity, (mesh_id, material, world_transform)) in world_query.iter() {
+                let mut world_query = world.query::<(
+                    &MeshId,
+                    &Material,
+                    &GlobalWorldTransform,
+                    Option<&Visibility>,
+                )>();
+                for (entity, (mesh_id, material, world_transform, visibility)) in world_query.iter()
+                {
+                    // Skip culled entities
+                    if let Some(vis) = visibility {
+                        if !vis.is_visible {
+                            continue;
+                        }
+                    }
                     // Convert world transform to camera-relative transform for rendering
                     let camera_relative_transform =
                         world_transform.to_camera_relative(camera_world_position);
@@ -1002,6 +1071,67 @@ impl Renderer {
                 // Draw lines
                 render_pass.draw(0..self.debug_line_count, 0..1);
             }
+        }
+    }
+
+    /// Prepare for rendering by performing frustum culling
+    /// This should be called before render methods with a mutable world reference
+    pub fn prepare_render(&self, world: &mut World) {
+        profile_zone!("Renderer::prepare_render");
+
+        // Find the active camera and determine camera world position
+        let mut camera_view_proj = None;
+        let mut camera_world_position = DVec3::ZERO;
+
+        // First try to find a camera with WorldTransform (large world camera)
+        {
+            let mut world_camera_query =
+                world.query::<(&Camera, &GlobalWorldTransform, Option<&CameraWorldPosition>)>();
+            if let Some((_, (camera, world_transform, world_pos))) =
+                world_camera_query.iter().next()
+            {
+                // Use world position if available, otherwise derive from transform
+                camera_world_position = if let Some(pos) = world_pos {
+                    pos.position
+                } else {
+                    world_transform.position()
+                };
+
+                // Calculate view-projection using camera-relative coordinates
+                let view_proj =
+                    camera.view_projection_matrix_world(world_transform, camera_world_position);
+                camera_view_proj = Some(view_proj);
+            }
+        }
+
+        // Fall back to regular camera with GlobalTransform if needed
+        if camera_view_proj.is_none() {
+            let mut regular_camera_query =
+                world.query::<(&Camera, &GlobalTransform, Option<&CameraWorldPosition>)>();
+            if let Some((_, (camera, transform, cam_world_pos))) =
+                regular_camera_query.iter().next()
+            {
+                let view_proj = camera.view_projection_matrix(transform);
+                camera_view_proj = Some(view_proj);
+
+                // Use CameraWorldPosition if available for exact position
+                camera_world_position = if let Some(world_pos) = cam_world_pos {
+                    world_pos.position
+                } else {
+                    // Extract position from transform matrix as f64
+                    let pos = transform.position();
+                    DVec3::new(pos.x as f64, pos.y as f64, pos.z as f64)
+                };
+            }
+        }
+
+        // Perform frustum culling if we have a valid camera
+        if let Some(view_proj) = camera_view_proj {
+            // Initialize AABBs for entities that need them
+            crate::graphics::initialize_mesh_aabbs(world, self);
+
+            // Perform frustum culling
+            crate::graphics::frustum_culling_system(world, view_proj, camera_world_position, self);
         }
     }
 }

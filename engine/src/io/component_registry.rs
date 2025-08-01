@@ -103,8 +103,7 @@ impl ComponentRegistry {
         use crate::core::entity::components::{
             GlobalTransform, GlobalWorldTransform, Name, ParentData, PreviousTransform, Transform,
         };
-        use crate::graphics::{Material, MeshId};
-        use crate::physics::components::{Collider, PhysicsMass, PhysicsVelocity, RigidBody};
+        use crate::graphics::{Material, MeshId, Visibility, AABB};
         use crate::scripting::{ScriptProperties, ScriptRef};
 
         let mut registry = Self::new();
@@ -123,16 +122,12 @@ impl ComponentRegistry {
         // Register graphics components
         MeshId::register(&mut registry);
         Material::register(&mut registry);
+        AABB::register(&mut registry);
+        Visibility::register(&mut registry);
 
         // Register scripting components
         ScriptRef::register(&mut registry);
         ScriptProperties::register(&mut registry);
-
-        // Register physics components
-        RigidBody::register(&mut registry);
-        Collider::register(&mut registry);
-        PhysicsVelocity::register(&mut registry);
-        PhysicsMass::register(&mut registry);
 
         debug!(
             component_count = registry.len(),
@@ -260,12 +255,10 @@ mod tests {
         assert!(registry.is_registered("Name"));
         assert!(registry.is_registered("MeshId"));
         assert!(registry.is_registered("Material"));
-
-        // Physics components
-        assert!(registry.is_registered("RigidBody"));
-        assert!(registry.is_registered("Collider"));
-        assert!(registry.is_registered("PhysicsVelocity"));
-        assert!(registry.is_registered("PhysicsMass"));
+        
+        // Culling components
+        assert!(registry.is_registered("AABB"));
+        assert!(registry.is_registered("Visibility"));
     }
 
     #[test]
