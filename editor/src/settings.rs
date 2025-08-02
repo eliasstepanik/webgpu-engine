@@ -13,7 +13,7 @@ pub struct EditorSettings {
     /// Audio-related settings
     #[serde(default)]
     pub audio: AudioSettings,
-    
+
     /// Settings version for future migration support
     #[serde(default)]
     pub version: u32,
@@ -53,7 +53,7 @@ impl EditorSettings {
             .unwrap_or_else(|_| PathBuf::from("."))
             .join("editor_settings.json")
     }
-    
+
     /// Save settings to the default location
     pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
         let json = serde_json::to_string_pretty(self)?;
@@ -61,7 +61,7 @@ impl EditorSettings {
         info!("Saved editor settings");
         Ok(())
     }
-    
+
     /// Load settings from the default location
     pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
         let path = Self::default_path();
@@ -69,7 +69,7 @@ impl EditorSettings {
             info!("No settings file found, using defaults");
             return Ok(Self::default());
         }
-        
+
         let content = std::fs::read_to_string(&path)?;
         match serde_json::from_str::<Self>(&content) {
             Ok(settings) => {
@@ -82,7 +82,7 @@ impl EditorSettings {
             }
         }
     }
-    
+
     /// Save settings to a specific path
     pub fn save_to<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
         let json = serde_json::to_string_pretty(self)?;
@@ -90,7 +90,7 @@ impl EditorSettings {
         info!("Saved editor settings to {:?}", path.as_ref());
         Ok(())
     }
-    
+
     /// Load settings from a specific path
     pub fn load_from<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
         let content = std::fs::read_to_string(&path)?;
@@ -104,7 +104,7 @@ impl EditorSettings {
 mod tests {
     use super::*;
     use tempfile::NamedTempFile;
-    
+
     #[test]
     fn test_default_settings() {
         let settings = EditorSettings::default();
@@ -112,36 +112,39 @@ mod tests {
         assert_eq!(settings.audio.master_volume, 1.0);
         assert!(settings.audio.output_device.is_none());
     }
-    
+
     #[test]
     fn test_save_load_settings() {
         let mut settings = EditorSettings::default();
         settings.audio.master_volume = 0.75;
         settings.audio.output_device = Some("Test Device".to_string());
-        
+
         // Save to temporary file
         let temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let temp_path = temp_file.path();
-        
-        settings.save_to(temp_path).expect("Failed to save settings");
-        
+
+        settings
+            .save_to(temp_path)
+            .expect("Failed to save settings");
+
         // Load from file
         let loaded = EditorSettings::load_from(temp_path).expect("Failed to load settings");
-        
+
         assert_eq!(loaded.audio.master_volume, 0.75);
         assert_eq!(loaded.audio.output_device, Some("Test Device".to_string()));
     }
-    
+
     #[test]
     fn test_invalid_json_fallback() {
         let temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let temp_path = temp_file.path();
-        
+
         // Write invalid JSON
         std::fs::write(temp_path, "{ invalid json }").expect("Failed to write file");
-        
+
         // Should return default settings on parse error
         let result = EditorSettings::load_from(temp_path);
         assert!(result.is_err());
     }
 }
+

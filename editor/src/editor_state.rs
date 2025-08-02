@@ -110,7 +110,7 @@ pub struct EditorState {
     pending_dialog_actions: Option<DialogActions>,
     /// Performance metrics for viewport overlay
     pub performance_metrics: crate::panels::viewport::PerformanceMetrics,
-    
+
     // Settings state
     /// Editor settings
     pub settings: EditorSettings,
@@ -247,7 +247,7 @@ impl EditorState {
 
         // Create shared state for multi-window synchronization
         let shared_state = EditorSharedState::new(world, component_registry);
-        
+
         // Load editor settings
         let settings = EditorSettings::load().unwrap_or_default();
 
@@ -283,7 +283,7 @@ impl EditorState {
             pending_menu_actions: None,
             pending_dialog_actions: None,
             performance_metrics: Default::default(),
-            
+
             // Settings
             settings,
             show_settings_dialog: false,
@@ -890,19 +890,19 @@ impl EditorState {
                     ui.close_current_popup();
                 }
             });
-            
+
             // Settings dialog
             if self.show_settings_dialog {
                 ui.open_popup("settings_dialog");
             }
-            
+
             ui.modal_popup_config("settings_dialog")
                 .resizable(false)
                 .movable(true)
                 .build(|| {
                     ui.text("Settings");
                     ui.separator();
-                    
+
                     if ui.collapsing_header("Audio", imgui::TreeNodeFlags::DEFAULT_OPEN) {
                         // Master volume slider
                         let mut volume = self.settings.audio.master_volume;
@@ -911,49 +911,54 @@ impl EditorState {
                             self.settings_modified = true;
                             // TODO: Apply volume to audio engine
                         }
-                        
+
                         ui.spacing();
-                        
+
                         // Audio device selection (placeholder)
                         ui.text("Output Device:");
                         ui.same_line();
-                        
-                        let current_device = self.settings.audio.output_device
+
+                        let current_device = self
+                            .settings
+                            .audio
+                            .output_device
                             .as_deref()
                             .unwrap_or("Default");
-                        
-                        if ui.begin_combo("##audio_device", current_device) {
+
+                        if let Some(_token) = ui.begin_combo("##audio_device", current_device) {
                             if ui.selectable("Default") {
                                 self.settings.audio.output_device = None;
                                 self.settings_modified = true;
                             }
-                            
+
                             // Note: Device enumeration not available in Kira
                             ui.text_disabled("(Device selection not yet available)");
-                            
-                            ui.end_combo();
+
+                            // Token will automatically close the combo when dropped
                         }
-                        
-                        ui.text_colored([0.7, 0.7, 0.7, 1.0], 
-                            "Note: Audio device selection requires Kira library update");
+
+                        ui.text_colored(
+                            [0.7, 0.7, 0.7, 1.0],
+                            "Note: Audio device selection requires Kira library update",
+                        );
                     }
-                    
+
                     ui.separator();
-                    
+
                     // Dialog buttons
                     if ui.button("OK") {
                         if self.settings_modified {
                             if let Err(e) = self.settings.save() {
-                                self.error_message = Some(format!("Failed to save settings: {}", e));
+                                self.error_message = Some(format!("Failed to save settings: {e}"));
                             }
                             self.settings_modified = false;
                         }
                         self.show_settings_dialog = false;
                         ui.close_current_popup();
                     }
-                    
+
                     ui.same_line();
-                    
+
                     if ui.button("Cancel") {
                         // Reload settings to discard changes
                         if self.settings_modified {
@@ -963,16 +968,14 @@ impl EditorState {
                         self.show_settings_dialog = false;
                         ui.close_current_popup();
                     }
-                    
+
                     ui.same_line();
-                    
-                    if ui.button("Apply") {
-                        if self.settings_modified {
-                            if let Err(e) = self.settings.save() {
-                                self.error_message = Some(format!("Failed to save settings: {}", e));
-                            }
-                            self.settings_modified = false;
+
+                    if ui.button("Apply") && self.settings_modified {
+                        if let Err(e) = self.settings.save() {
+                            self.error_message = Some(format!("Failed to save settings: {e}"));
                         }
+                        self.settings_modified = false;
                     }
                 });
 
