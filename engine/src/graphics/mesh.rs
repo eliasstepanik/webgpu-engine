@@ -226,6 +226,31 @@ impl Mesh {
 
         Self { vertices, indices }
     }
+
+    /// Calculate the axis-aligned bounding box (AABB) for this mesh
+    pub fn calculate_aabb(&self) -> crate::graphics::culling::AABB {
+        use crate::graphics::culling::AABB;
+        use glam::Vec3;
+
+        if self.vertices.is_empty() {
+            return AABB::new(Vec3::ZERO, Vec3::ZERO);
+        }
+
+        let mut min = Vec3::new(
+            self.vertices[0].position[0],
+            self.vertices[0].position[1],
+            self.vertices[0].position[2],
+        );
+        let mut max = min;
+
+        for vertex in &self.vertices {
+            let pos = Vec3::new(vertex.position[0], vertex.position[1], vertex.position[2]);
+            min = min.min(pos);
+            max = max.max(pos);
+        }
+
+        AABB::new(min, max)
+    }
 }
 
 #[cfg(test)]
@@ -280,5 +305,28 @@ mod tests {
         for i in 4..8 {
             assert_eq!(cube.vertices[i].normal, [0.0, 0.0, -1.0]);
         }
+    }
+
+    #[test]
+    fn test_calculate_aabb() {
+        use glam::Vec3;
+
+        // Test cube AABB
+        let cube = Mesh::cube(2.0);
+        let aabb = cube.calculate_aabb();
+        assert_eq!(aabb.min, Vec3::new(-1.0, -1.0, -1.0));
+        assert_eq!(aabb.max, Vec3::new(1.0, 1.0, 1.0));
+
+        // Test plane AABB
+        let plane = Mesh::plane(10.0, 10.0);
+        let aabb = plane.calculate_aabb();
+        assert_eq!(aabb.min, Vec3::new(-5.0, 0.0, -5.0));
+        assert_eq!(aabb.max, Vec3::new(5.0, 0.0, 5.0));
+
+        // Test empty mesh
+        let empty = Mesh::new(vec![], vec![]);
+        let aabb = empty.calculate_aabb();
+        assert_eq!(aabb.min, Vec3::ZERO);
+        assert_eq!(aabb.max, Vec3::ZERO);
     }
 }

@@ -1,0 +1,80 @@
+{
+  "name": "Frustum Culling Demo",
+  "entities": [
+    {
+      "name": "Main Camera",
+      "components": {
+        "Transform": {
+          "position": [0.0, 5.0, 10.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Camera": {
+          "projection": "Perspective",
+          "fov": 60.0,
+          "aspect_ratio": 1.777777,
+          "near": 0.1,
+          "far": 1000.0
+        },
+        "GlobalTransform": {
+          "matrix": [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 5.0, 10.0, 1.0]
+          ]
+        },
+        "ScriptRef": {
+          "script_name": "fly_camera"
+        }
+      }
+    },
+    {
+      "name": "Ground Plane",
+      "components": {
+        "Transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [50.0, 1.0, 50.0]
+        },
+        "MeshId": {
+          "0": "plane"
+        },
+        "Material": {
+          "base_color": [0.5, 0.5, 0.5, 1.0],
+          "metallic": 0.0,
+          "roughness": 1.0
+        },
+        "GlobalTransform": {
+          "matrix": [
+            [50.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 50.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Grid Generator",
+      "components": {
+        "Transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "ScriptRef": {
+          "script_name": "generate_culling_grid"
+        },
+        "GlobalTransform": {
+          "matrix": [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0]
+          ]
+        }
+      }
+    }
+  ]
+}
