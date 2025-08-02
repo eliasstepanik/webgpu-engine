@@ -5,6 +5,7 @@
 
 use crate::panel_state::PanelManager;
 use crate::safe_imgui_renderer::SafeImGuiRenderer;
+use crate::settings::EditorSettings;
 use crate::shared_state::EditorSharedState;
 use engine::core::entity::World;
 use engine::graphics::{context::RenderContext, render_target::RenderTarget, RenderTargetInfo};
@@ -36,6 +37,7 @@ struct MenuActions {
     save_layout: bool,
     load_layout: bool,
     reset_layout: bool,
+    settings: bool,
 }
 
 /// Dialog actions that need to be handled after UI rendering
@@ -108,6 +110,14 @@ pub struct EditorState {
     pending_dialog_actions: Option<DialogActions>,
     /// Performance metrics for viewport overlay
     pub performance_metrics: crate::panels::viewport::PerformanceMetrics,
+    
+    // Settings state
+    /// Editor settings
+    pub settings: EditorSettings,
+    /// Whether to show the settings dialog
+    pub show_settings_dialog: bool,
+    /// Whether settings have been modified
+    pub settings_modified: bool,
 }
 
 impl EditorState {
@@ -237,6 +247,9 @@ impl EditorState {
 
         // Create shared state for multi-window synchronization
         let shared_state = EditorSharedState::new(world, component_registry);
+        
+        // Load editor settings
+        let settings = EditorSettings::load().unwrap_or_default();
 
         let mut editor = Self {
             imgui_context,
@@ -270,6 +283,11 @@ impl EditorState {
             pending_menu_actions: None,
             pending_dialog_actions: None,
             performance_metrics: Default::default(),
+            
+            // Settings
+            settings,
+            show_settings_dialog: false,
+            settings_modified: false,
         };
 
         // Force proper initialization by setting initial values
@@ -382,6 +400,11 @@ impl EditorState {
                                     info!("Ctrl+S pressed - Save Scene");
                                     self.save_scene_action();
                                 }
+                                return true;
+                            }
+                            PhysicalKey::Code(KeyCode::Comma) => {
+                                info!("Ctrl+, pressed - Settings");
+                                self.show_settings_dialog = true;
                                 return true;
                             }
                             _ => {}
@@ -627,6 +650,9 @@ impl EditorState {
                 }
                 info!("Layout reset to default");
             }
+            if actions.settings {
+                self.show_settings_dialog = true;
+            }
         }
 
         // Handle dialog actions
@@ -712,6 +738,7 @@ impl EditorState {
             let mut action_save_layout = false;
             let mut action_load_layout = false;
             let mut action_reset_layout = false;
+            let mut action_settings = false;
 
             // Main-menu bar --------------------------------------------------------
             ui.main_menu_bar(|| {
@@ -727,6 +754,10 @@ impl EditorState {
                     }
                     if ui.menu_item("Save Scene As...##Ctrl+Shift+S") {
                         action_save_scene_as = true;
+                    }
+                    ui.separator();
+                    if ui.menu_item("Settings...##Ctrl+,") {
+                        action_settings = true;
                     }
                     ui.separator();
                     if ui.menu_item("Exit") {
@@ -859,6 +890,91 @@ impl EditorState {
                     ui.close_current_popup();
                 }
             });
+            
+            // Settings dialog
+            if self.show_settings_dialog {
+                ui.open_popup("settings_dialog");
+            }
+            
+            ui.modal_popup_config("settings_dialog")
+                .resizable(false)
+                .movable(true)
+                .build(|| {
+                    ui.text("Settings");
+                    ui.separator();
+                    
+                    if ui.collapsing_header("Audio", imgui::TreeNodeFlags::DEFAULT_OPEN) {
+                        // Master volume slider
+                        let mut volume = self.settings.audio.master_volume;
+                        if ui.slider("Master Volume", 0.0, 1.0, &mut volume) {
+                            self.settings.audio.master_volume = volume;
+                            self.settings_modified = true;
+                            // TODO: Apply volume to audio engine
+                        }
+                        
+                        ui.spacing();
+                        
+                        // Audio device selection (placeholder)
+                        ui.text("Output Device:");
+                        ui.same_line();
+                        
+                        let current_device = self.settings.audio.output_device
+                            .as_deref()
+                            .unwrap_or("Default");
+                        
+                        if ui.begin_combo("##audio_device", current_device) {
+                            if ui.selectable("Default") {
+                                self.settings.audio.output_device = None;
+                                self.settings_modified = true;
+                            }
+                            
+                            // Note: Device enumeration not available in Kira
+                            ui.text_disabled("(Device selection not yet available)");
+                            
+                            ui.end_combo();
+                        }
+                        
+                        ui.text_colored([0.7, 0.7, 0.7, 1.0], 
+                            "Note: Audio device selection requires Kira library update");
+                    }
+                    
+                    ui.separator();
+                    
+                    // Dialog buttons
+                    if ui.button("OK") {
+                        if self.settings_modified {
+                            if let Err(e) = self.settings.save() {
+                                self.error_message = Some(format!("Failed to save settings: {}", e));
+                            }
+                            self.settings_modified = false;
+                        }
+                        self.show_settings_dialog = false;
+                        ui.close_current_popup();
+                    }
+                    
+                    ui.same_line();
+                    
+                    if ui.button("Cancel") {
+                        // Reload settings to discard changes
+                        if self.settings_modified {
+                            self.settings = EditorSettings::load().unwrap_or_default();
+                            self.settings_modified = false;
+                        }
+                        self.show_settings_dialog = false;
+                        ui.close_current_popup();
+                    }
+                    
+                    ui.same_line();
+                    
+                    if ui.button("Apply") {
+                        if self.settings_modified {
+                            if let Err(e) = self.settings.save() {
+                                self.error_message = Some(format!("Failed to save settings: {}", e));
+                            }
+                            self.settings_modified = false;
+                        }
+                    }
+                });
 
             // Defer action handling until after UI is rendered (important for viewport mode)
             self.pending_menu_actions = Some(MenuActions {
@@ -870,6 +986,7 @@ impl EditorState {
                 save_layout: action_save_layout,
                 load_layout: action_load_layout,
                 reset_layout: action_reset_layout,
+                settings: action_settings,
             });
 
             self.pending_dialog_actions = Some(DialogActions {

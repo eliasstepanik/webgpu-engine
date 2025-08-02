@@ -10,6 +10,7 @@ pub mod panel_state;
 pub mod panels;
 pub mod safe_imgui_renderer;
 pub mod scene_operations;
+pub mod settings;
 pub mod shared_state;
 pub mod ui_metadata_renderer;
 
