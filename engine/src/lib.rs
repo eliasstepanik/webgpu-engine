@@ -18,6 +18,13 @@ pub mod shaders;
 pub mod utils;
 pub mod windowing;
 
+#[cfg(feature = "audio")]
+pub mod audio;
+
+#[cfg(not(feature = "audio"))]
+#[path = "audio_stub.rs"]
+pub mod audio;
+
 #[cfg(test)]
 mod test_ui_component;
 

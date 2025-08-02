@@ -918,7 +918,7 @@ impl EditorState {
 
                         ui.spacing();
 
-                        // Audio device selection (placeholder)
+                        // Audio device selection
                         ui.text("Output Device:");
                         ui.same_line();
 
@@ -930,21 +930,35 @@ impl EditorState {
                             .unwrap_or("Default");
 
                         if let Some(_token) = ui.begin_combo("##audio_device", current_device) {
-                            if ui.selectable("Default") {
-                                self.settings.audio.output_device = None;
-                                self.settings_modified = true;
+                            // Get available audio devices
+                            match engine::audio::AudioEngine::enumerate_devices() {
+                                Ok(devices) => {
+                                    for device in devices {
+                                        let is_selected = Some(device.as_str()) == self.settings.audio.output_device.as_deref()
+                                            || (device.contains("(Default)") && self.settings.audio.output_device.is_none());
+                                        
+                                        if ui.selectable_config(&device)
+                                            .selected(is_selected)
+                                            .build()
+                                        {
+                                            self.settings.audio.output_device = Some(device.clone());
+                                            self.settings_modified = true;
+                                            
+                                            // TODO: Apply device change to audio engine
+                                            // This would require access to the audio engine instance
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    ui.text_colored(
+                                        [1.0, 0.5, 0.5, 1.0],
+                                        &format!("Error listing devices: {}", e),
+                                    );
+                                }
                             }
-
-                            // Note: Device enumeration not available in Kira
-                            ui.text_disabled("(Device selection not yet available)");
 
                             // Token will automatically close the combo when dropped
                         }
-
-                        ui.text_colored(
-                            [0.7, 0.7, 0.7, 1.0],
-                            "Note: Audio device selection requires Kira library update",
-                        );
                     }
 
                     ui.separator();

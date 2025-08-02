@@ -9,6 +9,18 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AudioHandle;
 
+impl AudioHandle {
+    pub fn stop(&self, _fade_out: Option<std::time::Duration>) {}
+    
+    pub fn set_volume(&self, _volume: f32, _tween: Option<()>) {}
+    
+    pub fn set_playback_rate(&self, _rate: f32, _tween: Option<()>) {}
+    
+    pub fn is_playing(&self) -> bool {
+        false
+    }
+}
+
 #[derive(Debug)]
 pub struct AudioEngine;
 
@@ -36,6 +48,43 @@ impl AudioEngine {
         _looping: bool,
     ) -> Result<AudioHandle, Box<dyn std::error::Error>> {
         Ok(AudioHandle)
+    }
+
+    pub fn play_one_shot(
+        &mut self,
+        _path: &str,
+        _volume: f32,
+        _pitch: f32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        Ok(())
+    }
+
+    pub fn set_master_volume(&mut self, _volume: f32) {}
+
+    pub fn unload_sound(&mut self, _path: &str) {}
+
+    pub fn clear_sounds(&mut self) {}
+
+    pub fn loaded_sound_count(&self) -> usize {
+        0
+    }
+
+    pub fn enumerate_devices() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        Ok(vec!["Default (No Audio)".to_string()])
+    }
+
+    pub fn set_output_device(&mut self, _device_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+        Ok(())
+    }
+
+    pub fn get_current_device(&self) -> Option<String> {
+        Some("Default (No Audio)".to_string())
+    }
+}
+
+impl Default for AudioEngine {
+    fn default() -> Self {
+        Self::new().expect("Failed to create audio engine")
     }
 }
 
