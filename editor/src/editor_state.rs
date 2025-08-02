@@ -136,6 +136,10 @@ impl EditorState {
 
         // Enable docking
         imgui_context.io_mut().config_flags |= imgui::ConfigFlags::DOCKING_ENABLE;
+        
+        // Remove gray tint from modal popups by making the overlay transparent
+        let style = imgui_context.style_mut();
+        style[imgui::StyleColor::ModalWindowDimBg] = [0.0, 0.0, 0.0, 0.0];
 
         // Configure ImGui
         // Enable ImGui's ini file to persist docking layout
@@ -891,14 +895,15 @@ impl EditorState {
                 }
             });
 
-            // Settings dialog - use window instead of modal popup to avoid gray tint
-            let mut show_settings = self.show_settings_dialog;
-            if show_settings {
-                ui.window("Settings")
-                    .size([400.0, 300.0], imgui::Condition::FirstUseEver)
-                    .position([100.0, 100.0], imgui::Condition::FirstUseEver)
-                    .opened(&mut show_settings)
-                    .build(|| {
+            // Settings dialog
+            if self.show_settings_dialog {
+                ui.open_popup("settings_dialog");
+            }
+            
+            ui.modal_popup_config("settings_dialog")
+                .resizable(false)
+                .movable(true)
+                .build(|| {
                     ui.text("Settings");
                     ui.separator();
 
@@ -953,6 +958,7 @@ impl EditorState {
                             self.settings_modified = false;
                         }
                         self.show_settings_dialog = false;
+                        ui.close_current_popup();
                     }
 
                     ui.same_line();
@@ -964,6 +970,7 @@ impl EditorState {
                             self.settings_modified = false;
                         }
                         self.show_settings_dialog = false;
+                        ui.close_current_popup();
                     }
 
                     ui.same_line();
@@ -974,9 +981,7 @@ impl EditorState {
                         }
                         self.settings_modified = false;
                     }
-                    });
-                self.show_settings_dialog = show_settings;
-            }
+                });
 
             // Defer action handling until after UI is rendered (important for viewport mode)
             self.pending_menu_actions = Some(MenuActions {
