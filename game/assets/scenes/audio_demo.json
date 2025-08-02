@@ -1,0 +1,170 @@
+{
+  "entities": [
+    {
+      "components": {
+        "Name": "Main Camera",
+        "Transform": {
+          "position": [0.0, 5.0, 20.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Camera": {
+          "fov_y_radians": 1.047,
+          "aspect_ratio": 1.7777778,
+          "z_near": 0.1,
+          "z_far": 1000.0,
+          "projection_mode": "Perspective",
+          "use_logarithmic_depth": true
+        },
+        "CameraWorldPosition": {
+          "position": [0.0, 5.0, 20.0]
+        },
+        "ScriptRef": {
+          "name": "fly_camera"
+        },
+        "ScriptProperties": {
+          "script_name": "fly_camera",
+          "values": {}
+        },
+        "GlobalTransform": {
+          "matrix": [
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 5.0, 20.0, 1.0
+          ]
+        },
+        "AudioListener": {
+          "active": true,
+          "master_volume": 0.8
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Dragon",
+        "Transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": "game/assets/models/xyzrgb_dragon.obj",
+        "Material": {
+          "color": [0.8, 0.8, 0.8, 1.0]
+        },
+        "GlobalTransform": {
+          "matrix": [
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0
+          ]
+        },
+        "AudioMaterial": {
+          "absorption": 0.3,
+          "scattering": 0.2,
+          "transmission": 0.0
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Sound Source Left",
+        "Transform": {
+          "position": [-8.0, 2.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.5, 0.5, 0.5]
+        },
+        "MeshId": "game/assets/models/suzanne.obj",
+        "Material": {
+          "color": [1.0, 0.5, 0.0, 1.0]
+        },
+        "GlobalTransform": {
+          "matrix": [
+            0.5, 0.0, 0.0, 0.0,
+            0.0, 0.5, 0.0, 0.0,
+            0.0, 0.0, 0.5, 0.0,
+            -8.0, 2.0, 0.0, 1.0
+          ]
+        },
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.wav",
+          "volume": 0.6,
+          "pitch": 0.8,
+          "looping": true,
+          "spatial": true,
+          "max_distance": 30.0,
+          "rolloff_factor": 1.0,
+          "auto_play": true,
+          "playing": false
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Sound Source Right",
+        "Transform": {
+          "position": [8.0, 2.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.5, 0.5, 0.5]
+        },
+        "MeshId": "game/assets/models/suzanne.obj",
+        "Material": {
+          "color": [0.0, 1.0, 0.5, 1.0]
+        },
+        "GlobalTransform": {
+          "matrix": [
+            0.5, 0.0, 0.0, 0.0,
+            0.0, 0.5, 0.0, 0.0,
+            0.0, 0.0, 0.5, 0.0,
+            8.0, 2.0, 0.0, 1.0
+          ]
+        },
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.wav",
+          "volume": 0.6,
+          "pitch": 1.2,
+          "looping": true,
+          "spatial": true,
+          "max_distance": 30.0,
+          "rolloff_factor": 1.0,
+          "auto_play": true,
+          "playing": false
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Moving Sound",
+        "Transform": {
+          "position": [0.0, 3.0, -5.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.3, 0.3, 0.3]
+        },
+        "MeshId": "game/assets/models/suzanne.obj",
+        "Material": {
+          "color": [0.5, 0.5, 1.0, 1.0]
+        },
+        "GlobalTransform": {
+          "matrix": [
+            0.3, 0.0, 0.0, 0.0,
+            0.0, 0.3, 0.0, 0.0,
+            0.0, 0.0, 0.3, 0.0,
+            0.0, 3.0, -5.0, 1.0
+          ]
+        },
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.wav",
+          "volume": 0.4,
+          "pitch": 1.5,
+          "looping": true,
+          "spatial": true,
+          "max_distance": 20.0,
+          "rolloff_factor": 2.0,
+          "auto_play": true,
+          "playing": false
+        }
+      }
+    }
+  ]
+}

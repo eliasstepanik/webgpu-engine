@@ -1,0 +1,17 @@
+[build]
+# Use "cargo build --features audio" to enable audio support
+# Or set this environment variable to enable audio by default:
+# CARGO_BUILD_FEATURES=audio
+
+[target.'cfg(target_os = "windows")']
+# Windows doesn't need ALSA
+
+[target.'cfg(target_os = "linux")']
+# Linux requires ALSA development packages:
+# sudo apt-get install libasound2-dev pkg-config
+
+[alias]
+# Convenience aliases
+run-audio = "run --features audio"
+build-audio = "build --features audio"
+test-audio = "test --features audio"

@@ -1,0 +1,114 @@
+{
+  "name": "Audio Demo Visual Only",
+  "entities": [
+    {
+      "components": {
+        "Name": {
+          "0": "Main Camera"
+        },
+        "Transform": {
+          "position": [0.0, 5.0, 20.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Camera": {
+          "fov_y_radians": 1.047,
+          "aspect_ratio": 1.7777778,
+          "z_near": 0.1,
+          "z_far": 1000.0,
+          "projection_mode": "Perspective"
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": {
+          "0": "Floor"
+        },
+        "Transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [50.0, 1.0, 50.0]
+        },
+        "MeshId": {
+          "0": "cube"
+        },
+        "Material": {
+          "color": [0.5, 0.5, 0.5, 1.0]
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": {
+          "0": "Wall 1"
+        },
+        "Transform": {
+          "position": [-15.0, 5.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 10.0, 30.0]
+        },
+        "MeshId": {
+          "0": "cube"
+        },
+        "Material": {
+          "color": [0.8, 0.7, 0.6, 1.0]
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": {
+          "0": "Wall 2"
+        },
+        "Transform": {
+          "position": [15.0, 5.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 10.0, 30.0]
+        },
+        "MeshId": {
+          "0": "cube"
+        },
+        "Material": {
+          "color": [0.8, 0.7, 0.6, 1.0]
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": {
+          "0": "Sound Source 1 Visual"
+        },
+        "Transform": {
+          "position": [-10.0, 2.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": {
+          "0": "sphere"
+        },
+        "Material": {
+          "color": [1.0, 0.5, 0.0, 1.0]
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": {
+          "0": "Sound Source 2 Visual"
+        },
+        "Transform": {
+          "position": [10.0, 2.0, -10.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": {
+          "0": "sphere"
+        },
+        "Material": {
+          "color": [0.0, 1.0, 0.5, 1.0]
+        }
+      }
+    }
+  ]
+}
