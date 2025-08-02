@@ -105,6 +105,7 @@ impl ComponentRegistry {
         };
         use crate::graphics::{Material, MeshId, Visibility, AABB};
         use crate::scripting::{ScriptProperties, ScriptRef};
+        use crate::audio::{AudioSource, AudioListener, AmbientSound, AudioMaterial};
 
         let mut registry = Self::new();
 
@@ -128,6 +129,12 @@ impl ComponentRegistry {
         // Register scripting components
         ScriptRef::register(&mut registry);
         ScriptProperties::register(&mut registry);
+
+        // Register audio components
+        AudioSource::register(&mut registry);
+        AudioListener::register(&mut registry);
+        AmbientSound::register(&mut registry);
+        AudioMaterial::register(&mut registry);
 
         debug!(
             component_count = registry.len(),

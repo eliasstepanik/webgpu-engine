@@ -46,6 +46,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         "WorldTransform",
         "AABB",
         "Visibility",
+        "AudioSource",
+        "AudioListener",
+        "AmbientSound",
+        "AudioMaterial",
     ];
     let has_editor_ui = components_with_ui.contains(&component_name.as_str());
 
