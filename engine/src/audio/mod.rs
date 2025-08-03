@@ -9,6 +9,7 @@
 
 pub mod ambient;
 pub mod components;
+pub mod debug;
 pub mod engine;
 pub mod listener;
 pub mod material;
@@ -27,6 +28,7 @@ mod tests;
 
 // Re-export commonly used types
 pub use components::{AmbientSound, AudioListener, AudioMaterial, AudioSource};
+pub use debug::{draw_audio_debug, AudioDebugSettings};
 pub use engine::{AudioEngine, AudioHandle};
 pub use raycast::{audio_raycast, AudioRay, AudioRayHit};
 pub use resources::AudioAsset;

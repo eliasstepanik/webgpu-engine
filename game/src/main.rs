@@ -1,5 +1,7 @@
 //! Game entry point with WebGPU rendering demonstration
 
+mod debug_audio;
+
 use engine::prelude::*;
 use engine::profiling::profile_zone;
 use std::path::PathBuf;
@@ -465,6 +467,15 @@ impl ApplicationHandler for GameApp {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         self.engine.about_to_wait(event_loop);
+    }
+
+    fn device_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        device_id: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
+        self.engine.device_event(event_loop, device_id, event);
     }
 }
 
