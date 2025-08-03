@@ -12,6 +12,9 @@ pub mod components;
 pub mod engine;
 pub mod listener;
 pub mod material;
+// pub mod mesh_occlusion; // TODO: Enable when mesh data access is available
+pub mod panning;
+pub mod physical_occlusion;
 pub mod propagation;
 pub mod raycast;
 pub mod resources;

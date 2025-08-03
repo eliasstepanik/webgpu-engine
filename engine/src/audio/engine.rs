@@ -1,9 +1,10 @@
 //! Core audio engine using Rodio
 
+use crate::audio::panning::{calculate_pan_volumes, MonoToStereoPanned, SourceExt};
 use rodio::{cpal, Decoder, OutputStream, OutputStreamHandle, Sink, Source};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, Cursor};
+use std::io::Cursor;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -14,6 +15,10 @@ use tracing::{debug, info};
 pub struct AudioHandle {
     inner: Arc<Mutex<Option<Sink>>>,
     id: u64,
+    /// Current pan value (-1.0 = left, 0.0 = center, 1.0 = right)
+    pan: Arc<Mutex<f32>>,
+    /// Base volume (before panning adjustment)
+    base_volume: Arc<Mutex<f32>>,
 }
 
 impl std::fmt::Debug for AudioHandle {
@@ -45,15 +50,19 @@ impl<'de> serde::Deserialize<'de> for AudioHandle {
         Ok(AudioHandle {
             inner: Arc::new(Mutex::new(None)),
             id,
+            pan: Arc::new(Mutex::new(0.0)),
+            base_volume: Arc::new(Mutex::new(1.0)),
         })
     }
 }
 
 impl AudioHandle {
-    fn new(sink: Sink, id: u64) -> Self {
+    fn new(sink: Sink, id: u64, pan: f32) -> Self {
         Self {
             inner: Arc::new(Mutex::new(Some(sink))),
             id,
+            pan: Arc::new(Mutex::new(pan)),
+            base_volume: Arc::new(Mutex::new(1.0)),
         }
     }
 
@@ -69,9 +78,26 @@ impl AudioHandle {
 
     /// Set the volume
     pub fn set_volume(&self, volume: f32, _tween: Option<()>) {
-        if let Ok(guard) = self.inner.lock() {
+        // Store base volume
+        if let Ok(mut base_vol) = self.base_volume.lock() {
+            *base_vol = volume;
+        }
+
+        // Apply volume with panning adjustment
+        self.update_volume();
+    }
+
+    /// Update the actual volume based on base volume and pan
+    fn update_volume(&self) {
+        if let (Ok(guard), Ok(_pan), Ok(base_vol)) =
+            (self.inner.lock(), self.pan.lock(), self.base_volume.lock())
+        {
             if let Some(sink) = guard.as_ref() {
-                sink.set_volume(volume);
+                // For now, just apply the base volume
+                // Proper stereo panning would require per-channel control
+                // TODO: When Rodio supports per-channel volume or spatial audio,
+                // we can implement proper panning
+                sink.set_volume(*base_vol);
             }
         }
     }
@@ -83,6 +109,17 @@ impl AudioHandle {
                 sink.set_speed(rate);
             }
         }
+    }
+
+    /// Set the stereo panning (-1.0 = full left, 0.0 = center, 1.0 = full right)
+    pub fn set_panning(&self, pan: f32) {
+        // Store pan value
+        if let Ok(mut pan_lock) = self.pan.lock() {
+            *pan_lock = pan.clamp(-1.0, 1.0);
+        }
+
+        // Update volume to apply panning
+        self.update_volume();
     }
 
     /// Check if the sound is still playing
@@ -113,6 +150,28 @@ pub struct AudioEngine {
 }
 
 impl AudioEngine {
+    /// Create a panned source based on channel count
+    fn create_panned_source<S>(source: S, pan: f32) -> Box<dyn Source<Item = f32> + Send>
+    where
+        S: Source<Item = f32> + Send + 'static,
+    {
+        match source.channels() {
+            1 => {
+                // Mono: convert to stereo with panning
+                let (left, right) = calculate_pan_volumes(pan);
+                Box::new(MonoToStereoPanned::new(source, left, right))
+            }
+            2 => {
+                // Stereo: adjust channel volumes
+                Box::new(source.panned(pan))
+            }
+            _ => {
+                // Multi-channel: pass through
+                Box::new(source)
+            }
+        }
+    }
+
     /// Create a new audio engine
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         info!("Initializing audio engine with Rodio");
@@ -158,11 +217,11 @@ impl AudioEngine {
         let mut bytes = Vec::new();
         use std::io::Read;
         file.read_to_end(&mut bytes)?;
-        
+
         // Verify it's a valid audio file by trying to decode it
         let cursor = Cursor::new(bytes.clone());
         let _test_decode = Decoder::new(cursor)?;
-        
+
         // Store the original file bytes
         self.loaded_sounds.insert(path_str.clone(), Arc::new(bytes));
 
@@ -172,7 +231,7 @@ impl AudioEngine {
 
     /// Play a sound with default settings
     pub fn play(&mut self, path: &str) -> Result<AudioHandle, Box<dyn std::error::Error>> {
-        self.play_with_settings(path, 1.0, 1.0, false)
+        self.play_with_settings(path, 1.0, 1.0, false, 0.0)
     }
 
     /// Play a sound with custom settings
@@ -182,6 +241,7 @@ impl AudioEngine {
         volume: f32,
         pitch: f32,
         looping: bool,
+        pan: f32,
     ) -> Result<AudioHandle, Box<dyn std::error::Error>> {
         // Ensure sound is loaded
         if !self.loaded_sounds.contains_key(path) {
@@ -207,12 +267,16 @@ impl AudioEngine {
         let cursor = Cursor::new((*sound_data).clone());
         let source = Decoder::new(cursor)?;
 
+        // Convert to f32 samples and apply panning
+        let f32_source = source.convert_samples::<f32>();
+        let panned_source = Self::create_panned_source(f32_source, pan);
+
         if looping {
             // Play looped
-            sink.append(source.repeat_infinite());
+            sink.append(panned_source.repeat_infinite());
         } else {
             // Play once
-            sink.append(source);
+            sink.append(panned_source);
         }
 
         // Ensure the sink is playing (it should start automatically, but just in case)
@@ -222,10 +286,13 @@ impl AudioEngine {
         self.next_handle_id += 1;
 
         debug!(
-            "Playing sound: {} (id: {}, volume: {}, looping: {})",
-            path, id, volume, looping
+            "Playing sound: {} (id: {}, volume: {}, looping: {}, pan: {})",
+            path, id, volume, looping, pan
         );
-        Ok(AudioHandle::new(sink, id))
+
+        let handle = AudioHandle::new(sink, id, pan);
+        handle.set_volume(volume, None); // Set initial volume
+        Ok(handle)
     }
 
     /// Play a one-shot sound that doesn't need to be tracked
@@ -235,7 +302,7 @@ impl AudioEngine {
         volume: f32,
         pitch: f32,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let _ = self.play_with_settings(path, volume, pitch, false)?;
+        let _ = self.play_with_settings(path, volume, pitch, false, 0.0)?;
         Ok(())
     }
 
