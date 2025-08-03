@@ -115,6 +115,15 @@ pub fn register_math_types(engine: &mut Engine) {
     math_module.set_var("TAU", std::f64::consts::TAU);
     math_module.set_var("E", std::f64::consts::E);
 
+    // Add global vec3 constructor function
+    engine.register_fn("vec3", |x: f64, y: f64, z: f64| -> rhai::Map {
+        let mut map = rhai::Map::new();
+        map.insert("x".into(), rhai::Dynamic::from(x));
+        map.insert("y".into(), rhai::Dynamic::from(y));
+        map.insert("z".into(), rhai::Dynamic::from(z));
+        map
+    });
+
     engine.register_static_module("math", math_module.into());
 
     // Create Vec3 module with constructor functions

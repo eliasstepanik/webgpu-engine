@@ -33,41 +33,39 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         }
     }
 
-    // For now, hardcode the list of components that have EditorUI
-    // This is a workaround because we can't reliably detect EditorUI in the same derive macro expansion
-    let components_with_ui = [
-        "Transform",
-        "Name",
-        "Camera",
-        "Material",
-        "MeshId",
-        "GlobalTransform",
-        "GlobalWorldTransform",
-        "WorldTransform",
-        "AABB",
-        "Visibility",
-        "AudioSource",
-        "AudioListener",
-        "AmbientSound",
-        "AudioMaterial",
-    ];
-    let has_editor_ui = components_with_ui.contains(&component_name.as_str());
-
-    let metadata_constructor = if has_editor_ui {
-        quote! { ComponentMetadata::new_with_ui::<Self>(Self::component_name()) }
-    } else {
-        quote! { ComponentMetadata::new::<Self>(Self::component_name()) }
+    // Generate the implementation for creating metadata
+    let metadata_impl = quote! {
+        impl #name {
+            /// Create basic component metadata without UI
+            #[doc(hidden)]
+            pub fn __create_basic_metadata() -> ComponentMetadata {
+                ComponentMetadata::new::<Self>(Self::component_name())
+            }
+        }
     };
 
     let expanded = quote! {
+        #metadata_impl
+
         impl Component for #name {
             fn component_name() -> &'static str {
                 #component_name
             }
 
             fn register(registry: &mut ComponentRegistry) {
-                let metadata = #metadata_constructor;
+                // Try to use UI metadata if available, otherwise use basic metadata
+                let metadata = if let Some(ui_meta_fn) = Self::__ui_metadata_fn() {
+                    ui_meta_fn()
+                } else {
+                    Self::__create_basic_metadata()
+                };
                 registry.register_with_metadata(metadata);
+            }
+
+            /// Get the UI metadata function if this component has EditorUI
+            #[doc(hidden)]
+            fn __ui_metadata_fn() -> Option<fn() -> ComponentMetadata> {
+                None
             }
         }
     };
@@ -133,6 +131,26 @@ pub fn derive_editor_ui(input: TokenStream) -> TokenStream {
 
     // Generate the implementation
     let expanded = quote! {
+        impl #name {
+            /// Create component metadata with UI support
+            #[doc(hidden)]
+            pub fn __create_ui_metadata() -> ComponentMetadata {
+                ComponentMetadata::new_with_ui::<Self>(Self::component_name())
+            }
+
+            /// Override the UI metadata function
+            #[doc(hidden)]
+            fn __ui_metadata_fn() -> Option<fn() -> ComponentMetadata> {
+                Some(Self::__create_ui_metadata)
+            }
+
+            /// Build UI metadata for this component
+            #[doc(hidden)]
+            pub fn __build_ui_metadata() -> crate::component_system::ui_metadata::ComponentUIMetadata {
+                #ui_metadata_fn
+            }
+        }
+
         impl EditorUI for #name {
             fn build_ui(
                 _component: &mut Self,
@@ -146,14 +164,6 @@ pub fn derive_editor_ui(input: TokenStream) -> TokenStream {
 
             fn ui_metadata() -> Option<crate::component_system::ui_metadata::ComponentUIMetadata> {
                 Some(Self::__build_ui_metadata())
-            }
-        }
-
-        impl #name {
-            /// Build UI metadata for this component
-            #[doc(hidden)]
-            pub fn __build_ui_metadata() -> crate::component_system::ui_metadata::ComponentUIMetadata {
-                #ui_metadata_fn
             }
         }
 

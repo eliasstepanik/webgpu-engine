@@ -67,6 +67,15 @@ pub trait Component: Any + Send + Sync + 'static {
     fn register(registry: &mut ComponentRegistry)
     where
         Self: Sized;
+
+    /// Get the UI metadata function if this component has EditorUI
+    #[doc(hidden)]
+    fn __ui_metadata_fn() -> Option<fn() -> ComponentMetadata>
+    where
+        Self: Sized,
+    {
+        None
+    }
 }
 
 /// Trait for components that can generate their own editor UI

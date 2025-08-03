@@ -420,6 +420,19 @@ impl ApplicationHandler for GameApp {
                         });
                     }
 
+                    // Update audio system
+                    #[cfg(feature = "audio")]
+                    if let Some(audio_engine) = &mut self.engine.audio_engine {
+                        editor_state.shared_state.with_world_write(|world| {
+                            engine::audio::system::audio_update_system(
+                                world,
+                                audio_engine,
+                                &mut self.engine.audio_system_state,
+                                delta_time,
+                            );
+                        });
+                    }
+
                     // Update hierarchy system to maintain transform propagation
                     editor_state.shared_state.with_world_write(|world| {
                         update_hierarchy_system(world);

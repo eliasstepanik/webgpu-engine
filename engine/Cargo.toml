@@ -33,7 +33,3 @@ audio = ["rodio"]
 
 [dev-dependencies]
 tempfile = "3.0"
-
-[[example]]
-name = "scene_demo"
-path = "../examples/scene_demo.rs"

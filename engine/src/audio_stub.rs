@@ -11,11 +11,11 @@ pub struct AudioHandle;
 
 impl AudioHandle {
     pub fn stop(&self, _fade_out: Option<std::time::Duration>) {}
-    
+
     pub fn set_volume(&self, _volume: f32, _tween: Option<()>) {}
-    
+
     pub fn set_playback_rate(&self, _rate: f32, _tween: Option<()>) {}
-    
+
     pub fn is_playing(&self) -> bool {
         false
     }
@@ -73,7 +73,10 @@ impl AudioEngine {
         Ok(vec!["Default (No Audio)".to_string()])
     }
 
-    pub fn set_output_device(&mut self, _device_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_output_device(
+        &mut self,
+        _device_name: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 

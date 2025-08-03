@@ -8,7 +8,7 @@ use crate::scripting::commands::{
 };
 use rhai::{Dynamic, Engine, EvalAltResult, Module};
 use std::sync::{Arc, RwLock};
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 
 /// Thread-safe reference to the ECS world
 pub type WorldRef = Arc<RwLock<*mut World>>;
@@ -89,6 +89,137 @@ pub fn create_world_module(
             });
             trace!(entity = entity_id, "Queued Transform update");
             Ok(())
+        },
+    );
+
+    // Get position from Transform component
+    let cache = component_cache.clone();
+    module.set_native_fn(
+        "get_position",
+        move |entity: i64| -> Result<Dynamic, Box<EvalAltResult>> {
+            let entity_id = entity as u64;
+            let cache_guard = cache.read().unwrap();
+
+            if let Some(transform) = cache_guard.transforms.get(&entity_id) {
+                trace!(
+                    entity = entity_id,
+                    "Retrieved position from Transform cache"
+                );
+                let mut map = rhai::Map::new();
+                map.insert("x".into(), Dynamic::from(transform.position.x as f64));
+                map.insert("y".into(), Dynamic::from(transform.position.y as f64));
+                map.insert("z".into(), Dynamic::from(transform.position.z as f64));
+                Ok(Dynamic::from(map))
+            } else {
+                Err(format!("Entity {entity_id} not found or missing Transform component").into())
+            }
+        },
+    );
+
+    // Set position in Transform component
+    let queue = command_queue.clone();
+    let cache = component_cache.clone();
+    module.set_native_fn(
+        "set_position",
+        move |entity: i64, position: rhai::Map| -> Result<(), Box<EvalAltResult>> {
+            let entity_id = entity as u64;
+            // Extract x, y, z from the map
+            let x = position.get("x")
+                .and_then(|v| v.as_float().ok())
+                .unwrap_or(0.0) as f32;
+            let y = position.get("y")
+                .and_then(|v| v.as_float().ok())
+                .unwrap_or(0.0) as f32;
+            let z = position.get("z")
+                .and_then(|v| v.as_float().ok())
+                .unwrap_or(0.0) as f32;
+
+            // Get current transform to preserve rotation and scale
+            let current_transform = {
+                let cache_guard = cache.read().unwrap();
+                cache_guard.transforms.get(&entity_id).copied()
+                    .unwrap_or_else(|| Transform {
+                        position: glam::Vec3::new(x, y, z),
+                        rotation: glam::Quat::IDENTITY,
+                        scale: glam::Vec3::ONE,
+                    })
+            };
+
+            let new_transform = Transform {
+                position: glam::Vec3::new(x, y, z),
+                rotation: current_transform.rotation,
+                scale: current_transform.scale,
+            };
+
+            queue.write().unwrap().push(ScriptCommand::SetTransform {
+                entity: entity_id,
+                transform: new_transform,
+            });
+            trace!(entity = entity_id, position = ?glam::Vec3::new(x, y, z), "Queued position update");
+            Ok(())
+        },
+    );
+
+    // Set scale in Transform component
+    let queue = command_queue.clone();
+    let cache = component_cache.clone();
+    module.set_native_fn(
+        "set_scale",
+        move |entity: i64, scale: rhai::Map| -> Result<(), Box<EvalAltResult>> {
+            let entity_id = entity as u64;
+
+            // Extract x, y, z from the map
+            let x = scale
+                .get("x")
+                .and_then(|v| v.as_float().ok())
+                .unwrap_or(1.0) as f32;
+            let y = scale
+                .get("y")
+                .and_then(|v| v.as_float().ok())
+                .unwrap_or(1.0) as f32;
+            let z = scale
+                .get("z")
+                .and_then(|v| v.as_float().ok())
+                .unwrap_or(1.0) as f32;
+
+            // Get current transform to preserve position and rotation
+            let current_transform = {
+                let cache_guard = cache.read().unwrap();
+                cache_guard
+                    .transforms
+                    .get(&entity_id)
+                    .copied()
+                    .unwrap_or_else(|| Transform {
+                        position: glam::Vec3::ZERO,
+                        rotation: glam::Quat::IDENTITY,
+                        scale: glam::Vec3::new(x, y, z),
+                    })
+            };
+
+            let new_transform = Transform {
+                position: current_transform.position,
+                rotation: current_transform.rotation,
+                scale: glam::Vec3::new(x, y, z),
+            };
+
+            queue.write().unwrap().push(ScriptCommand::SetTransform {
+                entity: entity_id,
+                transform: new_transform,
+            });
+            trace!(entity = entity_id, scale = ?glam::Vec3::new(x, y, z), "Queued scale update");
+            Ok(())
+        },
+    );
+
+    // Spawn a new entity - Note: This is a placeholder as we can't easily spawn entities from scripts
+    // In a real implementation, this would need to communicate with the main world
+    module.set_native_fn(
+        "spawn_entity",
+        move || -> Result<i64, Box<EvalAltResult>> {
+            // For now, return a dummy entity ID
+            // TODO: Implement proper entity spawning through command queue
+            warn!("spawn_entity called from script - not fully implemented");
+            Ok(0)
         },
     );
 

@@ -88,15 +88,14 @@
           ]
         },
         "AudioSource": {
-          "sound_path": "game/assets/sounds/ambient_hum.wav",
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
           "volume": 0.6,
           "pitch": 0.8,
           "looping": true,
           "spatial": true,
           "max_distance": 30.0,
           "rolloff_factor": 1.0,
-          "auto_play": true,
-          "playing": false
+          "auto_play": true
         }
       }
     },
@@ -121,15 +120,14 @@
           ]
         },
         "AudioSource": {
-          "sound_path": "game/assets/sounds/ambient_hum.wav",
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
           "volume": 0.6,
           "pitch": 1.2,
           "looping": true,
           "spatial": true,
           "max_distance": 30.0,
           "rolloff_factor": 1.0,
-          "auto_play": true,
-          "playing": false
+          "auto_play": true
         }
       }
     },
@@ -154,15 +152,14 @@
           ]
         },
         "AudioSource": {
-          "sound_path": "game/assets/sounds/ambient_hum.wav",
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
           "volume": 0.4,
           "pitch": 1.5,
           "looping": true,
           "spatial": true,
           "max_distance": 20.0,
           "rolloff_factor": 2.0,
-          "auto_play": true,
-          "playing": false
+          "auto_play": true
         }
       }
     }

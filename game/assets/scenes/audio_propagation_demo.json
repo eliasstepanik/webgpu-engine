@@ -1,0 +1,390 @@
+{
+  "name": "Audio Propagation Demo",
+  "entities": [
+    {
+      "components": {
+        "Name": "Main Camera",
+        "Transform": {
+          "position": [0.0, 2.0, 15.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Camera": {
+          "fov_y_radians": 1.047,
+          "aspect_ratio": 1.7777778,
+          "z_near": 0.1,
+          "z_far": 1000.0,
+          "projection_mode": "Perspective",
+          "use_logarithmic_depth": true
+        },
+        "CameraWorldPosition": {
+          "position": [0.0, 2.0, 15.0]
+        },
+        "AudioListener": {
+          "active": true,
+          "master_volume": 1.0
+        },
+        "ScriptRef": {
+          "name": "fly_camera"
+        },
+        "ScriptProperties": {
+          "script_name": "fly_camera",
+          "values": {}
+        },
+        "GlobalTransform": {
+          "matrix": [
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 2.0, 15.0, 1.0
+          ]
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Floor",
+        "Transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [40.0, 0.1, 40.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.3, 0.3, 0.3, 1.0]
+        },
+        "AudioMaterial": {
+          "absorption": 0.1,
+          "scattering": 0.1,
+          "transmission": 0.0
+        },
+        "GlobalTransform": {
+          "matrix": [
+            40.0, 0.0, 0.0, 0.0,
+            0.0, 0.1, 0.0, 0.0,
+            0.0, 0.0, 40.0, 0.0,
+            0.0, 0.0, 0.0, 1.0
+          ]
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Small Room - Front Wall",
+        "Transform": {
+          "position": [-15.0, 2.5, -15.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [5.0, 5.0, 0.2]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.6, 0.4, 0.3, 1.0]
+        },
+        "AudioMaterial": {
+          "absorption": 0.3,
+          "scattering": 0.2,
+          "transmission": 0.05
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Small Room - Back Wall",
+        "Transform": {
+          "position": [-15.0, 2.5, -10.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [5.0, 5.0, 0.2]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.6, 0.4, 0.3, 1.0]
+        },
+        "AudioMaterial": {
+          "absorption": 0.3,
+          "scattering": 0.2,
+          "transmission": 0.05
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Small Room - Left Wall",
+        "Transform": {
+          "position": [-17.5, 2.5, -12.5],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.2, 5.0, 5.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.6, 0.4, 0.3, 1.0]
+        },
+        "AudioMaterial": {
+          "absorption": 0.3,
+          "scattering": 0.2,
+          "transmission": 0.05
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Small Room - Right Wall with Door",
+        "Transform": {
+          "position": [-12.5, 3.5, -12.5],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.2, 3.0, 5.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.6, 0.4, 0.3, 1.0]
+        },
+        "AudioMaterial": {
+          "absorption": 0.3,
+          "scattering": 0.2,
+          "transmission": 0.05
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Large Room - Front Wall",
+        "Transform": {
+          "position": [15.0, 4.0, -15.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [12.0, 8.0, 0.2]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.4, 0.5, 0.6, 1.0]
+        },
+        "AudioMaterial": {
+          "absorption": 0.15,
+          "scattering": 0.3,
+          "transmission": 0.02
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Large Room - Back Wall",
+        "Transform": {
+          "position": [15.0, 4.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [12.0, 8.0, 0.2]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.4, 0.5, 0.6, 1.0]
+        },
+        "AudioMaterial": {
+          "absorption": 0.15,
+          "scattering": 0.3,
+          "transmission": 0.02
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Large Room - Left Wall",
+        "Transform": {
+          "position": [9.0, 4.0, -7.5],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.2, 8.0, 15.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.4, 0.5, 0.6, 1.0]
+        },
+        "AudioMaterial": {
+          "absorption": 0.15,
+          "scattering": 0.3,
+          "transmission": 0.02
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Large Room - Right Wall with Door",
+        "Transform": {
+          "position": [21.0, 5.0, -7.5],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.2, 6.0, 15.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.4, 0.5, 0.6, 1.0]
+        },
+        "AudioMaterial": {
+          "absorption": 0.15,
+          "scattering": 0.3,
+          "transmission": 0.02
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Hallway - Left Wall",
+        "Transform": {
+          "position": [-5.0, 2.5, -5.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.2, 5.0, 20.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.5, 0.5, 0.5, 1.0]
+        },
+        "AudioMaterial": {
+          "absorption": 0.2,
+          "scattering": 0.4,
+          "transmission": 0.01
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Hallway - Right Wall",
+        "Transform": {
+          "position": [5.0, 2.5, -5.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.2, 5.0, 20.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.5, 0.5, 0.5, 1.0]
+        },
+        "AudioMaterial": {
+          "absorption": 0.2,
+          "scattering": 0.4,
+          "transmission": 0.01
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Sound Source - Small Room",
+        "Transform": {
+          "position": [-15.0, 1.5, -12.5],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.3, 0.3, 0.3]
+        },
+        "MeshId": "game/assets/models/suzanne.obj",
+        "Material": {
+          "color": [1.0, 0.2, 0.2, 1.0]
+        },
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
+          "volume": 0.8,
+          "pitch": 0.6,
+          "looping": true,
+          "spatial": true,
+          "max_distance": 50.0,
+          "rolloff_factor": 1.5,
+          "auto_play": true
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Sound Source - Large Room",
+        "Transform": {
+          "position": [15.0, 1.5, -7.5],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.3, 0.3, 0.3]
+        },
+        "MeshId": "game/assets/models/suzanne.obj",
+        "Material": {
+          "color": [0.2, 0.2, 1.0, 1.0]
+        },
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
+          "volume": 0.8,
+          "pitch": 1.2,
+          "looping": true,
+          "spatial": true,
+          "max_distance": 50.0,
+          "rolloff_factor": 0.8,
+          "auto_play": true
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Sound Source - Hallway",
+        "Transform": {
+          "position": [0.0, 1.5, -10.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.3, 0.3, 0.3]
+        },
+        "MeshId": "game/assets/models/suzanne.obj",
+        "Material": {
+          "color": [0.2, 1.0, 0.2, 1.0]
+        },
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
+          "volume": 0.8,
+          "pitch": 1.0,
+          "looping": true,
+          "spatial": true,
+          "max_distance": 50.0,
+          "rolloff_factor": 2.0,
+          "auto_play": true
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Visual Indicator - Small Room",
+        "Transform": {
+          "position": [-15.0, 3.0, -12.5],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.1, 1.0, 0.1]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [1.0, 0.5, 0.5, 1.0]
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Visual Indicator - Large Room",
+        "Transform": {
+          "position": [15.0, 3.0, -7.5],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.1, 1.0, 0.1]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.5, 0.5, 1.0, 1.0]
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Visual Indicator - Hallway",
+        "Transform": {
+          "position": [0.0, 3.0, -10.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.1, 1.0, 0.1]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.5, 1.0, 0.5, 1.0]
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Info Text",
+        "Transform": {
+          "position": [0.0, 6.0, 5.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.1, 0.1, 0.1, 1.0]
+        }
+      }
+    }
+  ]
+}

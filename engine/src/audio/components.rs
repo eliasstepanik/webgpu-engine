@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
     Debug, Clone, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI,
 )]
 #[component(name = "AudioSource")]
+#[serde(default)]
 pub struct AudioSource {
     /// Handle to the loaded sound
     #[serde(skip)]
@@ -76,6 +77,7 @@ impl Default for AudioSource {
     Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI,
 )]
 #[component(name = "AudioListener")]
+#[serde(default)]
 pub struct AudioListener {
     /// Whether this listener is active
     #[ui(tooltip = "Enable this audio listener")]
@@ -100,6 +102,7 @@ impl Default for AudioListener {
     Debug, Clone, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI,
 )]
 #[component(name = "AmbientSound")]
+#[serde(default)]
 pub struct AmbientSound {
     /// Handle to the loaded sound
     #[serde(skip)]
@@ -150,6 +153,7 @@ impl Default for AmbientSound {
     Debug, Clone, Copy, Serialize, Deserialize, engine_derive::Component, engine_derive::EditorUI,
 )]
 #[component(name = "AudioMaterial")]
+#[serde(default)]
 pub struct AudioMaterial {
     /// Sound absorption coefficient (0.0 = fully reflective, 1.0 = fully absorptive)
     #[ui(range = 0.0..1.0, speed = 0.01, tooltip = "How much sound is absorbed")]

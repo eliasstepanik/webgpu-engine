@@ -136,7 +136,7 @@ impl EditorState {
 
         // Enable docking
         imgui_context.io_mut().config_flags |= imgui::ConfigFlags::DOCKING_ENABLE;
-        
+
         // Remove gray tint from modal popups by making the overlay transparent
         let style = imgui_context.style_mut();
         style[imgui::StyleColor::ModalWindowDimBg] = [0.0, 0.0, 0.0, 0.0];
@@ -899,7 +899,7 @@ impl EditorState {
             if self.show_settings_dialog {
                 ui.open_popup("settings_dialog");
             }
-            
+
             ui.modal_popup_config("settings_dialog")
                 .resizable(false)
                 .movable(true)
@@ -934,16 +934,20 @@ impl EditorState {
                             match engine::audio::AudioEngine::enumerate_devices() {
                                 Ok(devices) => {
                                     for device in devices {
-                                        let is_selected = Some(device.as_str()) == self.settings.audio.output_device.as_deref()
-                                            || (device.contains("(Default)") && self.settings.audio.output_device.is_none());
-                                        
-                                        if ui.selectable_config(&device)
+                                        let is_selected = Some(device.as_str())
+                                            == self.settings.audio.output_device.as_deref()
+                                            || (device.contains("(Default)")
+                                                && self.settings.audio.output_device.is_none());
+
+                                        if ui
+                                            .selectable_config(&device)
                                             .selected(is_selected)
                                             .build()
                                         {
-                                            self.settings.audio.output_device = Some(device.clone());
+                                            self.settings.audio.output_device =
+                                                Some(device.clone());
                                             self.settings_modified = true;
-                                            
+
                                             // TODO: Apply device change to audio engine
                                             // This would require access to the audio engine instance
                                         }

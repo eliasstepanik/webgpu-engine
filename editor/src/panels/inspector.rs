@@ -144,6 +144,44 @@ pub fn render_inspector_panel(
                                                 });
                                             }
                                             shared_state.mark_scene_modified();
+                                        } else if file_path.ends_with(".wav") || file_path.ends_with(".mp3") || file_path.ends_with(".ogg") || file_path.ends_with(".flac") {
+                                            // Handle audio file drop
+                                            let audio_path = format!("game/assets/{file_path}");
+
+                                            // Check if entity already has an AudioSource
+                                            let has_audio_source = shared_state.with_world_read(|world| {
+                                                world.get::<engine::audio::AudioSource>(entity).is_ok()
+                                            }).unwrap_or(false);
+
+                                            if has_audio_source {
+                                                // Update existing audio source
+                                                shared_state.with_world_write(|world| {
+                                                    if let Ok(mut audio_source) = world.inner_mut().remove_one::<engine::audio::AudioSource>(entity) {
+                                                        audio_source.sound_path = audio_path.clone();
+                                                        debug!(entity = ?entity, audio = %audio_path, "Updated audio source via inspector drop");
+                                                        let _ = world.insert_one(entity, audio_source);
+                                                    }
+                                                });
+                                            } else {
+                                                // Add new audio source component
+                                                shared_state.with_world_write(|world| {
+                                                    let audio_source = engine::audio::AudioSource {
+                                                        sound: None,
+                                                        sound_path: audio_path.clone(),
+                                                        volume: 1.0,
+                                                        pitch: 1.0,
+                                                        looping: false,
+                                                        spatial: true,
+                                                        max_distance: 100.0,
+                                                        rolloff_factor: 1.0,
+                                                        auto_play: false,
+                                                        is_playing: false,
+                                                    };
+                                                    let _ = world.insert_one(entity, audio_source);
+                                                    debug!(entity = ?entity, audio = %audio_path, "Added audio source via inspector drop");
+                                                });
+                                            }
+                                            shared_state.mark_scene_modified();
                                         }
                                 }
                             }
@@ -235,6 +273,36 @@ pub fn render_inspector_panel(
                         t if t == TypeId::of::<engine::physics::components::PhysicsMass>() => {
                             render_component_with_metadata::<engine::physics::components::PhysicsMass>(
                                 ui, entity, "PhysicsMass", shared_state, &registry
+                            );
+                        }
+                        t if t == TypeId::of::<engine::audio::AudioSource>() => {
+                            render_component_with_metadata::<engine::audio::AudioSource>(
+                                ui, entity, "AudioSource", shared_state, &registry
+                            );
+                        }
+                        t if t == TypeId::of::<engine::audio::AudioListener>() => {
+                            render_component_with_metadata::<engine::audio::AudioListener>(
+                                ui, entity, "AudioListener", shared_state, &registry
+                            );
+                        }
+                        t if t == TypeId::of::<engine::audio::AmbientSound>() => {
+                            render_component_with_metadata::<engine::audio::AmbientSound>(
+                                ui, entity, "AmbientSound", shared_state, &registry
+                            );
+                        }
+                        t if t == TypeId::of::<engine::audio::AudioMaterial>() => {
+                            render_component_with_metadata::<engine::audio::AudioMaterial>(
+                                ui, entity, "AudioMaterial", shared_state, &registry
+                            );
+                        }
+                        t if t == TypeId::of::<engine::graphics::AABB>() => {
+                            render_component_with_metadata::<engine::graphics::AABB>(
+                                ui, entity, "AABB", shared_state, &registry
+                            );
+                        }
+                        t if t == TypeId::of::<engine::graphics::Visibility>() => {
+                            render_component_with_metadata::<engine::graphics::Visibility>(
+                                ui, entity, "Visibility", shared_state, &registry
                             );
                         }
                         _ => {
