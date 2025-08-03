@@ -141,6 +141,10 @@ impl EditorState {
         let style = imgui_context.style_mut();
         style[imgui::StyleColor::ModalWindowDimBg] = [0.0, 0.0, 0.0, 0.0];
 
+        // Remove gray tint from modal popups by making the overlay transparent
+        let style = imgui_context.style_mut();
+        style[imgui::StyleColor::ModalWindowDimBg] = [0.0, 0.0, 0.0, 0.0];
+
         // Configure ImGui
         // Enable ImGui's ini file to persist docking layout
         imgui_context.set_ini_filename(Some(std::path::PathBuf::from("imgui_docking.ini")));
@@ -899,7 +903,7 @@ impl EditorState {
             if self.show_settings_dialog {
                 ui.open_popup("settings_dialog");
             }
-            
+
             ui.modal_popup_config("settings_dialog")
                 .resizable(false)
                 .movable(true)
@@ -918,7 +922,7 @@ impl EditorState {
 
                         ui.spacing();
 
-                        // Audio device selection (placeholder)
+                        // Audio device selection
                         ui.text("Output Device:");
                         ui.same_line();
 
@@ -930,21 +934,39 @@ impl EditorState {
                             .unwrap_or("Default");
 
                         if let Some(_token) = ui.begin_combo("##audio_device", current_device) {
-                            if ui.selectable("Default") {
-                                self.settings.audio.output_device = None;
-                                self.settings_modified = true;
-                            }
+                            // Get available audio devices
+                            match engine::audio::AudioEngine::enumerate_devices() {
+                                Ok(devices) => {
+                                    for device in devices {
+                                        let is_selected = Some(device.as_str())
+                                            == self.settings.audio.output_device.as_deref()
+                                            || (device.contains("(Default)")
+                                                && self.settings.audio.output_device.is_none());
 
-                            // Note: Device enumeration not available in Kira
-                            ui.text_disabled("(Device selection not yet available)");
+                                        if ui
+                                            .selectable_config(&device)
+                                            .selected(is_selected)
+                                            .build()
+                                        {
+                                            self.settings.audio.output_device =
+                                                Some(device.clone());
+                                            self.settings_modified = true;
+
+                                            // TODO: Apply device change to audio engine
+                                            // This would require access to the audio engine instance
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    ui.text_colored(
+                                        [1.0, 0.5, 0.5, 1.0],
+                                        &format!("Error listing devices: {}", e),
+                                    );
+                                }
+                            }
 
                             // Token will automatically close the combo when dropped
                         }
-
-                        ui.text_colored(
-                            [0.7, 0.7, 0.7, 1.0],
-                            "Note: Audio device selection requires Kira library update",
-                        );
                     }
 
                     ui.separator();

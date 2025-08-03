@@ -97,6 +97,7 @@ impl ComponentRegistry {
 
     /// Create a registry with all default engine components registered
     pub fn with_default_components() -> Self {
+        use crate::audio::{AmbientSound, AudioListener, AudioMaterial, AudioSource};
         use crate::component_system::Component;
         use crate::core::camera::{Camera, CameraWorldPosition};
         use crate::core::coordinates::WorldTransform;
@@ -128,6 +129,12 @@ impl ComponentRegistry {
         // Register scripting components
         ScriptRef::register(&mut registry);
         ScriptProperties::register(&mut registry);
+
+        // Register audio components
+        AudioSource::register(&mut registry);
+        AudioListener::register(&mut registry);
+        AmbientSound::register(&mut registry);
+        AudioMaterial::register(&mut registry);
 
         debug!(
             component_count = registry.len(),
@@ -255,7 +262,7 @@ mod tests {
         assert!(registry.is_registered("Name"));
         assert!(registry.is_registered("MeshId"));
         assert!(registry.is_registered("Material"));
-        
+
         // Culling components
         assert!(registry.is_registered("AABB"));
         assert!(registry.is_registered("Visibility"));

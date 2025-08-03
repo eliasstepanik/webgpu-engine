@@ -134,7 +134,13 @@ fn scan_directory(path: &Path) -> Result<FileNode, std::io::Error> {
         // Only include files with supported extensions
         let include = matches!(
             path.extension().and_then(|e| e.to_str()),
-            Some("obj") | Some("rhai") | Some("json")
+            Some("obj")
+                | Some("rhai")
+                | Some("json")
+                | Some("wav")
+                | Some("mp3")
+                | Some("ogg")
+                | Some("flac")
         );
 
         if include {
@@ -166,7 +172,7 @@ pub fn is_scene_file(path: &Path) -> bool {
 /// Check if a file is draggable
 fn is_draggable_file(path: &Path) -> bool {
     match path.extension().and_then(|e| e.to_str()) {
-        Some("obj") | Some("rhai") => true,
+        Some("obj") | Some("rhai") | Some("wav") | Some("mp3") | Some("ogg") | Some("flac") => true,
         Some("json") => is_scene_file(path), // Only drag scene JSONs
         _ => false,
     }
@@ -177,6 +183,7 @@ fn get_file_icon(path: &Path) -> &'static str {
     match path.extension().and_then(|e| e.to_str()) {
         Some("obj") => "🗿",
         Some("rhai") => "📜",
+        Some("wav") | Some("mp3") | Some("ogg") | Some("flac") => "🔊",
         Some("json") => {
             if is_scene_file(path) {
                 "🎬" // Scene icon
@@ -330,7 +337,7 @@ pub fn render_assets_panel(
             ui.child_window("asset_tree").build(|| {
                 if state.file_tree.children.is_empty() {
                     ui.text("No assets found");
-                    ui.text("Place .obj, .rhai, or .json files in:");
+                    ui.text("Place .obj, .rhai, .json, or audio files in:");
                     ui.text(format!("{}", state.asset_root.display()));
                 } else {
                     // Render each top-level child

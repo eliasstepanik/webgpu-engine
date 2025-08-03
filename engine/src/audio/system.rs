@@ -36,8 +36,9 @@ pub fn audio_update_system(
     delta_time: f32,
 ) {
     // Process audio commands from scripts
-    #[cfg(feature = "audio")]
-    crate::scripting::modules::audio::process_audio_commands(world);
+    // TODO: Implement audio module for scripting
+    // #[cfg(feature = "audio")]
+    // crate::scripting::modules::audio::process_audio_commands(world);
 
     // Find active listener
     let listener_state = match find_active_listener(world) {
@@ -60,6 +61,12 @@ pub fn audio_update_system(
         }
     };
 
+    // Update listener in audio engine
+    debug!(
+        "Audio listener at position: {:?}, master volume: {}",
+        listener_state.position, listener_state.master_volume
+    );
+
     // Process audio sources
     process_audio_sources(world, audio_engine, &listener_state);
 
@@ -73,39 +80,84 @@ fn process_audio_sources(
     audio_engine: &mut AudioEngine,
     listener_state: &crate::audio::listener::ListenerState,
 ) {
-    // Collect source updates to avoid borrow conflicts
-    let mut source_updates = Vec::new();
+    // First pass: collect entities that need processing
+    let entities_to_process: Vec<hecs::Entity> = world
+        .query::<(&AudioSource, &Transform)>()
+        .iter()
+        .map(|(entity, _)| entity)
+        .collect();
 
-    for (entity, (source, transform)) in world.query::<(&AudioSource, &Transform)>().iter() {
-        source_updates.push((entity, source.clone(), *transform));
-    }
+    debug!(
+        "Found {} entities with AudioSource components",
+        entities_to_process.len()
+    );
 
-    // Apply updates
-    for (entity, mut source, transform) in source_updates {
-        // Load sound if needed
-        if source.sound.is_none() && !source.sound_path.is_empty() {
-            match audio_engine.load_sound(&source.sound_path) {
-                Ok(_) => {
-                    debug!("Loaded audio source: {}", source.sound_path);
-                }
-                Err(e) => {
-                    warn!("Failed to load audio source {}: {}", source.sound_path, e);
+    // Second pass: process each entity
+    for entity in entities_to_process {
+        // Get component data
+        let (sound_path, volume, pitch, looping, auto_play, is_playing, has_sound) = {
+            if let Ok(mut query) = world.query_one::<(&AudioSource, &Transform)>(entity) {
+                if let Some((source, _transform)) = query.get() {
+                    let data = (
+                        source.sound_path.clone(),
+                        source.volume,
+                        source.pitch,
+                        source.looping,
+                        source.auto_play,
+                        source.is_playing,
+                        source.sound.is_some(),
+                    );
+                    trace!(
+                        entity = ?entity,
+                        sound_path = %source.sound_path,
+                        auto_play = source.auto_play,
+                        is_playing = source.is_playing,
+                        has_sound = source.sound.is_some(),
+                        "Processing audio source"
+                    );
+                    data
+                } else {
                     continue;
                 }
+            } else {
+                continue;
             }
+        };
+
+        // Debug why sounds might not be playing
+        if !sound_path.is_empty() {
+            trace!(
+                entity = ?entity,
+                auto_play = auto_play,
+                is_playing = is_playing,
+                has_sound = has_sound,
+                looping = looping,
+                "Audio source state check"
+            );
         }
 
-        // Play sound if auto_play and not playing
-        if source.auto_play && !source.is_playing && source.sound.is_none() {
+        // Handle auto-play sounds
+        if auto_play && !is_playing && !has_sound && !sound_path.is_empty() {
+            debug!(
+                entity = ?entity,
+                sound_path = %sound_path,
+                "Attempting to auto-play sound"
+            );
             match audio_engine.play_with_settings(
-                &source.sound_path,
-                source.volume * listener_state.master_volume,
-                source.pitch,
-                source.looping,
+                &sound_path,
+                volume * listener_state.master_volume,
+                pitch,
+                looping,
             ) {
                 Ok(handle) => {
-                    source.sound = Some(handle);
-                    source.is_playing = true;
+                    // Update the audio source with the handle
+                    if let Ok(mut query) = world.query_one::<&mut AudioSource>(entity) {
+                        if let Some(source) = query.get() {
+                            source.sound = Some(handle);
+                            source.is_playing = true;
+                            debug!("Started playing audio source: {}", sound_path);
+                        }
+                    }
                 }
                 Err(e) => {
                     warn!("Failed to play audio source: {}", e);
@@ -114,46 +166,62 @@ fn process_audio_sources(
         }
 
         // Update spatial parameters if sound is playing
-        if let Some(ref handle) = source.sound {
-            if handle.is_playing() {
-                if source.spatial {
-                    // Calculate occlusion
-                    let occlusion = calculate_occlusion(
-                        listener_state.position,
-                        transform.position,
-                        world,
-                        entity,
+        if let Ok(mut query) = world.query_one::<(&AudioSource, &Transform)>(entity) {
+            if let Some((source, transform)) = query.get() {
+                if let Some(ref handle) = source.sound {
+                    let is_handle_playing = handle.is_playing();
+                    debug!(
+                        entity = ?entity,
+                        handle_playing = is_handle_playing,
+                        "Audio handle status check"
                     );
 
-                    // Apply spatial parameters
-                    let spatial_params = SpatialParams {
-                        position: transform.position,
-                        velocity: glam::Vec3::ZERO, // TODO: Track source velocity
-                        max_distance: source.max_distance,
-                        rolloff_factor: source.rolloff_factor,
-                    };
+                    // Always update spatial parameters for active handles
+                    if source.spatial {
+                        // Calculate occlusion
+                        let occlusion = calculate_occlusion(
+                            listener_state.position,
+                            transform.position,
+                            world,
+                            entity,
+                        );
 
-                    apply_spatial_params(
-                        handle,
-                        &spatial_params,
-                        listener_state.position,
-                        listener_state.forward,
-                        listener_state.right,
-                        listener_state.velocity,
-                        occlusion,
-                    );
-                } else {
-                    // Non-spatial sound - just apply volume
-                    handle.set_volume(source.volume * listener_state.master_volume, None);
+                        // Apply spatial parameters
+                        let spatial_params = SpatialParams {
+                            position: transform.position,
+                            velocity: glam::Vec3::ZERO, // TODO: Track source velocity
+                            max_distance: source.max_distance,
+                            rolloff_factor: source.rolloff_factor,
+                        };
+
+                        apply_spatial_params(
+                            handle,
+                            &spatial_params,
+                            listener_state.position,
+                            listener_state.forward,
+                            listener_state.right,
+                            listener_state.velocity,
+                            occlusion,
+                        );
+                    } else {
+                        // Non-spatial sound - just apply volume
+                        handle.set_volume(source.volume * listener_state.master_volume, None);
+                    }
+
+                    // Only clear the handle if looping is false and sound has stopped
+                    if !source.looping && !is_handle_playing {
+                        // Sound finished playing, update the source
+                        debug!(entity = ?entity, "Non-looping sound finished, clearing handle");
+                        if let Ok(mut query) = world.query_one::<&mut AudioSource>(entity) {
+                            if let Some(source) = query.get() {
+                                source.is_playing = false;
+                                source.sound = None;
+                            }
+                        }
+                    }
                 }
-            } else {
-                source.is_playing = false;
-                source.sound = None;
             }
         }
-
-        // Write back updated source
-        let _ = world.insert_one(entity, source);
     }
 }
 

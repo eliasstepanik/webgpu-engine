@@ -1,5 +1,9 @@
 //! Application management for the engine
 
+#[cfg(feature = "audio")]
+use crate::audio::system::AudioSystemState;
+#[cfg(feature = "audio")]
+use crate::audio::{audio_update_system, AudioEngine};
 use crate::config::AssetConfig;
 use crate::core::coordinates::LargeWorldConfig;
 use crate::core::entity::{update_hierarchy_system, World};
@@ -65,6 +69,12 @@ pub struct EngineApp {
     pub input_state: InputState,
     /// Physics world
     pub physics_world: Option<PhysicsWorld>,
+    /// Audio engine
+    #[cfg(feature = "audio")]
+    pub audio_engine: Option<AudioEngine>,
+    /// Audio system state
+    #[cfg(feature = "audio")]
+    pub audio_system_state: AudioSystemState,
 
     // Private fields
     config: EngineConfig,
@@ -109,6 +119,10 @@ impl EngineApp {
             script_engine: None,
             input_state: InputState::new(),
             physics_world: None,
+            #[cfg(feature = "audio")]
+            audio_engine: None,
+            #[cfg(feature = "audio")]
+            audio_system_state: AudioSystemState::default(),
             config,
             instance: None,
             last_time: std::time::Instant::now(),
@@ -214,6 +228,19 @@ impl EngineApp {
         // Initialize physics world
         let physics_world = PhysicsWorld::new();
 
+        // Initialize audio engine
+        #[cfg(feature = "audio")]
+        let audio_engine = match AudioEngine::new() {
+            Ok(engine) => {
+                info!("Audio engine initialized successfully");
+                Some(engine)
+            }
+            Err(e) => {
+                error!("Failed to initialize audio engine: {}", e);
+                None
+            }
+        };
+
         // Store initialized components
         self.instance = Some(instance);
         self.window_manager = Some(window_manager);
@@ -221,6 +248,10 @@ impl EngineApp {
         self.renderer = Some(renderer);
         self.script_engine = script_engine;
         self.physics_world = Some(physics_world);
+        #[cfg(feature = "audio")]
+        {
+            self.audio_engine = audio_engine;
+        }
         self.initialized = true;
     }
 
@@ -262,6 +293,18 @@ impl EngineApp {
             crate::physics::system::physics_update_system(
                 &mut self.world,
                 physics_world,
+                delta_time,
+            );
+        }
+
+        // Update audio system
+        #[cfg(feature = "audio")]
+        if let Some(audio_engine) = &mut self.audio_engine {
+            profile_zone!("Audio update");
+            audio_update_system(
+                &mut self.world,
+                audio_engine,
+                &mut self.audio_system_state,
                 delta_time,
             );
         }

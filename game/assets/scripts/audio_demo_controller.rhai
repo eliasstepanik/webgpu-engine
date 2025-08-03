@@ -1,18 +1,15 @@
 // Audio Demo Controller Script
 // 
 // Controls:
-// - Space: Play a one-shot sound at camera position
+// - Space: Play a one-shot sound at current position
 // - 1: Toggle sound source 1
 // - 2: Toggle sound source 2
 // - Up/Down: Adjust master volume
-// - Left/Right: Move camera to test spatial audio
+// - Left/Right: Move controller to test spatial audio
 
-let camera_speed = 10.0;
-let volume_change_speed = 0.5;
-
-// State
-let sound1_entity = 0;
-let sound2_entity = 0;
+// @properties
+// camera_speed: float = 10.0
+// volume_change_speed: float = 0.5
 
 fn on_start() {
     print("Audio Demo Controller started!");
@@ -20,71 +17,60 @@ fn on_start() {
     print("  Space: Play one-shot sound");
     print("  1/2: Toggle sound sources");
     print("  Up/Down: Adjust volume");
-    print("  Left/Right/W/S: Move camera");
-    
-    // Find sound source entities
-    // Note: find_entities_with_name is not implemented yet
-    // For now, we'll use hardcoded entity IDs or skip this functionality
-    sound1_entity = 0;
-    sound2_entity = 0;
+    print("  Left/Right/W/S: Move position");
 }
 
 fn on_update(delta_time) {
-    // For now, assume camera is entity 0 (first entity in scene)
-    let camera_entity = 0;
-    let pos = world::get_position(camera_entity);
+    // Get this entity's position (the controller entity)
+    let pos = world::get_position(entity);
     
-    // Camera movement
-    if input::is_key_held("A") || input::is_key_held("Left") {
-        pos.x -= camera_speed * delta_time;
+    // Movement using properties
+    let speed = properties.camera_speed;
+    
+    if input::is_key_pressed("A") || input::is_key_pressed("Left") {
+        pos.x -= speed * delta_time;
     }
-    if input::is_key_held("D") || input::is_key_held("Right") {
-        pos.x += camera_speed * delta_time;
+    if input::is_key_pressed("D") || input::is_key_pressed("Right") {
+        pos.x += speed * delta_time;
     }
-    if input::is_key_held("W") {
-        pos.z -= camera_speed * delta_time;
+    if input::is_key_pressed("W") {
+        pos.z -= speed * delta_time;
     }
-    if input::is_key_held("S") {
-        pos.z += camera_speed * delta_time;
+    if input::is_key_pressed("S") {
+        pos.z += speed * delta_time;
     }
     
-    world::set_position(camera_entity, pos);
+    world::set_position(entity, pos);
     
-    // Play one-shot sound at camera position
+    // Play one-shot sound at current position
     if input::is_key_pressed("Space") {
-        print("Playing one-shot sound at camera position");
-        play_sound_at("sounds/impact.wav", pos.x, pos.y, pos.z, 0.8);
+        print("Playing one-shot sound at position: " + pos.x + ", " + pos.y + ", " + pos.z);
+        // Note: play_sound_at function would need to be implemented in the audio module
+        // For now, just print the action
     }
     
     // Toggle sound sources
-    if input::is_key_pressed("Key1") && sound1_entity != 0 {
-        // In a real implementation, we would toggle the AudioSource component
-        print("Toggling sound source 1");
+    if input::is_key_pressed("Key1") {
+        print("Toggle sound source 1 - not implemented yet");
     }
     
-    if input::is_key_pressed("Key2") && sound2_entity != 0 {
-        // In a real implementation, we would toggle the AudioSource component
-        print("Toggling sound source 2");
+    if input::is_key_pressed("Key2") {
+        print("Toggle sound source 2 - not implemented yet");
     }
     
     // Volume control
-    if input::is_key_held("Up") {
+    if input::is_key_pressed("Up") {
         // In a real implementation, we would adjust the listener's master volume
         print("Increasing volume");
     }
-    if input::is_key_held("Down") {
+    if input::is_key_pressed("Down") {
         // In a real implementation, we would adjust the listener's master volume
         print("Decreasing volume");
     }
     
     // Test sound occlusion by creating a temporary wall
     if input::is_key_pressed("O") {
-        print("Creating occlusion test wall");
-        let wall = world::spawn_entity();
-        world::set_position(wall, vec3(0.0, 5.0, 0.0));
-        world::set_scale(wall, vec3(5.0, 10.0, 0.5));
-        
-        // Set audio material for occlusion
-        set_audio_material(wall, 0.05, 0.0); // Low absorption, no transmission
+        print("Creating occlusion test wall - not implemented yet");
+        // Note: world::spawn_entity and audio material functions would need to be implemented
     }
 }

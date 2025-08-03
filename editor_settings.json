@@ -1,0 +1,7 @@
+{
+  "audio": {
+    "output_device": "Game (Elgato Wave:XLR)",
+    "master_volume": 1.0
+  },
+  "version": 1
+}

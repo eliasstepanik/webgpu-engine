@@ -554,6 +554,55 @@ impl Scene {
                             error!(error = %e, "Failed to deserialize PhysicsMass");
                         }
                     },
+                    // Audio components
+                    "AudioSource" => {
+                        match serde_json::from_value::<crate::audio::AudioSource>(value.clone()) {
+                            Ok(audio_source) => {
+                                if let Err(e) = world.insert_one(entity, audio_source) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert AudioSource");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize AudioSource");
+                            }
+                        }
+                    }
+                    "AudioListener" => {
+                        match serde_json::from_value::<crate::audio::AudioListener>(value.clone()) {
+                            Ok(audio_listener) => {
+                                if let Err(e) = world.insert_one(entity, audio_listener) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert AudioListener");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize AudioListener");
+                            }
+                        }
+                    }
+                    "AmbientSound" => {
+                        match serde_json::from_value::<crate::audio::AmbientSound>(value.clone()) {
+                            Ok(ambient_sound) => {
+                                if let Err(e) = world.insert_one(entity, ambient_sound) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert AmbientSound");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize AmbientSound");
+                            }
+                        }
+                    }
+                    "AudioMaterial" => {
+                        match serde_json::from_value::<crate::audio::AudioMaterial>(value.clone()) {
+                            Ok(audio_material) => {
+                                if let Err(e) = world.insert_one(entity, audio_material) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert AudioMaterial");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize AudioMaterial");
+                            }
+                        }
+                    }
                     unknown => {
                         warn!(
                             component_type = unknown,
@@ -974,6 +1023,55 @@ impl Scene {
                             error!(error = %e, "Failed to deserialize PhysicsMass");
                         }
                     },
+                    // Audio components
+                    "AudioSource" => {
+                        match serde_json::from_value::<crate::audio::AudioSource>(value.clone()) {
+                            Ok(audio_source) => {
+                                if let Err(e) = world.insert_one(entity, audio_source) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert AudioSource");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize AudioSource");
+                            }
+                        }
+                    }
+                    "AudioListener" => {
+                        match serde_json::from_value::<crate::audio::AudioListener>(value.clone()) {
+                            Ok(audio_listener) => {
+                                if let Err(e) = world.insert_one(entity, audio_listener) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert AudioListener");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize AudioListener");
+                            }
+                        }
+                    }
+                    "AmbientSound" => {
+                        match serde_json::from_value::<crate::audio::AmbientSound>(value.clone()) {
+                            Ok(ambient_sound) => {
+                                if let Err(e) = world.insert_one(entity, ambient_sound) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert AmbientSound");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize AmbientSound");
+                            }
+                        }
+                    }
+                    "AudioMaterial" => {
+                        match serde_json::from_value::<crate::audio::AudioMaterial>(value.clone()) {
+                            Ok(audio_material) => {
+                                if let Err(e) = world.insert_one(entity, audio_material) {
+                                    error!(error = ?e, entity = ?entity, "Failed to insert AudioMaterial");
+                                }
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to deserialize AudioMaterial");
+                            }
+                        }
+                    }
                     unknown => {
                         warn!(
                             component_type = unknown,

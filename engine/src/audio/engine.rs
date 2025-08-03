@@ -1,23 +1,28 @@
-//! Core audio engine using Kira
+//! Core audio engine using Rodio
 
-use kira::{
-    sound::{
-        static_sound::{StaticSoundData, StaticSoundHandle, StaticSoundSettings},
-        Region,
-    },
-    AudioManager, AudioManagerSettings,
-};
+use rodio::{cpal, Decoder, OutputStream, OutputStreamHandle, Sink, Source};
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::{BufReader, Cursor};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tracing::{debug, info};
 
 /// Handle to a playing sound instance
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AudioHandle {
-    inner: Arc<Mutex<Option<StaticSoundHandle>>>,
+    inner: Arc<Mutex<Option<Sink>>>,
     id: u64,
+}
+
+impl std::fmt::Debug for AudioHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AudioHandle")
+            .field("id", &self.id)
+            .field("is_playing", &self.is_playing())
+            .finish()
+    }
 }
 
 // Custom serialization for AudioHandle (just saves the ID)
@@ -45,9 +50,9 @@ impl<'de> serde::Deserialize<'de> for AudioHandle {
 }
 
 impl AudioHandle {
-    fn new(handle: StaticSoundHandle, id: u64) -> Self {
+    fn new(sink: Sink, id: u64) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(Some(handle))),
+            inner: Arc::new(Mutex::new(Some(sink))),
             id,
         }
     }
@@ -55,27 +60,27 @@ impl AudioHandle {
     /// Stop the sound
     pub fn stop(&self, _fade_out: Option<Duration>) {
         if let Ok(mut guard) = self.inner.lock() {
-            if let Some(handle) = guard.as_mut() {
-                // Note: Kira v0.10 doesn't expose tween publicly, so no fade out
-                let _ = handle.stop(Default::default());
+            if let Some(sink) = guard.take() {
+                // Note: Rodio doesn't have built-in fade out, just stop
+                sink.stop();
             }
         }
     }
 
     /// Set the volume
     pub fn set_volume(&self, volume: f32, _tween: Option<()>) {
-        if let Ok(mut guard) = self.inner.lock() {
-            if let Some(handle) = guard.as_mut() {
-                let _ = handle.set_volume(volume, Default::default());
+        if let Ok(guard) = self.inner.lock() {
+            if let Some(sink) = guard.as_ref() {
+                sink.set_volume(volume);
             }
         }
     }
 
     /// Set the playback rate (pitch)
     pub fn set_playback_rate(&self, rate: f32, _tween: Option<()>) {
-        if let Ok(mut guard) = self.inner.lock() {
-            if let Some(handle) = guard.as_mut() {
-                let _ = handle.set_playback_rate(rate as f64, Default::default());
+        if let Ok(guard) = self.inner.lock() {
+            if let Some(sink) = guard.as_ref() {
+                sink.set_speed(rate);
             }
         }
     }
@@ -83,8 +88,10 @@ impl AudioHandle {
     /// Check if the sound is still playing
     pub fn is_playing(&self) -> bool {
         if let Ok(guard) = self.inner.lock() {
-            if let Some(handle) = guard.as_ref() {
-                return handle.state() == kira::sound::PlaybackState::Playing;
+            if let Some(sink) = guard.as_ref() {
+                // Check both if the sink is empty and if it's paused
+                // A sink might not be empty but could be paused
+                return !sink.empty() && !sink.is_paused();
             }
         }
         false
@@ -93,23 +100,30 @@ impl AudioHandle {
 
 /// Core audio engine
 pub struct AudioEngine {
-    manager: AudioManager,
-    loaded_sounds: HashMap<String, StaticSoundData>,
+    // Rodio requires keeping OutputStream alive
+    _stream: OutputStream,
+    stream_handle: OutputStreamHandle,
+
+    // Device management
+    current_device: Option<String>,
+
+    // Sound management (cache decoded audio data)
+    loaded_sounds: HashMap<String, Arc<Vec<u8>>>,
     next_handle_id: u64,
 }
 
 impl AudioEngine {
     /// Create a new audio engine
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        info!("Initializing audio engine");
+        info!("Initializing audio engine with Rodio");
 
-        let settings = AudioManagerSettings::default();
-
-        match AudioManager::new(settings) {
-            Ok(manager) => {
+        match OutputStream::try_default() {
+            Ok((stream, stream_handle)) => {
                 info!("Audio backend initialized successfully");
                 Ok(Self {
-                    manager,
+                    _stream: stream,
+                    stream_handle,
+                    current_device: None,
                     loaded_sounds: HashMap::new(),
                     next_handle_id: 0,
                 })
@@ -139,9 +153,18 @@ impl AudioEngine {
 
         debug!("Loading sound: {}", path_str);
 
-        // Load the sound data
-        let sound_data = StaticSoundData::from_file(path)?;
-        self.loaded_sounds.insert(path_str.clone(), sound_data);
+        // Load the audio file into memory
+        let mut file = File::open(path)?;
+        let mut bytes = Vec::new();
+        use std::io::Read;
+        file.read_to_end(&mut bytes)?;
+        
+        // Verify it's a valid audio file by trying to decode it
+        let cursor = Cursor::new(bytes.clone());
+        let _test_decode = Decoder::new(cursor)?;
+        
+        // Store the original file bytes
+        self.loaded_sounds.insert(path_str.clone(), Arc::new(bytes));
 
         info!("Loaded sound: {}", path_str);
         Ok(())
@@ -169,24 +192,40 @@ impl AudioEngine {
         let sound_data = self
             .loaded_sounds
             .get(path)
-            .ok_or_else(|| format!("Sound not found: {}", path))?;
+            .ok_or_else(|| format!("Sound not found: {}", path))?
+            .clone();
+
+        // Create a new sink for this sound
+        let sink = Sink::try_new(&self.stream_handle)?;
 
         // Configure playback settings
-        let mut settings = StaticSoundSettings::default();
-        settings.volume = volume.into();
-        settings.playback_rate = (pitch as f64).into();
+        sink.set_volume(volume);
+        sink.set_speed(pitch);
+
+        // Create source from cached data
+        // We need to clone the data because Cursor requires ownership
+        let cursor = Cursor::new((*sound_data).clone());
+        let source = Decoder::new(cursor)?;
+
         if looping {
-            settings.loop_region = Some(Region::default());
+            // Play looped
+            sink.append(source.repeat_infinite());
+        } else {
+            // Play once
+            sink.append(source);
         }
 
-        // Play the sound
-        let handle = self.manager.play(sound_data.with_settings(settings))?;
+        // Ensure the sink is playing (it should start automatically, but just in case)
+        sink.play();
 
         let id = self.next_handle_id;
         self.next_handle_id += 1;
 
-        debug!("Playing sound: {} (id: {})", path, id);
-        Ok(AudioHandle::new(handle, id))
+        debug!(
+            "Playing sound: {} (id: {}, volume: {}, looping: {})",
+            path, id, volume, looping
+        );
+        Ok(AudioHandle::new(sink, id))
     }
 
     /// Play a one-shot sound that doesn't need to be tracked
@@ -202,10 +241,12 @@ impl AudioEngine {
 
     /// Set the master volume
     pub fn set_master_volume(&mut self, volume: f32) {
-        // Note: Kira doesn't have a direct master volume control
+        // Note: Rodio doesn't have a direct master volume control
         // This would need to be implemented by tracking all active sounds
-        // or using the mixer tracks feature
-        debug!("Master volume set to: {}", volume);
+        debug!(
+            "Master volume set to: {} (not implemented in rodio backend)",
+            volume
+        );
     }
 
     /// Unload a sound from memory
@@ -225,6 +266,78 @@ impl AudioEngine {
     /// Get the number of loaded sounds
     pub fn loaded_sound_count(&self) -> usize {
         self.loaded_sounds.len()
+    }
+
+    // New device enumeration methods
+
+    /// Enumerate available audio output devices
+    pub fn enumerate_devices() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        use cpal::traits::{DeviceTrait, HostTrait};
+
+        let host = cpal::default_host();
+        let mut devices = Vec::new();
+
+        // Add default device first
+        if let Some(default_device) = host.default_output_device() {
+            if let Ok(name) = default_device.name() {
+                devices.push(format!("{} (Default)", name));
+            }
+        }
+
+        // Add all other devices
+        if let Ok(output_devices) = host.output_devices() {
+            for device in output_devices {
+                if let Ok(name) = device.name() {
+                    // Skip if it's the default device (already added)
+                    if !devices.iter().any(|d| d.starts_with(&name)) {
+                        devices.push(name);
+                    }
+                }
+            }
+        }
+
+        Ok(devices)
+    }
+
+    /// Set the output device by name
+    pub fn set_output_device(
+        &mut self,
+        device_name: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use cpal::traits::{DeviceTrait, HostTrait};
+
+        // Clean device name (remove "(Default)" suffix if present)
+        let clean_name = device_name.trim_end_matches(" (Default)");
+
+        let host = cpal::default_host();
+
+        // Find the device
+        let device = if device_name.contains("(Default)") {
+            // Use default device
+            host.default_output_device()
+                .ok_or("No default output device found")?
+        } else {
+            // Find specific device
+            host.output_devices()?
+                .find(|d| d.name().ok().as_deref() == Some(clean_name))
+                .ok_or_else(|| format!("Device '{}' not found", clean_name))?
+        };
+
+        // Create new stream with the selected device
+        let (stream, stream_handle) = OutputStream::try_from_device(&device)?;
+
+        // Replace the stream (this will stop all currently playing sounds)
+        self._stream = stream;
+        self.stream_handle = stream_handle;
+        self.current_device = Some(device_name.to_string());
+
+        info!("Audio output device changed to: {}", device_name);
+        Ok(())
+    }
+
+    /// Get the current device name
+    pub fn get_current_device(&self) -> Option<String> {
+        self.current_device.clone()
     }
 }
 
