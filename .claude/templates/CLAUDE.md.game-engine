@@ -1,0 +1,265 @@
+# Game Engine Development Guide
+
+This guide defines how AI agents must work within this game engine repository. Follow every **MANDATORY** rule. Deviations fail the task.
+
+---
+
+## 1. **MANDATORY** Core Directives
+
+* **Safety First**: Never touch system files. Operate only inside the project directory.
+* **Analyze, Then Act**: Inspect existing code and docs with `read_file` and `list_directory` before changing anything.
+* **Follow Conventions**: Match the established coding style and architecture. Check `PLANNING.md` first.
+* **Preserve Working Code**: Do not delete or overwrite functional code unless it is provably wrong or obsolete.
+* **Verify Changes**: After each modification run `just preflight` (format, clippy, tests, docs) and fix all failures.
+* **No Root Files**: Never create random files in the project root directory. Place all new files in appropriate directories within the project structure.
+
+---
+
+## 2. **MANDATORY** Testing Protocol
+
+* **Write Unit Tests** for every new system or component.
+    * Happy path
+    * Edge cases (empty meshes, zero vectors, etc.)
+    * Error conditions (invalid assets, shader compilation failures, etc.)
+* **Run Tests** with `cargo test` and ensure green status.
+* **Integration Tests** for render pipeline and game systems.
+* **Performance Tests** for critical paths (rendering, physics, etc.).
+
+---
+
+## 3. Game Engine Architecture
+
+### 3.1. Running the Engine
+
+* `just run` executes the game/example.
+* `just run-editor` launches the editor (if available).
+* `just preflight` runs formatting, linting, tests, and docs.
+* `just build` builds all crates after running preflight.
+* `SCENE=<scene_name> cargo run` to test specific scenes.
+
+### 3.2. Workspace Structure
+
+```
+workspace/
+├── engine/          # Core engine crate
+│   ├── renderer/    # WebGPU rendering
+│   ├── core/        # ECS and core systems
+│   ├── physics/     # Physics integration
+│   └── scripting/   # Script system
+├── editor/          # Optional editor crate
+├── game/           # Example game/demos
+└── tools/          # Build tools and utilities
+```
+
+### 3.3. Adding New Systems
+
+1. Create module in appropriate crate (engine/editor/game).
+2. Define components and systems following ECS pattern.
+3. Register with the engine's system scheduler.
+4. Add appropriate resource management.
+5. Write unit and integration tests.
+6. Document public APIs and usage examples.
+
+---
+
+## 4. Documentation
+
+* All public APIs must have comprehensive doc comments.
+* Include examples in doc comments where appropriate.
+* Document shader inputs/outputs.
+* Explain coordinate systems and conventions.
+* Update architecture docs when adding systems.
+
+### 4.1. .claude Directory Structure
+
+The `.claude/` directory contains AI-specific configuration and resources:
+* `commands/` - Custom slash commands for Claude
+* `documentation/` - Architecture and system documentation
+* `examples/` - Code examples for common patterns
+* `prp/` - Project Review Protocol templates
+* `requests/` - Feature request templates
+* `templates/` - File templates for project structure
+
+---
+
+## 5. Code Style
+
+* Run `cargo fmt` for formatting.
+* Run `cargo clippy -- -D warnings` and resolve all warnings.
+* **Module Structure**: Organize by systems (renderer, physics, audio, etc.).
+* **Error Handling**: Use `Result` types, avoid panics in engine code.
+* **Performance**: Profile before optimizing, document hot paths.
+* **GPU Code**: Follow WebGPU best practices, minimize state changes.
+
+---
+
+## 6. Version Control Workflow (Git)
+
+* Work in feature branches named `feat/<feature-name>`.
+* Rebase on `main` before opening a PR; resolve conflicts locally.
+* Require at least **one** approving review.
+* CI (`just preflight`) must pass before merging.
+* Tag releases with semantic versioning.
+
+---
+
+## 7. Commit Message Conventions
+
+* Format: `<type>: <short summary>`
+  Examples: `feat: add PBR rendering`, `fix: shadow map artifacts`.
+* Use these **types**: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `ci`, `chore`.
+* Add a blank line, then body if needed.
+* Include a `BREAKING CHANGE:` footer when public APIs change.
+* **IMPORTANT**: Never mention Claude, Anthropic, AI, or similar in commit messages
+* **IMPORTANT**: Never create git commits automatically - always let the user create them
+* **MANDATORY**: Never add AI attribution like "Co-Authored-By: Claude" or "Generated with Claude Code" in commits or any files
+* Git author: {{GIT_AUTHOR}} <{{GIT_EMAIL}}>
+* GitHub: {{GITHUB_URL}}
+
+---
+
+## 8. Continuous Integration
+
+* Every PR runs `just preflight`.
+* Performance benchmarks on critical paths.
+* Render tests compare output images.
+* Platform-specific tests (Windows, Linux, macOS, Web).
+* Docs must build (`cargo doc --no-deps --document-private-items`).
+
+---
+
+## 9. Performance & Optimization
+
+* **Profile First**: Use tracy, puffin, or RenderDoc before optimizing.
+* **Batch Rendering**: Minimize draw calls through instancing.
+* **Asset Pipeline**: Optimize assets at build time, not runtime.
+* **Memory Management**: Pool allocations, avoid per-frame allocations.
+* **Parallel Systems**: Use Rayon or async where beneficial.
+* **GPU Optimization**: Minimize state changes and bandwidth usage.
+
+---
+
+## 10. Graphics & Rendering
+
+* **WebGPU Standards**: Follow WebGPU best practices and specifications.
+* **Shader Management**: Organize shaders by pipeline/technique.
+* **Resource Binding**: Use bind groups efficiently.
+* **Render Passes**: Minimize pass count, batch compatible operations.
+* **Debugging**: Implement debug visualization modes.
+
+### 10.1. Shader Guidelines
+
+* Use WGSL for all shaders.
+* Include shader source in comments for complex techniques.
+* Validate shader inputs/outputs at compile time.
+* Document uniform buffer layouts.
+
+---
+
+## 11. Asset Management
+
+* Support common formats (GLTF, OBJ, PNG, etc.).
+* Implement asset hot-reloading for development.
+* Use content-addressed storage for built assets.
+* Compress textures appropriately (BC/ETC/ASTC).
+* Stream large assets when possible.
+
+---
+
+## 12. Engine Systems
+
+### 12.1. Entity Component System (ECS)
+
+* Use sparse storage for components.
+* Systems should be parallelizable by default.
+* Minimize component dependencies.
+* Use queries for efficient iteration.
+* Document component relationships.
+
+### 12.2. Physics Integration
+
+* Abstract physics backend (Rapier, etc.).
+* Synchronize with rendering at fixed timestep.
+* Implement debug visualization.
+* Handle collision layers/masks properly.
+
+### 12.3. Audio System
+
+* Spatial audio with proper attenuation.
+* Support streaming for music/ambience.
+* Implement audio occlusion/reverb zones.
+* Handle multiple listeners if needed.
+
+### 12.4. Scripting System
+
+* Support hot-reload during development.
+* Sandbox scripts for safety.
+* Provide comprehensive API bindings.
+* Document available functions/events.
+
+---
+
+## 13. Platform Considerations
+
+* **Desktop**: Native window management, file I/O.
+* **Web**: WASM build, handle context loss, storage limits.
+* **Mobile**: Touch input, power management, smaller textures.
+* **Console**: Platform-specific optimizations and requirements.
+
+---
+
+## 14. Development Setup
+
+1. Clone the repository
+2. Install Rust (latest stable)
+3. Install platform dependencies (see README)
+4. Run `cargo build` to fetch dependencies
+5. Run `just preflight` to verify setup
+6. Run `just run` to launch example
+
+### 14.1. Required Tools
+
+* Rust (latest stable)
+* Cargo
+* Just (command runner)
+* Git
+* Platform-specific graphics drivers
+
+### 14.2. Recommended Tools
+
+* RenderDoc (GPU debugging)
+* Tracy/Puffin (CPU profiling)
+* rust-analyzer (IDE support)
+* cargo-watch (auto-recompilation)
+
+---
+
+## 15. Debugging & Profiling
+
+### 15.1. Debug Features
+
+* `--features debug-renderer` - Render debug overlays
+* `--features profiling` - Enable profiler integration
+* `RUST_LOG=debug` - Verbose logging
+* `WGPU_BACKEND=<backend>` - Force graphics backend
+
+### 15.2. Common Issues
+
+* **Black screen**: Check shader compilation, render pass setup
+* **Performance**: Profile GPU and CPU separately
+* **Asset loading**: Verify paths and formats
+* **Crashes**: Check for unwraps in engine code
+
+---
+
+## Notes
+
+* This is a game engine project focused on performance and flexibility
+* WebGPU is the primary graphics API
+* Follow graphics programming best practices
+* Consider mobile and web platforms early
+* Keep examples and documentation up to date
+
+---
+
+Adhere strictly to this guide. Maintain high performance, ensure cross-platform compatibility, and deliver a robust game engine.

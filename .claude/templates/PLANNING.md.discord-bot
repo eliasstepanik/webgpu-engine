@@ -1,0 +1,200 @@
+# Discord Bot Project Plan
+
+This outline explains the Discord bot structure and the rules that keep the codebase consistent.
+
+---
+
+## 1. Purpose
+
+{{PROJECT_DESCRIPTION}}
+
+---
+
+## 2. High-Level Goals
+
+* **Reliability** – Stable Discord connection with automatic reconnection
+* **Scalability** – Handle multiple guilds and high message volumes
+* **Modularity** – Clear separation between commands, events, and core logic
+* **User Experience** – Fast response times and helpful error messages
+* **Maintainability** – Clean, documented, tested code
+
+---
+
+## 3. Core Architecture
+
+### 3.1. Technology Stack
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Language | Rust | Performance and safety |
+| Discord Library | {{DISCORD_LIB}} | Discord API integration |
+| Async Runtime | Tokio | Asynchronous operations |
+| Database | {{DATABASE}} | Persistent storage |
+| Logging | Tracing | Structured logging |
+
+### 3.2. Module Structure
+
+| Module | Responsibility |
+|--------|----------------|
+| `main` | Entry point, bot initialization |
+| `commands` | Slash command handlers |
+| `events` | Discord event processors |
+| `database` | Data persistence layer |
+| `config` | Configuration management |
+| `utils` | Shared utilities |
+| `models` | Data structures |
+
+---
+
+## 4. Bot Features
+
+### 4.1. Core Features
+{{CORE_FEATURES}}
+
+### 4.2. Command Categories
+{{COMMAND_CATEGORIES}}
+
+### 4.3. Event Handlers
+- Message events
+- Member join/leave
+- Reaction events
+- Voice state updates
+- Guild events
+
+---
+
+## 5. Project Structure
+
+```
+{{PROJECT_TREE}}
+```
+
+---
+
+## 6. Build System
+
+Uses **Just** (`justfile`) for task automation:
+
+| Command | Action |
+|---------|--------|
+| `just run` | Start the Discord bot |
+| `just preflight` | Format, lint, test, and docs |
+| `just build` | Build after preflight |
+| `just test` | Run all tests |
+| `just fmt` | Format code |
+| `just clippy` | Run linter |
+| `just doc` | Generate documentation |
+
+### 6.1. Environment Setup
+
+Required environment variables in `.env`:
+```
+DISCORD_TOKEN=your_bot_token_here
+DATABASE_URL=your_database_url_here
+RUST_LOG=info
+```
+
+---
+
+## 7. Development Workflow
+
+### 7.1. Adding a New Command
+
+1. Create module in `src/commands/`
+2. Implement command handler
+3. Register in command framework
+4. Add tests
+5. Update help documentation
+
+### 7.2. Adding an Event Handler
+
+1. Create handler in `src/events/`
+2. Register in event dispatcher
+3. Add appropriate logging
+4. Test with mock events
+
+### 7.3. Database Changes
+
+1. Create migration in `migrations/`
+2. Update models in `src/models/`
+3. Run migration tests
+4. Document schema changes
+
+---
+
+## 8. Testing Strategy
+
+### 8.1. Unit Tests
+- Command logic
+- Utility functions
+- Data validation
+
+### 8.2. Integration Tests
+- Database operations
+- Discord API mocking
+- End-to-end command flow
+
+### 8.3. Manual Testing
+- Test bot in development server
+- Verify permissions
+- Check rate limiting
+
+---
+
+## 9. Deployment
+
+### 9.1. Local Development
+```bash
+cp .env.example .env
+# Edit .env with your tokens
+just run
+```
+
+### 9.2. Production
+{{DEPLOYMENT_NOTES}}
+
+---
+
+## 10. Performance Considerations
+
+- Cache frequently accessed data
+- Implement command cooldowns
+- Use database connection pooling
+- Monitor memory usage
+- Profile hot paths
+
+---
+
+## 11. Security
+
+- Never commit tokens or secrets
+- Validate all user inputs
+- Use proper permission checks
+- Rate limit commands
+- Audit dependencies regularly
+
+---
+
+## 12. Future Enhancements
+
+{{FUTURE_FEATURES}}
+
+---
+
+## 13. Monitoring
+
+- Application logs via tracing
+- Discord audit logs
+- Performance metrics
+- Error tracking
+- Uptime monitoring
+
+---
+
+## Notes
+
+- Follow Discord's Terms of Service
+- Respect rate limits
+- Handle errors gracefully
+- Keep UX in mind
+- Document everything

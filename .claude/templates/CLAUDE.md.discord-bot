@@ -1,0 +1,273 @@
+# Discord Bot Development Guide
+
+This guide defines how AI agents must work within this Discord bot repository. Follow every **MANDATORY** rule. Deviations fail the task.
+
+---
+
+## 1. **MANDATORY** Core Directives
+
+* **Safety First**: Never touch system files. Operate only inside the project directory.
+* **Analyze, Then Act**: Inspect existing code and docs with `read_file` and `list_directory` before changing anything.
+* **Follow Conventions**: Match the established coding style and architecture. Check `PLANNING.md` first.
+* **Preserve Working Code**: Do not delete or overwrite functional code unless it is provably wrong or obsolete.
+* **Verify Changes**: After each modification run `just preflight` (format, clippy, tests, docs) and fix all failures.
+* **No Root Files**: Never create random files in the project root directory. Place all new files in appropriate directories within the project structure.
+
+---
+
+## 2. **MANDATORY** Testing Protocol
+
+* **Write Unit Tests** for every new function or feature.
+    * Happy path
+    * Edge cases (empty, zero, etc.)
+    * Error conditions (invalid inputs, missing data, etc.)
+* **Run Tests** with `cargo test` and ensure green status.
+* **Integration Tests** for Discord API interactions using mocks.
+
+---
+
+## 3. Discord Bot Project Structure
+
+### 3.1. Running the Bot
+
+* `just run` executes the Discord bot.
+* `just preflight` runs formatting, linting, tests, and docs.
+* `just build` builds the project after running preflight.
+* Set `DISCORD_TOKEN` environment variable before running.
+
+### 3.2. Project Organization
+
+```
+src/
+├── main.rs           # Entry point and bot initialization
+├── commands/         # Slash command handlers
+├── events/           # Event handlers (messages, reactions, etc.)
+├── utils/            # Utility functions and helpers
+├── config/           # Configuration management
+└── models/           # Data structures and types
+```
+
+### 3.3. Adding New Commands
+
+1. Create a new module in `src/commands/`.
+2. Implement command handler with proper signatures.
+3. Register command in bot initialization.
+4. Add command to help system.
+5. Write tests for command logic.
+6. Document command usage and parameters.
+
+---
+
+## 4. Documentation
+
+* All public functions must have doc comments.
+* Command handlers must document:
+  - Purpose and behavior
+  - Required permissions
+  - Parameter descriptions
+  - Example usage
+* Update README.md when adding features.
+
+### 4.1. .claude Directory Structure
+
+The `.claude/` directory contains AI-specific configuration and resources:
+* `commands/` - Custom slash commands for Claude
+* `documentation/` - Project-specific documentation and references
+* `examples/` - Code examples and snippets for common patterns
+* `prp/` - Project Review Protocol templates and completed reviews
+* `requests/` - Request templates for common tasks
+* `templates/` - File templates for project structure
+
+---
+
+## 5. Code Style
+
+* Run `cargo fmt` for formatting.
+* Run `cargo clippy -- -D warnings` and resolve all warnings.
+* **Module Structure**: Organize code into logical modules (commands, events, config, utils).
+* **Error Handling**: Use `Result` types and proper error propagation.
+* **Async Code**: Use `tokio` for async runtime, follow async best practices.
+
+---
+
+## 6. Version‑Control Workflow (Git)
+
+* Work in feature branches named `feat/<feature-name>`.
+* Rebase on `main` before opening a PR; resolve conflicts locally.
+* Require at least **one** approving review.
+* CI (`just preflight`) must pass before merging.
+
+---
+
+## 7. Commit Message Conventions
+
+* Format: `<type>: <short summary>`
+  Examples: `feat: add help command`, `fix: handle rate limits`.
+* Use these **types**: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `ci`, `chore`.
+* Add a blank line, then body if needed.
+* Include a `BREAKING CHANGE:` footer when public APIs change.
+* **IMPORTANT**: Never mention Claude, Anthropic, AI, or similar in commit messages
+* **IMPORTANT**: Never create git commits automatically - always let the user create them
+* **MANDATORY**: Never add AI attribution like "Co-Authored-By: Claude" or "Generated with Claude Code" in commits or any files
+* Git author: {{GIT_AUTHOR}} <{{GIT_EMAIL}}>
+* GitHub: {{GITHUB_URL}}
+
+---
+
+## 8. Continuous Integration
+
+* Every PR runs `just preflight`.
+* Fail fast: any red step blocks merge.
+* Docs must build (`cargo doc --no-deps --document-private-items`).
+* All tests must pass in CI environment.
+
+---
+
+## 9. Security & Privacy
+
+* **NEVER** commit bot tokens or secrets.
+* Store Discord bot token in `.env` file.
+* Add `.env` to `.gitignore`.
+* Use `dotenv` crate to load environment variables.
+* Validate all user inputs to prevent injection attacks.
+* Follow Discord's API guidelines and rate limits.
+* Implement proper permission checks for commands.
+
+---
+
+## 10. Logging & Observability
+
+* **MANDATORY**: Use the `tracing` ecosystem for all logging - NO `println!` or `eprintln!` statements.
+* **Import Pattern**: `use tracing::{debug, error, info, warn, trace};`
+* **Log Levels**:
+  - `error!()` - Critical errors that may cause bot failure
+  - `warn!()` - Warnings about potentially problematic situations  
+  - `info!()` - General information about bot operations (default level)
+  - `debug!()` - Detailed debugging information
+  - `trace!()` - Very verbose tracing
+* **Module Filtering**: Users control via `RUST_LOG="warn,discord_bot=debug" cargo run`
+* **Field Syntax**: 
+  - Simple: `info!("Bot started");`
+  - With data: `debug!(guild_id = ?id, "Processing guild");`
+  - Error context: `error!(error = %e, "Failed to send message");`
+
+---
+
+## 11. Dependency Management
+
+* Prefer crates with active maintenance (≥ 1 release/year, issues triaged).
+* Pin versions in `Cargo.toml`.
+* Run `cargo update -p <crate>` only after tests pass.
+* Core dependencies:
+  - Discord library: `serenity` or `twilight`
+  - Async runtime: `tokio`
+  - Environment: `dotenv`
+  - Logging: `tracing` + `tracing-subscriber`
+  - Error handling: `anyhow` or `thiserror`
+  - Serialization: `serde` + `serde_json`
+
+---
+
+## 12. Discord Bot Specific Guidelines
+
+### 12.1. Bot Token Management
+
+* Store bot token in `.env` file as `DISCORD_TOKEN`
+* Add `.env` to `.gitignore`
+* Use `dotenv` crate to load environment variables
+* Never log or print the bot token
+* Check token validity on startup
+
+### 12.2. Command Structure
+
+* Use slash commands for primary interactions
+* Implement proper command permissions
+* Add command descriptions and parameter hints
+* Handle command errors gracefully
+* Provide helpful error messages to users
+* Implement command cooldowns where appropriate
+
+### 12.3. Event Handling
+
+* Use separate handlers for different event types
+* Implement rate limit handling with exponential backoff
+* Add reconnection logic for disconnects
+* Log all significant bot events
+* Handle partial outages gracefully
+* Cache frequently accessed data
+
+### 12.4. API Best Practices
+
+* Respect Discord rate limits
+* Use gateway intents to minimize data transfer
+* Batch API requests where possible
+* Handle API errors with proper retries
+* Monitor API usage and quotas
+* Implement circuit breakers for failing services
+
+---
+
+## 13. Code Review Checklist
+
+* [ ] Tests cover new functionality
+* [ ] No panics on error paths; use `Result`
+* [ ] Documentation and examples compile (`cargo test --doc`)
+* [ ] Environment variables documented in `.env.example`
+* [ ] No hardcoded IDs or configuration values
+* [ ] Commands have proper permission checks
+* [ ] Error messages are user-friendly
+* [ ] Logging added for debugging
+
+---
+
+## 14. Development Setup
+
+1. Clone the repository
+2. Copy `.env.example` to `.env`
+3. Add your Discord bot token to `.env`
+4. Run `cargo build` to fetch dependencies
+5. Run `just preflight` to verify setup
+6. Run `just run` to start the bot
+
+### 14.1. Required Tools
+
+* Rust (latest stable)
+* Cargo
+* Just (command runner)
+* Git
+
+### 14.2. Recommended Tools
+
+* rust-analyzer (IDE support)
+* cargo-watch (auto-recompilation)
+* Discord Developer Portal access
+
+---
+
+## 15. Troubleshooting
+
+### Common Issues
+
+* **Bot not responding**: Check token validity and permissions
+* **Commands not showing**: Ensure proper registration and guild sync
+* **Rate limited**: Implement exponential backoff
+* **Connection drops**: Add reconnection logic
+
+### Debug Commands
+
+* `RUST_LOG=debug cargo run` - Enable debug logging
+* `cargo test -- --nocapture` - Show test output
+* `just check` - Run all checks without building
+
+---
+
+## Notes
+
+* This is a Discord bot project using Rust
+* Follow Discord's Terms of Service and Developer Policy
+* Keep the bot's functionality focused and user-friendly
+* Regularly update dependencies for security patches
+
+---
+
+Adhere strictly to this guide. Keep code secure, follow Discord's ToS, and maintain project integrity.

@@ -1,0 +1,171 @@
+# Project Development Guide
+
+This guide defines how AI agents must work within this repository. Follow every **MANDATORY** rule. Deviations fail the task.
+
+---
+
+## 1. **MANDATORY** Core Directives
+
+* **Safety First**: Never touch system files. Operate only inside the project directory.
+* **Analyze, Then Act**: Inspect existing code and docs with `read_file` and `list_directory` before changing anything.
+* **Follow Conventions**: Match the established coding style and architecture. Check `PLANNING.md` first.
+* **Preserve Working Code**: Do not delete or overwrite functional code unless it is provably wrong or obsolete.
+* **Verify Changes**: After each modification run tests and linting to ensure code quality.
+* **No Root Files**: Never create random files in the project root directory. Place all new files in appropriate directories within the project structure.
+
+---
+
+## 2. **MANDATORY** Testing Protocol
+
+* **Write Tests** for every new function or feature.
+    * Happy path scenarios
+    * Edge cases
+    * Error conditions
+* **Run Tests** and ensure all pass before considering work complete.
+* **Document** test coverage and any testing limitations.
+
+---
+
+## 3. Project Structure
+
+### 3.1. Running the Project
+
+{{BUILD_COMMANDS}}
+
+### 3.2. Directory Layout
+
+```
+{{PROJECT_STRUCTURE}}
+```
+
+### 3.3. Development Workflow
+
+1. Understand requirements fully before implementing
+2. Plan the implementation approach
+3. Write tests first when appropriate
+4. Implement the solution
+5. Verify all tests pass
+6. Document the changes
+
+---
+
+## 4. Documentation
+
+* All public APIs must have documentation.
+* Include examples where helpful.
+* Keep README.md up to date.
+* Document any non-obvious design decisions.
+
+### 4.1. .claude Directory Structure
+
+The `.claude/` directory contains AI-specific configuration and resources:
+* `commands/` - Custom slash commands for Claude
+* `documentation/` - Project-specific documentation
+* `examples/` - Code examples and patterns
+* `prp/` - Project Review Protocol templates
+* `requests/` - Feature request templates
+* `templates/` - File templates
+
+---
+
+## 5. Code Style
+
+{{CODE_STYLE_RULES}}
+
+---
+
+## 6. Version Control Workflow (Git)
+
+* Work in feature branches.
+* Write clear commit messages.
+* Keep commits focused and atomic.
+* Rebase before merging when appropriate.
+
+---
+
+## 7. Commit Message Conventions
+
+* Format: `<type>: <short summary>`
+  Examples: `feat: add new feature`, `fix: resolve bug`.
+* Use these **types**: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `ci`, `chore`.
+* Add a blank line, then body if needed.
+* **IMPORTANT**: Never mention Claude, Anthropic, AI, or similar in commit messages
+* **IMPORTANT**: Never create git commits automatically - always let the user create them
+* **MANDATORY**: Never add AI attribution like "Co-Authored-By: Claude" or "Generated with Claude Code" in commits or any files
+* Git author: {{GIT_AUTHOR}} <{{GIT_EMAIL}}>
+* GitHub: {{GITHUB_URL}}
+
+---
+
+## 8. Build and CI
+
+{{CI_CONFIGURATION}}
+
+---
+
+## 9. Dependencies
+
+{{DEPENDENCY_MANAGEMENT}}
+
+---
+
+## 10. Security Considerations
+
+* Never commit secrets or credentials
+* Use environment variables for configuration
+* Validate all inputs
+* Keep dependencies updated
+* Follow security best practices for the language/framework
+
+---
+
+## 11. Performance
+
+* Profile before optimizing
+* Document performance-critical code
+* Consider scalability in design
+* Monitor resource usage
+
+---
+
+## 12. Error Handling
+
+{{ERROR_HANDLING_PRACTICES}}
+
+---
+
+## 13. Development Setup
+
+{{SETUP_INSTRUCTIONS}}
+
+---
+
+## 14. Troubleshooting
+
+### Common Issues
+
+{{COMMON_ISSUES}}
+
+### Debug Commands
+
+{{DEBUG_COMMANDS}}
+
+---
+
+## 15. Contributing
+
+* Follow the style guide
+* Write tests
+* Update documentation
+* Submit focused PRs
+* Respond to feedback
+
+---
+
+## Notes
+
+{{PROJECT_SPECIFIC_NOTES}}
+
+---
+
+Adhere strictly to this guide. Maintain code quality, ensure reliability, and deliver value.

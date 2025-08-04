@@ -1,0 +1,261 @@
+# Game Engine Project Plan
+
+This document outlines the architecture and development guidelines for the game engine project.
+
+---
+
+## 1. Purpose
+
+{{PROJECT_DESCRIPTION}}
+
+---
+
+## 2. High-Level Goals
+
+* **Performance** – 60+ FPS on target hardware with complex scenes
+* **Flexibility** – Support various game genres and rendering styles
+* **Developer Experience** – Fast iteration, good tooling, clear APIs
+* **Cross-Platform** – Desktop, Web (WASM), and mobile support
+* **Modularity** – Optional features, pluggable systems
+
+---
+
+## 3. Core Architecture
+
+### 3.1. Technology Stack
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Language | Rust | Performance and memory safety |
+| Graphics | WebGPU/wgpu | Modern, cross-platform graphics |
+| ECS | {{ECS_LIB}} | Entity component system |
+| Physics | {{PHYSICS_LIB}} | Physics simulation |
+| Audio | {{AUDIO_LIB}} | Audio playback and spatialization |
+| Scripting | {{SCRIPT_LIB}} | Game logic scripting |
+
+### 3.2. Crate Structure
+
+| Crate | Type | Responsibility |
+|-------|------|----------------|
+| `engine` | lib | Core engine systems and renderer |
+| `editor` | bin | Visual editor application |
+| `game` | bin | Example game/tech demos |
+| `tools` | bin | Asset pipeline and utilities |
+
+---
+
+## 4. Engine Systems
+
+### 4.1. Core Systems
+
+- **Renderer**: WebGPU-based, forward+ or deferred
+- **ECS**: Entity Component System for game objects
+- **Physics**: 2D/3D physics with collision detection
+- **Audio**: Spatial audio with effects
+- **Input**: Unified input handling across platforms
+- **Asset**: Loading, caching, and hot-reload
+- **Scripting**: Safe scripting for game logic
+
+### 4.2. Rendering Features
+
+{{RENDERING_FEATURES}}
+
+### 4.3. Editor Features
+
+- Scene editing
+- Asset browser
+- Component inspector
+- Performance profiler
+- Shader editor
+- Play-in-editor
+
+---
+
+## 5. Project Structure
+
+```
+{{PROJECT_TREE}}
+```
+
+---
+
+## 6. Build System
+
+Uses **Just** (`justfile`) for task automation:
+
+| Command | Action |
+|---------|--------|
+| `just run` | Run the game example |
+| `just run-editor` | Launch the editor |
+| `just preflight` | Format, lint, test, docs |
+| `just build` | Build all crates |
+| `just build-web` | Build for WASM |
+| `just test` | Run all tests |
+| `just bench` | Run benchmarks |
+| `just profile` | Run with profiler |
+
+### 6.1. Feature Flags
+
+| Flag | Description |
+|------|-------------|
+| `editor` | Include editor functionality |
+| `profiling` | Enable profiler integration |
+| `debug-renderer` | Debug visualization |
+| `scripting` | Enable scripting system |
+
+---
+
+## 7. Development Workflow
+
+### 7.1. Adding a New System
+
+1. Design system architecture
+2. Create module in `engine/src/`
+3. Define components and resources
+4. Implement system logic
+5. Add to system scheduler
+6. Write tests and benchmarks
+7. Document public APIs
+
+### 7.2. Shader Development
+
+1. Write WGSL shader in `assets/shaders/`
+2. Define pipeline in renderer
+3. Create material definition
+4. Test with example scene
+5. Add shader hot-reload support
+
+### 7.3. Asset Pipeline
+
+1. Place source assets in `assets-src/`
+2. Configure processing in `tools/`
+3. Generate optimized assets
+4. Test loading and rendering
+5. Update asset manifest
+
+---
+
+## 8. Performance Guidelines
+
+### 8.1. CPU Performance
+
+- Use ECS for cache-friendly iteration
+- Parallelize systems where possible
+- Minimize allocations in hot paths
+- Profile before optimizing
+
+### 8.2. GPU Performance
+
+- Batch draw calls via instancing
+- Use GPU-driven rendering where applicable
+- Optimize shader complexity
+- Minimize state changes
+- Use async compute when beneficial
+
+### 8.3. Memory Management
+
+- Pool frequently allocated objects
+- Use arena allocators for frame data
+- Compress assets appropriately
+- Stream large assets
+
+---
+
+## 9. Testing Strategy
+
+### 9.1. Unit Tests
+
+- Core math and utilities
+- ECS functionality
+- Asset loading
+- System logic
+
+### 9.2. Integration Tests
+
+- Render pipeline
+- Physics simulation
+- Audio playback
+- Full frame execution
+
+### 9.3. Visual Tests
+
+- Render output comparison
+- Screenshot regression tests
+- Performance benchmarks
+
+---
+
+## 10. Platform Support
+
+### 10.1. Desktop (Windows/Linux/macOS)
+
+- Native window management
+- Full feature set
+- Development primary target
+
+### 10.2. Web (WASM)
+
+- WebGPU or WebGL2 fallback
+- Reduced asset sizes
+- Browser storage limits
+- Handle context loss
+
+### 10.3. Mobile (iOS/Android)
+
+- Touch input
+- Reduced graphics settings
+- Power management
+- Smaller textures
+
+---
+
+## 11. Release Process
+
+1. Version bump in Cargo.toml
+2. Update CHANGELOG
+3. Run full test suite
+4. Build for all platforms
+5. Tag release
+6. Publish crates
+7. Update documentation
+
+---
+
+## 12. Future Roadmap
+
+{{FUTURE_FEATURES}}
+
+---
+
+## 13. Architecture Decisions
+
+### 13.1. Why WebGPU?
+
+- Modern API design
+- Cross-platform support
+- Better than OpenGL
+- Future-proof
+
+### 13.2. Why ECS?
+
+- Performance through data locality
+- Flexible composition
+- Parallelizable by design
+- Clear separation of concerns
+
+### 13.3. Why Rust?
+
+- Memory safety without GC
+- Excellent performance
+- Great ecosystem
+- Strong type system
+
+---
+
+## Notes
+
+- Prioritize developer experience
+- Keep examples up to date
+- Document performance characteristics
+- Maintain platform compatibility
+- Regular dependency updates
