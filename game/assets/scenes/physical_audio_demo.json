@@ -1,0 +1,722 @@
+{
+  "entities": [
+    {
+      "components": {
+        "Transform": {
+          "position": [
+            0.0,
+            10.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "GlobalTransform": {
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            10.0,
+            0.0,
+            1.0
+          ]
+        }
+      }
+    },
+    {
+      "components": {
+        "Material": {
+          "color": [
+            0.30000001192092896,
+            0.30000001192092896,
+            0.30000001192092896,
+            1.0
+          ]
+        },
+        "MeshId": "cube",
+        "Transform": {
+          "position": [
+            0.0,
+            -0.5,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            50.0,
+            1.0,
+            50.0
+          ]
+        },
+        "GlobalTransform": {
+          "matrix": [
+            50.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            50.0,
+            0.0,
+            0.0,
+            -0.5,
+            0.0,
+            1.0
+          ]
+        }
+      }
+    },
+    {
+      "components": {
+        "Material": {
+          "color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshId": "cube",
+        "Transform": {
+          "position": [
+            0.0,
+            8.0,
+            15.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "Name": "Move around to hear how different materials block sound differently",
+        "GlobalTransform": {
+          "matrix": [
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.5,
+            0.0,
+            0.0,
+            8.0,
+            15.0,
+            1.0
+          ]
+        }
+      }
+    },
+    {
+      "components": {
+        "MeshId": "cube",
+        "Transform": {
+          "position": [
+            0.0,
+            3.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            15.0,
+            6.0,
+            1.0
+          ]
+        },
+        "GlobalTransform": {
+          "matrix": [
+            15.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            6.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            3.0,
+            0.0,
+            1.0
+          ]
+        },
+        "Material": {
+          "color": [
+            0.5,
+            0.4000000059604645,
+            0.30000001192092896,
+            1.0
+          ]
+        },
+        "Name": "Thick Concrete Wall"
+      }
+    },
+    {
+      "components": {
+        "Material": {
+          "color": [
+            0.699999988079071,
+            0.6000000238418579,
+            0.5,
+            1.0
+          ]
+        },
+        "MeshId": "cube",
+        "Name": "Thin Wooden Wall",
+        "Transform": {
+          "position": [
+            -10.0,
+            3.0,
+            -8.0
+          ],
+          "rotation": [
+            0.0,
+            0.7070000171661377,
+            0.0,
+            0.7070000171661377
+          ],
+          "scale": [
+            10.0,
+            6.0,
+            0.20000000298023224
+          ]
+        },
+        "GlobalTransform": {
+          "matrix": [
+            0.003019571304321289,
+            0.0,
+            -9.996980667114258,
+            0.0,
+            0.0,
+            6.0,
+            0.0,
+            0.0,
+            0.19993960857391357,
+            0.0,
+            0.00006039142681402154,
+            0.0,
+            -10.0,
+            3.0,
+            -8.0,
+            1.0
+          ]
+        }
+      }
+    },
+    {
+      "components": {
+        "GlobalTransform": {
+          "matrix": [
+            0.0024156570434570312,
+            0.0,
+            -7.997584342956543,
+            0.0,
+            0.0,
+            6.0,
+            0.0,
+            0.0,
+            0.09996980428695679,
+            0.0,
+            0.00003019571340701077,
+            0.0,
+            10.0,
+            3.0,
+            -8.0,
+            1.0
+          ]
+        },
+        "MeshId": "cube",
+        "Name": "Glass Panel",
+        "Material": {
+          "color": [
+            0.6000000238418579,
+            0.800000011920929,
+            0.8999999761581421,
+            0.5
+          ]
+        },
+        "Transform": {
+          "position": [
+            10.0,
+            3.0,
+            -8.0
+          ],
+          "rotation": [
+            0.0,
+            0.7070000171661377,
+            0.0,
+            0.7070000171661377
+          ],
+          "scale": [
+            8.0,
+            6.0,
+            0.10000000149011612
+          ]
+        }
+      }
+    },
+    {
+      "components": {
+        "GlobalTransform": {
+          "matrix": [
+            2.119865894317627,
+            0.0,
+            -2.12335205078125,
+            0.0,
+            0.0,
+            4.0,
+            0.0,
+            0.0,
+            2.12335205078125,
+            0.0,
+            2.119865894317627,
+            0.0,
+            5.0,
+            2.0,
+            5.0,
+            1.0
+          ]
+        },
+        "Transform": {
+          "position": [
+            5.0,
+            2.0,
+            5.0
+          ],
+          "rotation": [
+            0.0,
+            0.382999986410141,
+            0.0,
+            0.9240000247955322
+          ],
+          "scale": [
+            3.0,
+            4.0,
+            3.0
+          ]
+        },
+        "Material": {
+          "color": [
+            0.699999988079071,
+            0.699999988079071,
+            0.800000011920929,
+            1.0
+          ]
+        },
+        "MeshId": "cube",
+        "Name": "Metal Box"
+      }
+    },
+    {
+      "components": {
+        "Transform": {
+          "position": [
+            -5.0,
+            3.0,
+            5.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            4.0,
+            6.0,
+            0.5
+          ]
+        },
+        "GlobalTransform": {
+          "matrix": [
+            4.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            6.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.5,
+            0.0,
+            -5.0,
+            3.0,
+            5.0,
+            1.0
+          ]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [
+            0.20000000298023224,
+            0.20000000298023224,
+            0.20000000298023224,
+            1.0
+          ]
+        },
+        "Name": "Acoustic Foam"
+      }
+    },
+    {
+      "components": {
+        "Transform": {
+          "position": [
+            0.0,
+            2.0,
+            -10.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Material": {
+          "color": [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "GlobalTransform": {
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            2.0,
+            -10.0,
+            1.0
+          ]
+        },
+        "MeshId": "sphere",
+        "Name": "Sound Behind Thick Wall",
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
+          "volume": 1.0,
+          "pitch": 1.0,
+          "looping": true,
+          "spatial": true,
+          "auto_play": true,
+          "max_distance": 50.0,
+          "rolloff_factor": 1.0
+        }
+      }
+    },
+    {
+      "components": {
+        "Name": "Sound Behind Thin Wall",
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
+          "volume": 1.0,
+          "pitch": 1.2,
+          "looping": true,
+          "spatial": true,
+          "auto_play": true,
+          "max_distance": 50.0,
+          "rolloff_factor": 1.0
+        },
+        "GlobalTransform": {
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            -15.0,
+            2.0,
+            -8.0,
+            1.0
+          ]
+        },
+        "Transform": {
+          "position": [
+            -15.0,
+            2.0,
+            -8.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshId": "sphere",
+        "Material": {
+          "color": [
+            0.0,
+            1.0,
+            0.0,
+            1.0
+          ]
+        }
+      }
+    },
+    {
+      "components": {
+        "Material": {
+          "color": [
+            0.0,
+            0.0,
+            1.0,
+            1.0
+          ]
+        },
+        "GlobalTransform": {
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            15.0,
+            2.0,
+            -8.0,
+            1.0
+          ]
+        },
+        "Transform": {
+          "position": [
+            15.0,
+            2.0,
+            -8.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshId": "sphere",
+        "Name": "Sound Behind Glass",
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
+          "volume": 1.0,
+          "pitch": 0.8,
+          "looping": true,
+          "spatial": true,
+          "auto_play": true,
+          "max_distance": 50.0,
+          "rolloff_factor": 1.0
+        }
+      }
+    },
+    {
+      "components": {
+        "Transform": {
+          "position": [
+            0.0,
+            2.0,
+            10.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "GlobalTransform": {
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            2.0,
+            10.0,
+            1.0
+          ]
+        },
+        "Material": {
+          "color": [
+            1.0,
+            1.0,
+            0.0,
+            1.0
+          ]
+        },
+        "Name": "Sound in Open Space",
+        "MeshId": "sphere",
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
+          "volume": 1.0,
+          "pitch": 1.5,
+          "looping": true,
+          "spatial": true,
+          "auto_play": true,
+          "max_distance": 50.0,
+          "rolloff_factor": 1.0
+        }
+      }
+    },
+    {
+      "components": {
+        "GlobalTransform": {
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.8999999761581421,
+            1.809999942779541,
+            -0.9200000166893005,
+            1.0
+          ]
+        },
+        "Transform": {
+          "position": [
+            0.8999999761581421,
+            1.809999942779541,
+            -0.9200000166893005
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Camera": {
+          "aspect_ratio": 1.7777777910232544,
+          "fov_y_radians": 1.0471975803375244,
+          "projection_mode": "Perspective",
+          "use_logarithmic_depth": true,
+          "z_far": 1000.0,
+          "z_near": 0.10000000149011612
+        },
+        "AudioListener": {
+          "active": true,
+          "master_volume": 1.0
+        },
+        "ScriptRef": {
+          "name": "fly_camera"
+        },
+        "CameraWorldPosition": {
+          "position": [
+            0.8999999761581421,
+            1.809999942779541,
+            -0.9200000166893005
+          ]
+        },
+        "Name": "New Entity"
+      }
+    }
+  ]
+}

@@ -136,7 +136,7 @@ impl EditorState {
 
         // Enable docking
         imgui_context.io_mut().config_flags |= imgui::ConfigFlags::DOCKING_ENABLE;
-        
+
         // Remove gray tint from modal popups by making the overlay transparent
         let style = imgui_context.style_mut();
         style[imgui::StyleColor::ModalWindowDimBg] = [0.0, 0.0, 0.0, 0.0];

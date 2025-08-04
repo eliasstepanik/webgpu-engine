@@ -4,9 +4,22 @@
       "components": {
         "Name": "Main Camera",
         "Transform": {
-          "position": [0.0, 5.0, 20.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            0.0,
+            5.0,
+            20.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "Camera": {
           "fov_y_radians": 1.047,
@@ -17,7 +30,11 @@
           "use_logarithmic_depth": true
         },
         "CameraWorldPosition": {
-          "position": [0.0, 5.0, 20.0]
+          "position": [
+            0.0,
+            5.0,
+            20.0
+          ]
         },
         "ScriptRef": {
           "name": "fly_camera"
@@ -28,10 +45,22 @@
         },
         "GlobalTransform": {
           "matrix": [
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 5.0, 20.0, 1.0
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            5.0,
+            20.0,
+            1.0
           ]
         },
         "AudioListener": {
@@ -44,20 +73,50 @@
       "components": {
         "Name": "Dragon",
         "Transform": {
-          "position": [0.0, 0.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "MeshId": "game/assets/models/xyzrgb_dragon.obj",
         "Material": {
-          "color": [0.8, 0.8, 0.8, 1.0]
+          "color": [
+            0.8,
+            0.8,
+            0.8,
+            1.0
+          ]
         },
         "GlobalTransform": {
           "matrix": [
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
           ]
         },
         "AudioMaterial": {
@@ -71,20 +130,50 @@
       "components": {
         "Name": "Sound Source Left",
         "Transform": {
-          "position": [-8.0, 2.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.5, 0.5, 0.5]
+          "position": [
+            -8.0,
+            2.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.5,
+            0.5,
+            0.5
+          ]
         },
         "MeshId": "game/assets/models/suzanne.obj",
         "Material": {
-          "color": [1.0, 0.5, 0.0, 1.0]
+          "color": [
+            1.0,
+            0.5,
+            0.0,
+            1.0
+          ]
         },
         "GlobalTransform": {
           "matrix": [
-            0.5, 0.0, 0.0, 0.0,
-            0.0, 0.5, 0.0, 0.0,
-            0.0, 0.0, 0.5, 0.0,
-            -8.0, 2.0, 0.0, 1.0
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.5,
+            0.0,
+            -8.0,
+            2.0,
+            0.0,
+            1.0
           ]
         },
         "AudioSource": {
@@ -103,20 +192,50 @@
       "components": {
         "Name": "Sound Source Right",
         "Transform": {
-          "position": [8.0, 2.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.5, 0.5, 0.5]
+          "position": [
+            8.0,
+            2.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.5,
+            0.5,
+            0.5
+          ]
         },
         "MeshId": "game/assets/models/suzanne.obj",
         "Material": {
-          "color": [0.0, 1.0, 0.5, 1.0]
+          "color": [
+            0.0,
+            1.0,
+            0.5,
+            1.0
+          ]
         },
         "GlobalTransform": {
           "matrix": [
-            0.5, 0.0, 0.0, 0.0,
-            0.0, 0.5, 0.0, 0.0,
-            0.0, 0.0, 0.5, 0.0,
-            8.0, 2.0, 0.0, 1.0
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.5,
+            0.0,
+            8.0,
+            2.0,
+            0.0,
+            1.0
           ]
         },
         "AudioSource": {
@@ -135,20 +254,50 @@
       "components": {
         "Name": "Moving Sound",
         "Transform": {
-          "position": [0.0, 3.0, -5.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.3, 0.3, 0.3]
+          "position": [
+            0.0,
+            3.0,
+            -5.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.3,
+            0.3,
+            0.3
+          ]
         },
         "MeshId": "game/assets/models/suzanne.obj",
         "Material": {
-          "color": [0.5, 0.5, 1.0, 1.0]
+          "color": [
+            0.5,
+            0.5,
+            1.0,
+            1.0
+          ]
         },
         "GlobalTransform": {
           "matrix": [
-            0.3, 0.0, 0.0, 0.0,
-            0.0, 0.3, 0.0, 0.0,
-            0.0, 0.0, 0.3, 0.0,
-            0.0, 3.0, -5.0, 1.0
+            0.3,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.3,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.3,
+            0.0,
+            0.0,
+            3.0,
+            -5.0,
+            1.0
           ]
         },
         "AudioSource": {

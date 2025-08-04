@@ -3,12 +3,30 @@
     {
       "components": {
         "Transform": {
-          "position": [-3.0, 0.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            -3.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "Material": {
-          "color": [1.0, 1.0, 1.0, 1.0]
+          "color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "MeshRenderer": {
           "mesh": "Cube"
@@ -21,10 +39,20 @@
         },
         "ScriptProperties": {
           "base_color": {
-            "Color": [1.0, 1.0, 1.0, 1.0]
+            "Color": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ]
           },
           "pulse_color": {
-            "Color": [1.0, 0.0, 0.0, 1.0]
+            "Color": [
+              1.0,
+              0.0,
+              0.0,
+              1.0
+            ]
           },
           "pulse_speed": {
             "Float": 2.0
@@ -38,12 +66,30 @@
     {
       "components": {
         "Transform": {
-          "position": [0.0, 0.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "Material": {
-          "color": [1.0, 1.0, 1.0, 1.0]
+          "color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "MeshRenderer": {
           "mesh": "Cube"
@@ -65,7 +111,12 @@
             "String": "y"
           },
           "tint_color": {
-            "Color": [0.0, 1.0, 0.0, 1.0]
+            "Color": [
+              0.0,
+              1.0,
+              0.0,
+              1.0
+            ]
           }
         }
       }
@@ -73,12 +124,30 @@
     {
       "components": {
         "Transform": {
-          "position": [3.0, 0.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            3.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "Material": {
-          "color": [1.0, 1.0, 1.0, 1.0]
+          "color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "MeshRenderer": {
           "mesh": "Cube"

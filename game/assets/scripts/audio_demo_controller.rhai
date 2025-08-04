@@ -34,10 +34,10 @@ fn on_update(delta_time) {
         pos.x += speed * delta_time;
     }
     if input::is_key_pressed("W") {
-        pos.z -= speed * delta_time;
+        pos.z += speed * delta_time;
     }
     if input::is_key_pressed("S") {
-        pos.z += speed * delta_time;
+        pos.z -= speed * delta_time;
     }
     
     world::set_position(entity, pos);

@@ -4,9 +4,22 @@
     {
       "name": "Main Camera",
       "transform": {
-        "position": [0.0, 5.0, 10.0],
-        "rotation": [-0.3, 0.0, 0.0, 0.95],
-        "scale": [1.0, 1.0, 1.0]
+        "position": [
+          0.0,
+          5.0,
+          10.0
+        ],
+        "rotation": [
+          -0.3,
+          0.0,
+          0.0,
+          0.95
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
       },
       "components": {
         "Camera": {
@@ -21,9 +34,22 @@
     {
       "name": "Mesh Generator",
       "transform": {
-        "position": [0.0, 1.0, 0.0],
-        "rotation": [0.0, 0.0, 0.0, 1.0],
-        "scale": [1.0, 1.0, 1.0]
+        "position": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
       },
       "components": {
         "ScriptRef": {
@@ -38,9 +64,22 @@
     {
       "name": "Dynamic Wave Mesh",
       "transform": {
-        "position": [-8.0, 0.0, 0.0],
-        "rotation": [0.0, 0.0, 0.0, 1.0],
-        "scale": [1.0, 1.0, 1.0]
+        "position": [
+          -8.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
       },
       "components": {
         "ScriptRef": {
@@ -56,9 +95,22 @@
     {
       "name": "Pyramid Generator",
       "transform": {
-        "position": [8.0, 1.0, 0.0],
-        "rotation": [0.0, 0.0, 0.0, 1.0],
-        "scale": [1.0, 1.0, 1.0]
+        "position": [
+          8.0,
+          1.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
       },
       "components": {
         "ScriptRef": {
@@ -66,7 +118,12 @@
         },
         "ScriptProperties": {
           "size": 3.0,
-          "mesh_color": [1.0, 0.5, 0.0, 1.0],
+          "mesh_color": [
+            1.0,
+            0.5,
+            0.0,
+            1.0
+          ],
           "segments": 16
         }
       }

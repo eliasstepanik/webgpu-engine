@@ -5,13 +5,31 @@
       "components": {
         "Name": "Test Entity",
         "Transform": {
-          "position": [0.0, 0.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [1.0, 0.0, 0.0, 1.0]
+          "color": [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ]
         }
       }
     }

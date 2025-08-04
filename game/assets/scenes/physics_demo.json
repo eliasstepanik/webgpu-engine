@@ -3,9 +3,22 @@
     {
       "components": {
         "Transform": {
-          "position": [0.0, 5.0, -10.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            0.0,
+            5.0,
+            -10.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "Camera": {
           "fov_y_radians": 0.785398,
@@ -21,13 +34,31 @@
     {
       "components": {
         "Transform": {
-          "position": [0.0, -5.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [20.0, 0.5, 20.0]
+          "position": [
+            0.0,
+            -5.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            20.0,
+            0.5,
+            20.0
+          ]
         },
         "MeshId": "Cube",
         "Material": {
-          "color": [0.3, 0.5, 0.3, 1.0]
+          "color": [
+            0.3,
+            0.5,
+            0.3,
+            1.0
+          ]
         },
         "RigidBody": {
           "body_type": "Fixed",
@@ -36,7 +67,11 @@
         },
         "Collider": {
           "shape": {
-            "Cuboid": [20.0, 0.5, 20.0]
+            "Cuboid": [
+              20.0,
+              0.5,
+              20.0
+            ]
           },
           "friction": 0.8,
           "restitution": 0.0,
@@ -49,13 +84,31 @@
     {
       "components": {
         "Transform": {
-          "position": [-2.0, 5.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            -2.0,
+            5.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "MeshId": "Cube",
         "Material": {
-          "color": [0.8, 0.2, 0.2, 1.0]
+          "color": [
+            0.8,
+            0.2,
+            0.2,
+            1.0
+          ]
         },
         "RigidBody": {
           "body_type": "Dynamic",
@@ -64,7 +117,11 @@
         },
         "Collider": {
           "shape": {
-            "Cuboid": [0.5, 0.5, 0.5]
+            "Cuboid": [
+              0.5,
+              0.5,
+              0.5
+            ]
           },
           "friction": 0.5,
           "restitution": 0.2,
@@ -72,8 +129,16 @@
           "is_sensor": false
         },
         "PhysicsVelocity": {
-          "linear": [0.0, 0.0, 0.0],
-          "angular": [0.0, 0.0, 0.0]
+          "linear": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "angular": [
+            0.0,
+            0.0,
+            0.0
+          ]
         },
         "Name": "Dynamic Cube 1"
       }
@@ -81,13 +146,31 @@
     {
       "components": {
         "Transform": {
-          "position": [0.0, 7.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            0.0,
+            7.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "MeshId": "Sphere",
         "Material": {
-          "color": [0.2, 0.2, 0.8, 1.0]
+          "color": [
+            0.2,
+            0.2,
+            0.8,
+            1.0
+          ]
         },
         "RigidBody": {
           "body_type": "Dynamic",
@@ -104,8 +187,16 @@
           "is_sensor": false
         },
         "PhysicsVelocity": {
-          "linear": [0.0, 0.0, 0.0],
-          "angular": [0.0, 0.0, 0.0]
+          "linear": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "angular": [
+            0.0,
+            0.0,
+            0.0
+          ]
         },
         "Name": "Dynamic Sphere"
       }
@@ -113,13 +204,31 @@
     {
       "components": {
         "Transform": {
-          "position": [2.0, 6.0, 0.0],
-          "rotation": [0.0, 0.0, 0.383, 0.924],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            2.0,
+            6.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.383,
+            0.924
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "MeshId": "Cube",
         "Material": {
-          "color": [0.8, 0.8, 0.2, 1.0]
+          "color": [
+            0.8,
+            0.8,
+            0.2,
+            1.0
+          ]
         },
         "RigidBody": {
           "body_type": "Dynamic",
@@ -128,7 +237,11 @@
         },
         "Collider": {
           "shape": {
-            "Cuboid": [0.5, 0.5, 0.5]
+            "Cuboid": [
+              0.5,
+              0.5,
+              0.5
+            ]
           },
           "friction": 0.4,
           "restitution": 0.3,
@@ -136,8 +249,16 @@
           "is_sensor": false
         },
         "PhysicsVelocity": {
-          "linear": [0.0, 0.0, 0.0],
-          "angular": [0.1, 0.2, 0.0]
+          "linear": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "angular": [
+            0.1,
+            0.2,
+            0.0
+          ]
         },
         "Name": "Dynamic Cube 2"
       }
@@ -145,13 +266,31 @@
     {
       "components": {
         "Transform": {
-          "position": [0.0, 10.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            0.0,
+            10.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "MeshId": "Cube",
         "Material": {
-          "color": [0.6, 0.2, 0.8, 1.0]
+          "color": [
+            0.6,
+            0.2,
+            0.8,
+            1.0
+          ]
         },
         "RigidBody": {
           "body_type": "Dynamic",
@@ -160,7 +299,11 @@
         },
         "Collider": {
           "shape": {
-            "Cuboid": [0.5, 0.5, 0.5]
+            "Cuboid": [
+              0.5,
+              0.5,
+              0.5
+            ]
           },
           "friction": 0.5,
           "restitution": 0.1,
@@ -176,13 +319,31 @@
     {
       "components": {
         "Transform": {
-          "position": [-5.0, 0.0, 5.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 3.0, 1.0]
+          "position": [
+            -5.0,
+            0.0,
+            5.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            3.0,
+            1.0
+          ]
         },
         "MeshId": "Cube",
         "Material": {
-          "color": [0.5, 0.5, 0.5, 1.0]
+          "color": [
+            0.5,
+            0.5,
+            0.5,
+            1.0
+          ]
         },
         "RigidBody": {
           "body_type": "Fixed",
@@ -191,7 +352,11 @@
         },
         "Collider": {
           "shape": {
-            "Cuboid": [0.5, 1.5, 0.5]
+            "Cuboid": [
+              0.5,
+              1.5,
+              0.5
+            ]
           },
           "friction": 0.8,
           "restitution": 0.0,
