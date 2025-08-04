@@ -3,8 +3,7 @@ Cargo.lock
 .idea
 .envrc
 # .claude directory - exclude sensitive files only
-.claude/settings.local.json
-.claude/backups/
+.claude/
 .run
 .mcp.json
 CLAUDE.md
