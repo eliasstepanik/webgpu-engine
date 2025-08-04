@@ -5,9 +5,22 @@
       "components": {
         "Name": "Player Camera",
         "Transform": {
-          "position": [0.0, 1.8, 10.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            0.0,
+            1.8,
+            10.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "Camera": {
           "fov_y_radians": 1.047,
@@ -18,7 +31,11 @@
           "use_logarithmic_depth": true
         },
         "CameraWorldPosition": {
-          "position": [0.0, 1.8, 10.0]
+          "position": [
+            0.0,
+            1.8,
+            10.0
+          ]
         },
         "AudioListener": {
           "active": true,
@@ -37,9 +54,22 @@
       "components": {
         "Name": "Controller",
         "Transform": {
-          "position": [0.0, 0.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "ScriptRef": {
           "name": "audio_propagation_controller"
@@ -54,13 +84,31 @@
       "components": {
         "Name": "Floor",
         "Transform": {
-          "position": [0.0, 0.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [30.0, 0.1, 20.0]
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            30.0,
+            0.1,
+            20.0
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [0.2, 0.2, 0.2, 1.0]
+          "color": [
+            0.2,
+            0.2,
+            0.2,
+            1.0
+          ]
         },
         "AudioMaterial": {
           "absorption": 0.05,
@@ -73,13 +121,31 @@
       "components": {
         "Name": "Ceiling",
         "Transform": {
-          "position": [0.0, 3.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [30.0, 0.1, 20.0]
+          "position": [
+            0.0,
+            3.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            30.0,
+            0.1,
+            20.0
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [0.25, 0.25, 0.25, 1.0]
+          "color": [
+            0.25,
+            0.25,
+            0.25,
+            1.0
+          ]
         },
         "AudioMaterial": {
           "absorption": 0.3,
@@ -92,13 +158,31 @@
       "components": {
         "Name": "Small Room - Back Wall",
         "Transform": {
-          "position": [-10.0, 1.5, -8.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [6.0, 3.0, 0.2]
+          "position": [
+            -10.0,
+            1.5,
+            -8.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            6.0,
+            3.0,
+            0.2
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [0.7, 0.5, 0.4, 1.0]
+          "color": [
+            0.7,
+            0.5,
+            0.4,
+            1.0
+          ]
         },
         "AudioMaterial": {
           "absorption": 0.4,
@@ -111,13 +195,31 @@
       "components": {
         "Name": "Small Room - Front Wall Left",
         "Transform": {
-          "position": [-12.0, 1.5, -4.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [2.0, 3.0, 0.2]
+          "position": [
+            -12.0,
+            1.5,
+            -4.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            2.0,
+            3.0,
+            0.2
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [0.7, 0.5, 0.4, 1.0]
+          "color": [
+            0.7,
+            0.5,
+            0.4,
+            1.0
+          ]
         },
         "AudioMaterial": {
           "absorption": 0.4,
@@ -130,13 +232,31 @@
       "components": {
         "Name": "Small Room - Front Wall Right",
         "Transform": {
-          "position": [-8.0, 1.5, -4.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [2.0, 3.0, 0.2]
+          "position": [
+            -8.0,
+            1.5,
+            -4.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            2.0,
+            3.0,
+            0.2
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [0.7, 0.5, 0.4, 1.0]
+          "color": [
+            0.7,
+            0.5,
+            0.4,
+            1.0
+          ]
         },
         "AudioMaterial": {
           "absorption": 0.4,
@@ -149,13 +269,31 @@
       "components": {
         "Name": "Small Room - Left Wall",
         "Transform": {
-          "position": [-13.0, 1.5, -6.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.2, 3.0, 4.0]
+          "position": [
+            -13.0,
+            1.5,
+            -6.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.2,
+            3.0,
+            4.0
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [0.7, 0.5, 0.4, 1.0]
+          "color": [
+            0.7,
+            0.5,
+            0.4,
+            1.0
+          ]
         },
         "AudioMaterial": {
           "absorption": 0.4,
@@ -168,13 +306,31 @@
       "components": {
         "Name": "Small Room - Right Wall",
         "Transform": {
-          "position": [-7.0, 1.5, -6.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.2, 3.0, 4.0]
+          "position": [
+            -7.0,
+            1.5,
+            -6.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.2,
+            3.0,
+            4.0
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [0.7, 0.5, 0.4, 1.0]
+          "color": [
+            0.7,
+            0.5,
+            0.4,
+            1.0
+          ]
         },
         "AudioMaterial": {
           "absorption": 0.4,
@@ -187,13 +343,31 @@
       "components": {
         "Name": "Large Hall - Back Wall",
         "Transform": {
-          "position": [8.0, 1.5, -8.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [12.0, 3.0, 0.2]
+          "position": [
+            8.0,
+            1.5,
+            -8.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            12.0,
+            3.0,
+            0.2
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [0.4, 0.5, 0.6, 1.0]
+          "color": [
+            0.4,
+            0.5,
+            0.6,
+            1.0
+          ]
         },
         "AudioMaterial": {
           "absorption": 0.1,
@@ -206,13 +380,31 @@
       "components": {
         "Name": "Large Hall - Front Wall",
         "Transform": {
-          "position": [8.0, 1.5, 2.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [12.0, 3.0, 0.2]
+          "position": [
+            8.0,
+            1.5,
+            2.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            12.0,
+            3.0,
+            0.2
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [0.4, 0.5, 0.6, 1.0]
+          "color": [
+            0.4,
+            0.5,
+            0.6,
+            1.0
+          ]
         },
         "AudioMaterial": {
           "absorption": 0.1,
@@ -225,13 +417,31 @@
       "components": {
         "Name": "Large Hall - Left Wall",
         "Transform": {
-          "position": [2.0, 1.5, -3.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.2, 3.0, 10.0]
+          "position": [
+            2.0,
+            1.5,
+            -3.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.2,
+            3.0,
+            10.0
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [0.4, 0.5, 0.6, 1.0]
+          "color": [
+            0.4,
+            0.5,
+            0.6,
+            1.0
+          ]
         },
         "AudioMaterial": {
           "absorption": 0.1,
@@ -244,13 +454,31 @@
       "components": {
         "Name": "Large Hall - Right Wall",
         "Transform": {
-          "position": [14.0, 1.5, -3.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.2, 3.0, 10.0]
+          "position": [
+            14.0,
+            1.5,
+            -3.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.2,
+            3.0,
+            10.0
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [0.4, 0.5, 0.6, 1.0]
+          "color": [
+            0.4,
+            0.5,
+            0.6,
+            1.0
+          ]
         },
         "AudioMaterial": {
           "absorption": 0.1,
@@ -263,13 +491,31 @@
       "components": {
         "Name": "Hallway - Left Wall",
         "Transform": {
-          "position": [-3.5, 1.5, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.2, 3.0, 8.0]
+          "position": [
+            -3.5,
+            1.5,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.2,
+            3.0,
+            8.0
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [0.5, 0.5, 0.5, 1.0]
+          "color": [
+            0.5,
+            0.5,
+            0.5,
+            1.0
+          ]
         },
         "AudioMaterial": {
           "absorption": 0.2,
@@ -282,13 +528,31 @@
       "components": {
         "Name": "Hallway - Right Wall",
         "Transform": {
-          "position": [-0.5, 1.5, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.2, 3.0, 8.0]
+          "position": [
+            -0.5,
+            1.5,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.2,
+            3.0,
+            8.0
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [0.5, 0.5, 0.5, 1.0]
+          "color": [
+            0.5,
+            0.5,
+            0.5,
+            1.0
+          ]
         },
         "AudioMaterial": {
           "absorption": 0.2,
@@ -301,13 +565,31 @@
       "components": {
         "Name": "Small Room Sound",
         "Transform": {
-          "position": [-10.0, 1.5, -6.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.3, 0.3, 0.3]
+          "position": [
+            -10.0,
+            1.5,
+            -6.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.3,
+            0.3,
+            0.3
+          ]
         },
         "MeshId": "game/assets/models/suzanne.obj",
         "Material": {
-          "color": [1.0, 0.3, 0.3, 1.0]
+          "color": [
+            1.0,
+            0.3,
+            0.3,
+            1.0
+          ]
         },
         "AudioSource": {
           "sound_path": "game/assets/sounds/ambient_hum.mp3",
@@ -325,13 +607,31 @@
       "components": {
         "Name": "Large Hall Sound",
         "Transform": {
-          "position": [8.0, 1.5, -3.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.3, 0.3, 0.3]
+          "position": [
+            8.0,
+            1.5,
+            -3.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.3,
+            0.3,
+            0.3
+          ]
         },
         "MeshId": "game/assets/models/suzanne.obj",
         "Material": {
-          "color": [0.3, 0.3, 1.0, 1.0]
+          "color": [
+            0.3,
+            0.3,
+            1.0,
+            1.0
+          ]
         },
         "AudioSource": {
           "sound_path": "game/assets/sounds/ambient_hum.mp3",
@@ -349,13 +649,31 @@
       "components": {
         "Name": "Hallway Sound",
         "Transform": {
-          "position": [-2.0, 1.5, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.3, 0.3, 0.3]
+          "position": [
+            -2.0,
+            1.5,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.3,
+            0.3,
+            0.3
+          ]
         },
         "MeshId": "game/assets/models/suzanne.obj",
         "Material": {
-          "color": [0.3, 1.0, 0.3, 1.0]
+          "color": [
+            0.3,
+            1.0,
+            0.3,
+            1.0
+          ]
         },
         "AudioSource": {
           "sound_path": "game/assets/sounds/ambient_hum.mp3",
@@ -373,13 +691,31 @@
       "components": {
         "Name": "Small Room Light",
         "Transform": {
-          "position": [-10.0, 2.8, -6.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.5, 0.1, 0.5]
+          "position": [
+            -10.0,
+            2.8,
+            -6.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.5,
+            0.1,
+            0.5
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [1.0, 1.0, 0.8, 1.0]
+          "color": [
+            1.0,
+            1.0,
+            0.8,
+            1.0
+          ]
         }
       }
     },
@@ -387,13 +723,31 @@
       "components": {
         "Name": "Large Hall Light 1",
         "Transform": {
-          "position": [5.0, 2.8, -3.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.5, 0.1, 0.5]
+          "position": [
+            5.0,
+            2.8,
+            -3.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.5,
+            0.1,
+            0.5
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [1.0, 1.0, 0.8, 1.0]
+          "color": [
+            1.0,
+            1.0,
+            0.8,
+            1.0
+          ]
         }
       }
     },
@@ -401,13 +755,31 @@
       "components": {
         "Name": "Large Hall Light 2",
         "Transform": {
-          "position": [11.0, 2.8, -3.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.5, 0.1, 0.5]
+          "position": [
+            11.0,
+            2.8,
+            -3.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.5,
+            0.1,
+            0.5
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [1.0, 1.0, 0.8, 1.0]
+          "color": [
+            1.0,
+            1.0,
+            0.8,
+            1.0
+          ]
         }
       }
     },
@@ -415,13 +787,31 @@
       "components": {
         "Name": "Hallway Light",
         "Transform": {
-          "position": [-2.0, 2.8, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [0.3, 0.1, 0.3]
+          "position": [
+            -2.0,
+            2.8,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.3,
+            0.1,
+            0.3
+          ]
         },
         "MeshId": "cube",
         "Material": {
-          "color": [1.0, 1.0, 0.8, 1.0]
+          "color": [
+            1.0,
+            1.0,
+            0.8,
+            1.0
+          ]
         }
       }
     }

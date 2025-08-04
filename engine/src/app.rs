@@ -18,7 +18,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 use winit::{
     application::ApplicationHandler,
-    event::{StartCause, WindowEvent},
+    event::{DeviceEvent, DeviceId, StartCause, WindowEvent},
     event_loop::ActiveEventLoop,
     window::{WindowAttributes, WindowId},
 };
@@ -484,6 +484,28 @@ impl ApplicationHandler for EngineApp {
             }
             WindowEvent::MouseInput { button, state, .. } => {
                 self.input_state.handle_mouse_button(button, state);
+
+                // Lock cursor when right mouse button is pressed
+                if matches!(button, winit::event::MouseButton::Right) {
+                    use winit::window::CursorGrabMode;
+                    match state {
+                        winit::event::ElementState::Pressed => {
+                            // Try to lock cursor
+                            let _ = window_data
+                                .window
+                                .set_cursor_grab(CursorGrabMode::Locked)
+                                .or_else(|_| {
+                                    window_data.window.set_cursor_grab(CursorGrabMode::Confined)
+                                });
+                            window_data.window.set_cursor_visible(false);
+                        }
+                        winit::event::ElementState::Released => {
+                            // Release cursor
+                            let _ = window_data.window.set_cursor_grab(CursorGrabMode::None);
+                            window_data.window.set_cursor_visible(true);
+                        }
+                    }
+                }
             }
             WindowEvent::MouseWheel { .. } => {
                 // Mouse wheel events can be handled here if needed
@@ -511,6 +533,21 @@ impl ApplicationHandler for EngineApp {
                     window_data.window.request_redraw();
                 }
             }
+        }
+    }
+
+    fn device_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        _device_id: DeviceId,
+        event: DeviceEvent,
+    ) {
+        profile_zone!("EngineApp::device_event");
+
+        if let DeviceEvent::MouseMotion { delta } = event {
+            // Handle raw mouse motion for FPS-style camera control
+            self.input_state
+                .add_mouse_delta(delta.0 as f32, delta.1 as f32);
         }
     }
 }

@@ -33,7 +33,7 @@ fn on_update(delta_time) {
     // Apply movement in local space
     if move_x != 0.0 || move_y != 0.0 || move_z != 0.0 {
         // Transform to local space and apply
-        let forward = transform.rotate_vector(Vec3::create(0.0, 0.0, -1.0));
+        let forward = transform.rotate_vector(Vec3::create(0.0, 0.0, 1.0));
         let right = transform.rotate_vector(Vec3::create(1.0, 0.0, 0.0));
         let up = Vec3::create(0.0, 1.0, 0.0); // Keep world up
         

@@ -4,8 +4,8 @@ use crate::audio::{
     components::{AmbientSound, AudioSource},
     engine::AudioEngine,
     listener::{find_active_listener, VelocityTracker},
-    propagation::calculate_occlusion,
-    source::{apply_spatial_params, SpatialParams},
+    physical_occlusion::{apply_occlusion_to_audio, calculate_physical_occlusion, OcclusionConfig},
+    source::{apply_spatial_params, calculate_panning, SpatialParams},
 };
 use crate::core::entity::{Transform, World};
 use std::collections::HashMap;
@@ -94,11 +94,11 @@ fn process_audio_sources(
 
     // Second pass: process each entity
     for entity in entities_to_process {
-        // Get component data
-        let (sound_path, volume, pitch, looping, auto_play, is_playing, has_sound) = {
-            if let Ok(mut query) = world.query_one::<(&AudioSource, &Transform)>(entity) {
-                if let Some((source, _transform)) = query.get() {
-                    let data = (
+        // Get audio source data first
+        let source_data = {
+            if let Ok(mut query) = world.query_one::<&AudioSource>(entity) {
+                if let Some(source) = query.get() {
+                    Some((
                         source.sound_path.clone(),
                         source.volume,
                         source.pitch,
@@ -106,32 +106,44 @@ fn process_audio_sources(
                         source.auto_play,
                         source.is_playing,
                         source.sound.is_some(),
-                    );
-                    trace!(
-                        entity = ?entity,
-                        sound_path = %source.sound_path,
-                        auto_play = source.auto_play,
-                        is_playing = source.is_playing,
-                        has_sound = source.sound.is_some(),
-                        "Processing audio source"
-                    );
-                    data
+                        source.spatial,
+                        source.max_distance,
+                        source.rolloff_factor,
+                    ))
                 } else {
-                    continue;
+                    None
                 }
             } else {
-                continue;
+                None
             }
+        };
+
+        let Some((
+            sound_path,
+            volume,
+            pitch,
+            looping,
+            auto_play,
+            is_playing,
+            has_sound,
+            spatial,
+            max_distance,
+            rolloff_factor,
+        )) = source_data
+        else {
+            continue;
         };
 
         // Debug why sounds might not be playing
         if !sound_path.is_empty() {
-            trace!(
+            debug!(
                 entity = ?entity,
+                sound_path = %sound_path,
                 auto_play = auto_play,
                 is_playing = is_playing,
                 has_sound = has_sound,
                 looping = looping,
+                spatial = spatial,
                 "Audio source state check"
             );
         }
@@ -143,11 +155,33 @@ fn process_audio_sources(
                 sound_path = %sound_path,
                 "Attempting to auto-play sound"
             );
+
+            // Calculate initial pan for spatial sounds
+            let initial_pan = if spatial {
+                if let Ok(mut query) = world.query_one::<&Transform>(entity) {
+                    if let Some(transform) = query.get() {
+                        calculate_panning(
+                            transform.position,
+                            listener_state.position,
+                            listener_state.forward,
+                            listener_state.right,
+                        )
+                    } else {
+                        0.0
+                    }
+                } else {
+                    0.0
+                }
+            } else {
+                0.0 // Center pan for non-spatial sounds
+            };
+
             match audio_engine.play_with_settings(
                 &sound_path,
                 volume * listener_state.master_volume,
                 pitch,
                 looping,
+                initial_pan,
             ) {
                 Ok(handle) => {
                     // Update the audio source with the handle
@@ -177,21 +211,23 @@ fn process_audio_sources(
                     );
 
                     // Always update spatial parameters for active handles
-                    if source.spatial {
-                        // Calculate occlusion
-                        let occlusion = calculate_occlusion(
+                    if spatial {
+                        // Use physical occlusion for more realistic sound
+                        let occlusion_config = OcclusionConfig::default();
+                        let occlusion_result = calculate_physical_occlusion(
                             listener_state.position,
                             transform.position,
                             world,
                             entity,
+                            &occlusion_config,
                         );
 
                         // Apply spatial parameters
                         let spatial_params = SpatialParams {
                             position: transform.position,
                             velocity: glam::Vec3::ZERO, // TODO: Track source velocity
-                            max_distance: source.max_distance,
-                            rolloff_factor: source.rolloff_factor,
+                            max_distance,
+                            rolloff_factor,
                         };
 
                         apply_spatial_params(
@@ -201,15 +237,24 @@ fn process_audio_sources(
                             listener_state.forward,
                             listener_state.right,
                             listener_state.velocity,
-                            occlusion,
+                            occlusion_result.occlusion,
                         );
+
+                        // Apply frequency-dependent occlusion if available
+                        if occlusion_result.occlusion > 0.01 {
+                            apply_occlusion_to_audio(
+                                handle,
+                                &occlusion_result,
+                                volume * listener_state.master_volume,
+                            );
+                        }
                     } else {
                         // Non-spatial sound - just apply volume
-                        handle.set_volume(source.volume * listener_state.master_volume, None);
+                        handle.set_volume(volume * listener_state.master_volume, None);
                     }
 
                     // Only clear the handle if looping is false and sound has stopped
-                    if !source.looping && !is_handle_playing {
+                    if !looping && !is_handle_playing {
                         // Sound finished playing, update the source
                         debug!(entity = ?entity, "Non-looping sound finished, clearing handle");
                         if let Ok(mut query) = world.query_one::<&mut AudioSource>(entity) {
@@ -270,6 +315,7 @@ fn process_ambient_sounds(
                 0.0, // Start at zero volume for fade in
                 1.0,
                 ambient.looping,
+                0.0, // Center pan for ambient sounds
             ) {
                 Ok(handle) => {
                     // Set volume (fade-in would need to be implemented manually if needed)

@@ -19,28 +19,30 @@ use std::time::Duration;
 fn main() {
     println!("=== Audio System Test ===");
     println!("Testing basic audio playback with rodio...\n");
-    
+
     // Get a output stream handle to the default physical sound device
     match OutputStream::try_default() {
         Ok((_stream, stream_handle)) => {
             println!("✓ Successfully connected to audio device");
-            
+
             // Try to load the MP3 file
             println!("Loading audio file: game/assets/sounds/ambient_hum.mp3");
             match File::open("game/assets/sounds/ambient_hum.mp3") {
                 Ok(file) => {
                     let file = BufReader::new(file);
-                    
+
                     // Decode that sound file into a source
                     match Decoder::new(file) {
                         Ok(source) => {
                             println!("✓ Successfully decoded MP3 file");
-                            
+
                             // Play the sound directly on the device
                             match stream_handle.play_raw(source.convert_samples()) {
                                 Ok(_) => {
                                     println!("✓ Audio playback started");
-                                    println!("\n♪ Playing for 5 seconds... (you should hear sound now)");
+                                    println!(
+                                        "\n♪ Playing for 5 seconds... (you should hear sound now)"
+                                    );
                                     std::thread::sleep(Duration::from_secs(5));
                                     println!("\n✓ Test completed successfully!");
                                 }
@@ -53,7 +55,7 @@ fn main() {
                 Err(e) => {
                     println!("✗ Failed to open audio file: {}", e);
                     println!("\nTrying WAV file instead...");
-                    
+
                     // Try WAV file as fallback
                     match File::open("game/assets/sounds/ambient_hum.wav") {
                         Ok(file) => {
@@ -86,7 +88,7 @@ fn main() {
             println!("- Audio drivers not properly installed");
         }
     }
-    
+
     println!("\nPress Enter to exit...");
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).ok();

@@ -6,9 +6,22 @@
           "0": "Main Camera"
         },
         "Transform": {
-          "position": [0.0, 2.0, 5.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            0.0,
+            2.0,
+            5.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "Camera": {
           "fov_y_radians": 0.785398,
@@ -25,15 +38,33 @@
           "0": "Test Cube"
         },
         "Transform": {
-          "position": [0.0, 0.0, 0.0],
-          "rotation": [0.0, 0.0, 0.0, 1.0],
-          "scale": [1.0, 1.0, 1.0]
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
         },
         "MeshId": {
           "0": "cube"
         },
         "Material": {
-          "color": [1.0, 0.0, 0.0, 1.0]
+          "color": [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ]
         },
         "ScriptRef": {
           "name": "rotating_cube_simple"

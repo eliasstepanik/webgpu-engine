@@ -1,0 +1,67 @@
+{
+  "entities": [
+    {
+      "components": {
+        "Transform": {
+          "position": [0.0, 5.0, 10.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Camera": {
+          "aspect_ratio": 1.7777777910232544,
+          "fov_y_radians": 1.0471975803375244,
+          "projection_mode": "Perspective",
+          "use_logarithmic_depth": true,
+          "z_far": 1000.0,
+          "z_near": 0.1
+        },
+        "AudioListener": {
+          "active": true,
+          "master_volume": 1.0
+        },
+        "ScriptRef": {
+          "name": "fly_camera"
+        },
+        "Name": "Camera with Listener"
+      }
+    },
+    {
+      "components": {
+        "Transform": {
+          "position": [5.0, 2.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "MeshId": "sphere",
+        "Material": {
+          "color": [1.0, 0.0, 0.0, 1.0]
+        },
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
+          "volume": 1.0,
+          "pitch": 1.0,
+          "looping": true,
+          "spatial": true,
+          "auto_play": true,
+          "max_distance": 50.0,
+          "rolloff_factor": 1.0
+        },
+        "Name": "Test Sound Source (Right Side)"
+      }
+    },
+    {
+      "components": {
+        "Transform": {
+          "position": [0.0, -0.5, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [50.0, 1.0, 50.0]
+        },
+        "MeshId": "cube",
+        "Material": {
+          "color": [0.3, 0.3, 0.3, 1.0]
+        },
+        "Name": "Floor"
+      }
+    }
+  ]
+}

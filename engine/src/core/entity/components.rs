@@ -85,7 +85,7 @@ impl Transform {
         let rotation_matrix = Mat4::from_cols(
             right.extend(0.0),
             up.extend(0.0),
-            (-forward).extend(0.0),
+            forward.extend(0.0),
             Vec3::ZERO.extend(1.0),
         );
 

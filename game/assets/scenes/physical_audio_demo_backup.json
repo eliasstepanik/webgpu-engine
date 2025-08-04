@@ -1,0 +1,691 @@
+{
+  "name": "Physical Audio Occlusion Demo",
+  "description": "Scene demonstrating physically-based audio occlusion with walls and obstacles",
+  "entities": [
+    {
+      "id": 0,
+      "name": "Camera",
+      "components": {
+        "Transform": {
+          "position": [
+            0.0,
+            5.0,
+            15.0
+          ],
+          "rotation": [
+            0.95,
+            0.0,
+            0.0,
+            0.3
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Camera": {
+          "fov": 60.0,
+          "near": 0.1,
+          "far": 1000.0
+        },
+        "ScriptRef": {
+          "name": "fly_camera"
+        },
+        "AudioListener": {
+          "active": true,
+          "master_volume": 1.0
+        }
+      }
+    },
+    {
+      "id": 1,
+      "name": "Floor",
+      "components": {
+        "Transform": {
+          "position": [
+            0.0,
+            -0.5,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            50.0,
+            1.0,
+            50.0
+          ]
+        },
+        "MeshId": {
+          "id": "cube"
+        },
+        "Material": {
+          "color": [
+            0.3,
+            0.3,
+            0.3,
+            1.0
+          ]
+        },
+        "aabb": {
+          "min": [
+            -0.5,
+            -0.5,
+            -0.5
+          ],
+          "max": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "AudioMaterial": {
+          "absorption": 0.3,
+          "transmission": 0.0,
+          "scattering": 0.1
+        }
+      }
+    },
+    {
+      "id": 2,
+      "name": "Thick Wall",
+      "components": {
+        "Transform": {
+          "position": [
+            0.0,
+            3.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            15.0,
+            6.0,
+            1.0
+          ]
+        },
+        "MeshId": {
+          "id": "cube"
+        },
+        "Material": {
+          "color": [
+            0.5,
+            0.4,
+            0.3,
+            1.0
+          ]
+        },
+        "aabb": {
+          "min": [
+            -0.5,
+            -0.5,
+            -0.5
+          ],
+          "max": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "AudioMaterial": {
+          "absorption": 0.7,
+          "transmission": 0.05,
+          "scattering": 0.2
+        },
+        "Name": "Thick Concrete Wall"
+      }
+    },
+    {
+      "id": 3,
+      "name": "Thin Wall",
+      "components": {
+        "Transform": {
+          "position": [
+            -10.0,
+            3.0,
+            -8.0
+          ],
+          "rotation": [
+            0.0,
+            0.707,
+            0.0,
+            0.707
+          ],
+          "scale": [
+            10.0,
+            6.0,
+            0.2
+          ]
+        },
+        "MeshId": {
+          "id": "cube"
+        },
+        "Material": {
+          "color": [
+            0.7,
+            0.6,
+            0.5,
+            1.0
+          ]
+        },
+        "aabb": {
+          "min": [
+            -0.5,
+            -0.5,
+            -0.5
+          ],
+          "max": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "AudioMaterial": {
+          "absorption": 0.4,
+          "transmission": 0.3,
+          "scattering": 0.15
+        },
+        "Name": "Thin Wooden Wall"
+      }
+    },
+    {
+      "id": 4,
+      "name": "Glass Panel",
+      "components": {
+        "Transform": {
+          "position": [
+            10.0,
+            3.0,
+            -8.0
+          ],
+          "rotation": [
+            0.0,
+            0.707,
+            0.0,
+            0.707
+          ],
+          "scale": [
+            8.0,
+            6.0,
+            0.1
+          ]
+        },
+        "MeshId": {
+          "id": "cube"
+        },
+        "Material": {
+          "color": [
+            0.6,
+            0.8,
+            0.9,
+            0.5
+          ]
+        },
+        "aabb": {
+          "min": [
+            -0.5,
+            -0.5,
+            -0.5
+          ],
+          "max": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "AudioMaterial": {
+          "absorption": 0.1,
+          "transmission": 0.7,
+          "scattering": 0.05
+        },
+        "Name": "Glass Panel"
+      }
+    },
+    {
+      "id": 5,
+      "name": "Metal Obstacle",
+      "components": {
+        "Transform": {
+          "position": [
+            5.0,
+            2.0,
+            5.0
+          ],
+          "rotation": [
+            0.0,
+            0.383,
+            0.0,
+            0.924
+          ],
+          "scale": [
+            3.0,
+            4.0,
+            3.0
+          ]
+        },
+        "MeshId": {
+          "id": "cube"
+        },
+        "Material": {
+          "color": [
+            0.7,
+            0.7,
+            0.8,
+            1.0
+          ]
+        },
+        "aabb": {
+          "min": [
+            -0.5,
+            -0.5,
+            -0.5
+          ],
+          "max": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "AudioMaterial": {
+          "absorption": 0.05,
+          "transmission": 0.0,
+          "scattering": 0.9
+        },
+        "Name": "Metal Box"
+      }
+    },
+    {
+      "id": 6,
+      "name": "Foam Panel",
+      "components": {
+        "Transform": {
+          "position": [
+            -5.0,
+            3.0,
+            5.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            4.0,
+            6.0,
+            0.5
+          ]
+        },
+        "MeshId": {
+          "id": "cube"
+        },
+        "Material": {
+          "color": [
+            0.2,
+            0.2,
+            0.2,
+            1.0
+          ]
+        },
+        "aabb": {
+          "min": [
+            -0.5,
+            -0.5,
+            -0.5
+          ],
+          "max": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "AudioMaterial": {
+          "absorption": 0.95,
+          "transmission": 0.8,
+          "scattering": 0.3
+        },
+        "Name": "Acoustic Foam"
+      }
+    },
+    {
+      "id": 10,
+      "name": "Audio Source 1 - Behind Thick Wall",
+      "components": {
+        "Transform": {
+          "position": [
+            0.0,
+            2.0,
+            -10.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshId": {
+          "id": "sphere"
+        },
+        "Material": {
+          "color": [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "aabb": {
+          "min": [
+            -0.5,
+            -0.5,
+            -0.5
+          ],
+          "max": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
+          "volume": 1.0,
+          "pitch": 1.0,
+          "looping": true,
+          "spatial": true,
+          "auto_play": true,
+          "max_distance": 50.0,
+          "rolloff_factor": 1.0
+        },
+        "Name": "Sound Behind Thick Wall"
+      }
+    },
+    {
+      "id": 11,
+      "name": "Audio Source 2 - Behind Thin Wall",
+      "components": {
+        "Transform": {
+          "position": [
+            -15.0,
+            2.0,
+            -8.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshId": {
+          "id": "sphere"
+        },
+        "Material": {
+          "color": [
+            0.0,
+            1.0,
+            0.0,
+            1.0
+          ]
+        },
+        "aabb": {
+          "min": [
+            -0.5,
+            -0.5,
+            -0.5
+          ],
+          "max": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
+          "volume": 1.0,
+          "pitch": 1.2,
+          "looping": true,
+          "spatial": true,
+          "auto_play": true,
+          "max_distance": 50.0,
+          "rolloff_factor": 1.0
+        },
+        "Name": "Sound Behind Thin Wall"
+      }
+    },
+    {
+      "id": 12,
+      "name": "Audio Source 3 - Behind Glass",
+      "components": {
+        "Transform": {
+          "position": [
+            15.0,
+            2.0,
+            -8.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshId": {
+          "id": "sphere"
+        },
+        "Material": {
+          "color": [
+            0.0,
+            0.0,
+            1.0,
+            1.0
+          ]
+        },
+        "aabb": {
+          "min": [
+            -0.5,
+            -0.5,
+            -0.5
+          ],
+          "max": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
+          "volume": 1.0,
+          "pitch": 0.8,
+          "looping": true,
+          "spatial": true,
+          "auto_play": true,
+          "max_distance": 50.0,
+          "rolloff_factor": 1.0
+        },
+        "Name": "Sound Behind Glass"
+      }
+    },
+    {
+      "id": 13,
+      "name": "Audio Source 4 - Open Space",
+      "components": {
+        "Transform": {
+          "position": [
+            0.0,
+            2.0,
+            10.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "MeshId": {
+          "id": "sphere"
+        },
+        "Material": {
+          "color": [
+            1.0,
+            1.0,
+            0.0,
+            1.0
+          ]
+        },
+        "aabb": {
+          "min": [
+            -0.5,
+            -0.5,
+            -0.5
+          ],
+          "max": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "AudioSource": {
+          "sound_path": "game/assets/sounds/ambient_hum.mp3",
+          "volume": 1.0,
+          "pitch": 1.5,
+          "looping": true,
+          "spatial": true,
+          "auto_play": true,
+          "max_distance": 50.0,
+          "rolloff_factor": 1.0
+        },
+        "Name": "Sound in Open Space"
+      }
+    },
+    {
+      "id": 14,
+      "name": "Light",
+      "components": {
+        "Transform": {
+          "position": [
+            0.0,
+            10.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      }
+    },
+    {
+      "id": 15,
+      "name": "Demo Controller",
+      "components": {
+        "Transform": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "ScriptRef": {
+          "name": "physical_audio_controller"
+        },
+        "Name": "Physical Audio Demo Controller"
+      }
+    },
+    {
+      "id": 16,
+      "name": "Info Text Marker",
+      "components": {
+        "Transform": {
+          "position": [
+            0.0,
+            8.0,
+            15.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "MeshId": {
+          "id": "cube"
+        },
+        "Material": {
+          "color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "aabb": {
+          "min": [
+            -0.5,
+            -0.5,
+            -0.5
+          ],
+          "max": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "Name": "Move around to hear how different materials block sound differently"
+      }
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 
 use crate::audio::AudioHandle;
 use glam::Vec3;
+use tracing::debug;
 
 /// Spatial audio parameters for a sound source
 #[derive(Debug, Clone)]
@@ -51,7 +52,13 @@ pub fn calculate_panning(
     _listener_forward: Vec3,
     listener_right: Vec3,
 ) -> f32 {
-    let to_source = (source_pos - listener_pos).normalize();
+    // Handle case where source is at listener position
+    let to_source_vec = source_pos - listener_pos;
+    if to_source_vec.length_squared() < 0.001 {
+        return 0.0; // Center pan
+    }
+
+    let to_source = to_source_vec.normalize();
 
     // Project onto listener's right vector
     let right_component = to_source.dot(listener_right);
@@ -87,7 +94,7 @@ pub fn apply_spatial_params(
     handle: &AudioHandle,
     source_params: &SpatialParams,
     listener_pos: Vec3,
-    _listener_forward: Vec3,
+    listener_forward: Vec3,
     listener_right: Vec3,
     listener_velocity: Vec3,
     occlusion: f32,
@@ -102,13 +109,13 @@ pub fn apply_spatial_params(
     );
 
     // Apply occlusion
-    let volume = distance_attenuation * (1.0 - occlusion * 0.8); // Leave some sound even when occluded
+    let base_volume = distance_attenuation * (1.0 - occlusion * 0.8); // Leave some sound even when occluded
 
     // Calculate panning
-    let _pan = calculate_panning(
+    let pan = calculate_panning(
         source_params.position,
         listener_pos,
-        _listener_forward,
+        listener_forward,
         listener_right,
     );
 
@@ -121,12 +128,19 @@ pub fn apply_spatial_params(
         343.0, // Speed of sound in m/s
     );
 
-    // Apply all parameters
-    handle.set_volume(volume, None);
+    // Apply spatial parameters
+    debug!(
+        distance = distance,
+        distance_attenuation = distance_attenuation,
+        occlusion = occlusion,
+        base_volume = base_volume,
+        pan = pan,
+        doppler = doppler,
+        "Applying spatial audio parameters"
+    );
+    handle.set_volume(base_volume, None);
     handle.set_playback_rate(doppler, None);
-
-    // Note: Kira doesn't have built-in panning in the free version
-    // This would need to be implemented using the mixer tracks feature
+    handle.set_panning(pan); // Apply real stereo panning
 }
 
 #[cfg(test)]
