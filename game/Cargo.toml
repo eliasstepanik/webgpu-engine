@@ -17,3 +17,4 @@ pollster = "0.3"
 tracing = "0.1"
 tracy-client = { version = "0.18", optional = true }
 rodio = { version = "0.17", optional = true }
+glam = { version = "0.30.4", features = ["bytemuck", "serde"] }

@@ -1,5 +1,6 @@
 //! Game entry point with WebGPU rendering demonstration
 
+#[cfg(feature = "audio")]
 mod debug_audio;
 
 use engine::prelude::*;
